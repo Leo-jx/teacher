@@ -1,5 +1,20 @@
 const fetch = require('node-fetch');
-const { getConfig, getAuthHeader } = require('./_lib/config');
+
+function getConfig() {
+    return {
+        embeddingApi: {
+            url: process.env.EMBEDDING_URL || 'https://maas-api.cn-huabei-1.xf-yun.com/v2/embeddings',
+            apiKey: process.env.API_KEY || 'a87ffea24723ba51b2817406aa6cdf30',
+            apiSecret: process.env.API_SECRET || 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw'
+        },
+        modelId: process.env.MODEL_ID || 'xop35qwen2b'
+    };
+}
+
+function getAuthHeader() {
+    const config = getConfig();
+    return `Bearer ${config.embeddingApi.apiKey}:${config.embeddingApi.apiSecret}`;
+}
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,7 +40,7 @@ module.exports = async (req, res) => {
         const texts = Array.isArray(input) ? input : [input];
 
         const requestBody = {
-            model: config.httpApi.modelId,
+            model: config.modelId,
             input: texts
         };
 
@@ -43,7 +58,7 @@ module.exports = async (req, res) => {
         if (!response.ok) {
             return res.json({
                 success: false,
-                error: 'Embedding API暂不支持当前模型，核心对话功能正常',
+                error: 'Embedding API暂不支持当前模型',
                 statusCode: response.status,
                 fallback: true
             });

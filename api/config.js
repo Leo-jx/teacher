@@ -1,5 +1,3 @@
-const { getConfig } = require('./_lib/config');
-
 module.exports = (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -9,22 +7,17 @@ module.exports = (req, res) => {
         return res.status(200).end();
     }
 
-    const config = getConfig();
-    
     res.json({
         httpApi: {
-            url: config.httpApi.url,
-            modelId: config.httpApi.modelId,
-            configured: !!(config.httpApi.apiKey && config.httpApi.apiSecret)
-        },
-        embeddingApi: {
-            url: config.embeddingApi.url,
-            configured: !!(config.embeddingApi.apiKey && config.embeddingApi.apiSecret)
+            url: process.env.API_URL || 'https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions',
+            modelId: process.env.MODEL_ID || 'xop35qwen2b',
+            configured: !!(process.env.API_KEY && process.env.API_SECRET)
         },
         platform: 'Vercel Serverless',
         websocket: {
             available: false,
             message: 'Vercel平台不支持WebSocket，请使用HTTP API模式'
-        }
+        },
+        status: 'ok'
     });
 };
