@@ -1,15 +1,19 @@
 {
-  "name": "mysql-ai-tutor",
+  "name": "dev-assistant",
   "version": "1.0.0",
-  "description": "MySQL数据库AI教学小助手",
+  "description": "程序员AI辅助助手 - 支持10大技术领域的智能问答系统",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "vercel-build": "echo 'Vercel build completed'"
   },
   "dependencies": {
     "express": "^4.18.2",
     "ws": "^8.16.0",
     "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=16.x"
   }
 }

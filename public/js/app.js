@@ -139,7 +139,19 @@ class DevAssistant {
         }
     }
 
-    toggleMode() {
+    async toggleMode() {
+        try {
+            const response = await fetch('/api/config');
+            const config = await response.json();
+            
+            if (config.websocket && !config.websocket.available) {
+                alert(config.websocket.message || '当前平台不支持WebSocket模式，请使用HTTP模式');
+                return;
+            }
+        } catch (e) {
+            console.log('无法获取配置，默认使用HTTP模式');
+        }
+        
         this.useWebSocket = !this.useWebSocket;
         this.modeLabel.textContent = this.useWebSocket ? 'WS模式' : 'HTTP模式';
         this.modeToggle.classList.toggle('active', this.useWebSocket);
