@@ -134,7 +134,7 @@ async function handleChatRequest(request, env) {
         const timeout = setTimeout(() => {
             console.error('请求超时');
             controller.abort();
-        }, 25000);
+        }, 60000);
 
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -173,9 +173,17 @@ async function handleChatRequest(request, env) {
         });
     } catch (error) {
         console.error('Chat API错误:', error);
+        let errorMessage = '服务器内部错误';
+        let errorDetail = error.message;
+        
+        if (error.name === 'AbortError') {
+            errorMessage = '请求超时';
+            errorDetail = 'AI服务响应时间过长，请稍后重试';
+        }
+        
         return new Response(JSON.stringify({
-            error: '服务器内部错误',
-            detail: error.message
+            error: errorMessage,
+            detail: errorDetail
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }

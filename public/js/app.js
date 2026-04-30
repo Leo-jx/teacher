@@ -224,7 +224,8 @@ class DevAssistant {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP ${response.status}`);
+            const errorMsg = errorData.detail || errorData.error || `HTTP ${response.status}`;
+            throw new Error(errorMsg);
         }
 
         const data = await response.json();
