@@ -65,35 +65,61 @@ const SYSTEM_PROMPT = `你是"程序员AI辅助助手"，一位全栈技术专�
 - 只回答上述10个技术领域相关的编程与技术问题
 - 如果用户问的问题与上述领域无关，请礼貌地告知你只能回答编程技术相关问题`;
 
+// Cloudflare Pages环境变量可能存储在不同位置
+function getEnvValue(env, key) {
+    // 尝试多种方式获取环境变量
+    if (env[key] !== undefined) return env[key];
+    if (env.SITE && env.SITE[key] !== undefined) return env.SITE[key];
+    if (env.CF_PAGES && env.CF_PAGES[key] !== undefined) return env.CF_PAGES[key];
+    return undefined;
+}
+
 async function handleChatRequest(request, env) {
-    const { messages } = await request.json();
-
-    if (!messages || !Array.isArray(messages)) {
-        return new Response(JSON.stringify({ error: 'messages参数无效' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
-
-    const fullMessages = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...messages
-    ];
-
-    const authHeader = `Bearer ${env.API_KEY}:${env.API_SECRET}`;
-
     try {
+        const { messages } = await request.json();
+
+        if (!messages || !Array.isArray(messages)) {
+            return new Response(JSON.stringify({ error: 'messages参数无效' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // 获取环境变量
+        const API_URL = getEnvValue(env, 'API_URL') || 'https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions';
+        const MODEL_ID = getEnvValue(env, 'MODEL_ID') || 'xop35qwen2b';
+        const API_KEY = getEnvValue(env, 'API_KEY');
+        const API_SECRET = getEnvValue(env, 'API_SECRET');
+
+        // 检查关键配置
+        if (!API_KEY || !API_SECRET) {
+            return new Response(JSON.stringify({
+                error: '配置错误',
+                detail: 'API_KEY或API_SECRET未配置'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        const fullMessages = [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...messages
+        ];
+
+        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
+
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 25000);
 
-        const response = await fetch(env.API_URL, {
+        const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': authHeader
             },
             body: JSON.stringify({
-                model: env.MODEL_ID,
+                model: MODEL_ID,
                 messages: fullMessages,
                 stream: false,
                 temperature: 0.7,
@@ -106,6 +132,7 @@ async function handleChatRequest(request, env) {
 
         if (!response.ok) {
             const errorText = await response.text();
+            console.error('API请求失败:', response.status, errorText);
             return new Response(JSON.stringify({
                 error: `API请求失败: ${response.status}`,
                 detail: errorText
