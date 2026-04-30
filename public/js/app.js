@@ -666,7 +666,6 @@ class DevAssistant {
             detail.textContent = `连接错误: ${error.message}`;
         }
     }
-}
 
     openCodeTool(toolType) {
         const panel = document.getElementById('codeToolPanel');
