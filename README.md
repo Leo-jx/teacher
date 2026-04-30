@@ -89,5 +89,4 @@ docker-compose logs -f
 10. Spring后端框架及生态系统
 
 ## License
-
-MIT
+jiangxia
