@@ -4,6 +4,8 @@ class DevAssistant {
         this.chatHistory = [];
         this.currentChatId = null;
         this.currentToolType = null;
+        this.isTyping = false;
+        this.typingSpeed = 15;
 
         this.init();
     }
@@ -153,7 +155,7 @@ class DevAssistant {
 
     async sendMessage() {
         const content = this.userInput.value.trim();
-        if (!content) return;
+        if (!content || this.isTyping) return;
         if (content.length > 2000) {
             this.setStatus('error', '消息过长，请控制在2000字以内');
             return;
@@ -179,15 +181,30 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
         } catch (error) {
             console.error('发送消息失败:', error);
             this.updateAIMessage(aiMessageEl, `抱歉，发生了错误：${error.message}。请稍后重试。`);
+            await this.waitForTypingComplete();
             this.setStatus('error', '请求失败');
         } finally {
             this.sendBtn.disabled = false;
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
         }
+    }
+
+    waitForTypingComplete() {
+        return new Promise(resolve => {
+            const check = () => {
+                if (!this.isTyping) {
+                    resolve();
+                } else {
+                    setTimeout(check, 100);
+                }
+            };
+            check();
+        });
     }
 
     async sendViaHTTP(aiMessageEl) {
@@ -259,8 +276,41 @@ class DevAssistant {
     }
 
     updateAIMessage(contentEl, content) {
-        contentEl.innerHTML = this.renderMarkdown(content);
-        this.scrollToBottom();
+        this.typeWriter(contentEl, content);
+    }
+
+    typeWriter(contentEl, content) {
+        this.isTyping = true;
+        let index = 0;
+        let currentText = '';
+        
+        const type = () => {
+            if (index < content.length) {
+                const char = content[index];
+                currentText += char;
+                index++;
+                
+                contentEl.innerHTML = this.renderMarkdown(currentText);
+                this.scrollToBottom();
+                
+                let delay = this.typingSpeed;
+                if (char === '\n') {
+                    delay = this.typingSpeed * 2;
+                } else if (['。', '！', '？', '.', '!', '?'].includes(char)) {
+                    delay = this.typingSpeed * 3;
+                } else if (['，', '、', ',', ';', '；'].includes(char)) {
+                    delay = this.typingSpeed * 2;
+                }
+                
+                setTimeout(type, delay);
+            } else {
+                this.isTyping = false;
+                contentEl.innerHTML = this.renderMarkdown(content);
+                this.scrollToBottom();
+            }
+        };
+        
+        type();
     }
 
     renderMarkdown(text) {
@@ -528,6 +578,11 @@ class DevAssistant {
             return;
         }
 
+        if (this.isTyping) {
+            alert('请等待当前输出完成');
+            return;
+        }
+
         if (this.messages.length === 0) {
             this.createNewChat(true);
         }
@@ -555,9 +610,11 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
         } catch (error) {
             console.error('代码分析失败:', error);
             this.updateAIMessage(aiMessageEl, `抱歉，代码分析失败：${error.message}。请稍后重试。`);
+            await this.waitForTypingComplete();
             this.setStatus('error', '分析失败');
         } finally {
             this.sendBtn.disabled = false;
