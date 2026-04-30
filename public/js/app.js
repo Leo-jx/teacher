@@ -32,12 +32,6 @@ class DevAssistant {
         this.newChatBtn = document.getElementById('newChatBtn');
         this.historyList = document.getElementById('historyList');
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
-        this.modeToggle = document.getElementById('modeToggle');
-        this.modeLabel = document.getElementById('modeLabel');
-        this.testBtn = document.getElementById('testBtn');
-        this.testModal = document.getElementById('testModal');
-        this.testModalClose = document.getElementById('testModalClose');
-        this.runTestBtn = document.getElementById('runTestBtn');
         this.toolCodeFix = document.getElementById('toolCodeFix');
         this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
         this.codeToolPanel = document.getElementById('codeToolPanel');
@@ -66,11 +60,6 @@ class DevAssistant {
 
         this.newChatBtn.addEventListener('click', () => this.createNewChat());
         this.clearHistoryBtn.addEventListener('click', () => this.clearAllHistory());
-
-        this.modeToggle.addEventListener('click', () => this.toggleMode());
-        this.testBtn.addEventListener('click', () => this.openTestModal());
-        this.testModalClose.addEventListener('click', () => this.closeTestModal());
-        this.runTestBtn.addEventListener('click', () => this.runAllTests());
 
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -157,24 +146,6 @@ class DevAssistant {
         }
     }
 
-    async toggleMode() {
-        try {
-            const response = await fetch('/api/config');
-            const config = await response.json();
-            
-            if (config.websocket && !config.websocket.available) {
-                alert(config.websocket.message || '当前平台不支持WebSocket模式，请使用HTTP模式');
-                return;
-            }
-        } catch (e) {
-            console.log('无法获取配置，默认使用HTTP模式');
-        }
-        
-        this.useWebSocket = !this.useWebSocket;
-        this.modeLabel.textContent = this.useWebSocket ? 'WS模式' : 'HTTP模式';
-        this.modeToggle.classList.toggle('active', this.useWebSocket);
-    }
-
     setStatus(status, text) {
         this.statusIndicator.className = `status-indicator ${status}`;
         this.statusText.textContent = text;
@@ -182,7 +153,7 @@ class DevAssistant {
 
     async sendMessage() {
         const content = this.userInput.value.trim();
-        if (!content || this.isStreaming) return;
+        if (!content) return;
         if (content.length > 2000) {
             this.setStatus('error', '消息过长，请控制在2000字以内');
             return;
@@ -201,24 +172,18 @@ class DevAssistant {
         this.autoResizeTextarea();
         this.updateCharCount();
 
-        this.isStreaming = true;
         this.sendBtn.disabled = true;
         this.setStatus('loading', '思考中...');
 
         const aiMessageEl = this.appendMessage('assistant', '', true);
 
         try {
-            if (this.useWebSocket) {
-                await this.sendViaWebSocket(aiMessageEl);
-            } else {
-                await this.sendViaHTTP(aiMessageEl);
-            }
+            await this.sendViaHTTP(aiMessageEl);
         } catch (error) {
             console.error('发送消息失败:', error);
             this.updateAIMessage(aiMessageEl, `抱歉，发生了错误：${error.message}。请稍后重试。`);
             this.setStatus('error', '请求失败');
         } finally {
-            this.isStreaming = false;
             this.sendBtn.disabled = false;
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
@@ -262,72 +227,6 @@ class DevAssistant {
 
         this.messages.push({ role: 'assistant', content: aiContent });
         this.updateAIMessage(aiMessageEl, aiContent);
-    }
-
-    sendViaWebSocket(aiMessageEl) {
-        return new Promise((resolve, reject) => {
-            try {
-                this.ws = new WebSocket(`ws://${window.location.host}/ws/chat`);
-
-                let fullContent = '';
-
-                this.ws.onopen = () => {
-                    const apiMessages = this.messages.map(m => ({
-                        role: m.role,
-                        content: m.content
-                    }));
-
-                    this.ws.send(JSON.stringify({
-                        type: 'chat',
-                        messages: apiMessages
-                    }));
-                };
-
-                this.ws.onmessage = (event) => {
-                    try {
-                        const msg = JSON.parse(event.data);
-
-                        if (msg.type === 'chunk' && msg.data) {
-                            const payload = msg.data.payload;
-                            if (payload && payload.choices && payload.choices.text) {
-                                fullContent += payload.choices.text[0].content || '';
-                                this.updateAIMessage(aiMessageEl, fullContent);
-                            }
-                        } else if (msg.type === 'error') {
-                            reject(new Error(msg.message || 'WebSocket错误'));
-                            this.ws.close();
-                        } else if (msg.type === 'done') {
-                            if (fullContent) {
-                                this.messages.push({ role: 'assistant', content: fullContent });
-                            }
-                            this.ws.close();
-                            resolve();
-                        }
-                    } catch (e) {
-                        console.error('解析WebSocket消息失败:', e);
-                    }
-                };
-
-                this.ws.onerror = (error) => {
-                    reject(new Error('WebSocket连接失败'));
-                };
-
-                this.ws.onclose = () => {
-                    if (!fullContent) {
-                        resolve();
-                    }
-                };
-
-                setTimeout(() => {
-                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.close();
-                    }
-                    resolve();
-                }, 30000);
-            } catch (e) {
-                reject(e);
-            }
-        });
     }
 
     appendMessage(role, content, isLoading = false) {
@@ -541,129 +440,6 @@ class DevAssistant {
         return div.innerHTML;
     }
 
-    openTestModal() {
-        this.testModal.classList.add('active');
-        this.resetTestStatus();
-    }
-
-    closeTestModal() {
-        this.testModal.classList.remove('active');
-    }
-
-    resetTestStatus() {
-        ['testHttp', 'testWs', 'testEmbedding'].forEach(id => {
-            const el = document.getElementById(id);
-            const status = el.querySelector('.test-status');
-            const detail = el.querySelector('.test-detail');
-            status.className = 'test-status pending';
-            status.textContent = '待测试';
-            detail.textContent = '';
-        });
-    }
-
-    async runAllTests() {
-        this.runTestBtn.disabled = true;
-        this.runTestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 测试中...';
-
-        await this.testHttpApi();
-        await this.testWebSocketApi();
-        await this.testEmbeddingApi();
-
-        this.runTestBtn.disabled = false;
-        this.runTestBtn.innerHTML = '<i class="fas fa-play"></i> 运行所有测试';
-    }
-
-    async testHttpApi() {
-        const el = document.getElementById('testHttp');
-        const status = el.querySelector('.test-status');
-        const detail = el.querySelector('.test-detail');
-
-        status.className = 'test-status running';
-        status.textContent = '测试中...';
-        detail.textContent = '正在发送HTTP请求...';
-
-        try {
-            const startTime = Date.now();
-            const response = await fetch('/api/test/http', { method: 'POST' });
-            const data = await response.json();
-            const elapsed = Date.now() - startTime;
-
-            if (data.success) {
-                status.className = 'test-status success';
-                status.textContent = `成功 (${elapsed}ms)`;
-                detail.textContent = `状态码: ${data.statusCode}\n响应时间: ${data.responseTime}ms`;
-            } else {
-                status.className = 'test-status error';
-                status.textContent = '失败';
-                detail.textContent = `错误: ${data.error || '未知错误'}`;
-            }
-        } catch (error) {
-            status.className = 'test-status error';
-            status.textContent = '失败';
-            detail.textContent = `连接错误: ${error.message}`;
-        }
-    }
-
-    async testWebSocketApi() {
-        const el = document.getElementById('testWs');
-        const status = el.querySelector('.test-status');
-        const detail = el.querySelector('.test-detail');
-
-        status.className = 'test-status running';
-        status.textContent = '测试中...';
-        detail.textContent = '正在检查WebSocket端点...';
-
-        try {
-            const response = await fetch('/api/test/ws');
-            const data = await response.json();
-
-            if (data.success) {
-                status.className = 'test-status success';
-                status.textContent = '就绪';
-                detail.textContent = `WebSocket端点可用\nURL前缀: ${data.wsUrl}`;
-            } else {
-                status.className = 'test-status error';
-                status.textContent = '失败';
-                detail.textContent = `错误: ${data.error}`;
-            }
-        } catch (error) {
-            status.className = 'test-status error';
-            status.textContent = '失败';
-            detail.textContent = `连接错误: ${error.message}`;
-        }
-    }
-
-    async testEmbeddingApi() {
-        const el = document.getElementById('testEmbedding');
-        const status = el.querySelector('.test-status');
-        const detail = el.querySelector('.test-detail');
-
-        status.className = 'test-status running';
-        status.textContent = '测试中...';
-        detail.textContent = '正在发送Embedding请求...';
-
-        try {
-            const startTime = Date.now();
-            const response = await fetch('/api/test/embedding', { method: 'POST' });
-            const data = await response.json();
-            const elapsed = Date.now() - startTime;
-
-            if (data.success) {
-                status.className = 'test-status success';
-                status.textContent = `成功 (${elapsed}ms)`;
-                detail.textContent = `状态码: ${data.statusCode}\n响应时间: ${data.responseTime}ms`;
-            } else {
-                status.className = 'test-status error';
-                status.textContent = '失败';
-                detail.textContent = `错误: ${data.error || '未知错误'}`;
-            }
-        } catch (error) {
-            status.className = 'test-status error';
-            status.textContent = '失败';
-            detail.textContent = `连接错误: ${error.message}`;
-        }
-    }
-
     openCodeTool(toolType) {
         const panel = document.getElementById('codeToolPanel');
         const title = document.getElementById('toolPanelTitle');
@@ -771,7 +547,6 @@ class DevAssistant {
         this.messages.push({ role: 'user', content: prompt });
         this.appendMessage('user', prompt);
 
-        this.isStreaming = true;
         this.sendBtn.disabled = true;
         document.getElementById('analyzeBtn').disabled = true;
         this.setStatus('loading', '分析中...');
@@ -785,7 +560,6 @@ class DevAssistant {
             this.updateAIMessage(aiMessageEl, `抱歉，代码分析失败：${error.message}。请稍后重试。`);
             this.setStatus('error', '分析失败');
         } finally {
-            this.isStreaming = false;
             this.sendBtn.disabled = false;
             document.getElementById('analyzeBtn').disabled = false;
             this.setStatus('ready', '就绪');
