@@ -91,7 +91,7 @@ async function handleChatRequest(request, env) {
     try {
         console.log('收到API请求...');
         
-        const { messages, stream = true } = await request.json();
+        const { messages } = await request.json();
 
         if (!messages || !Array.isArray(messages)) {
             console.error('错误：messages参数无效');
@@ -134,7 +134,7 @@ async function handleChatRequest(request, env) {
         const timeout = setTimeout(() => {
             console.error('请求超时');
             controller.abort();
-        }, 60000);
+        }, 25000);
 
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -145,7 +145,7 @@ async function handleChatRequest(request, env) {
             body: JSON.stringify({
                 model: MODEL_ID,
                 messages: fullMessages,
-                stream: true,
+                stream: false,
                 temperature: 0.7,
                 max_tokens: 2048
             }),
@@ -166,64 +166,11 @@ async function handleChatRequest(request, env) {
             });
         }
 
-        // 流式响应处理
-        if (stream && response.body) {
-            console.log('开始流式响应');
-            
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            
-            const stream = new ReadableStream({
-                async start(controller) {
-                    try {
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            
-                            const chunk = decoder.decode(value, { stream: true });
-                            const lines = chunk.split('\n');
-                            
-                            for (const line of lines) {
-                                const trimmed = line.trim();
-                                if (trimmed.startsWith('data: ')) {
-                                    const jsonStr = trimmed.slice(6);
-                                    if (jsonStr === '[DONE]') continue;
-                                    try {
-                                        const json = JSON.parse(jsonStr);
-                                        if (json.choices && json.choices[0] && json.choices[0].delta) {
-                                            const content = json.choices[0].delta.content || '';
-                                            if (content) {
-                                                controller.enqueue(content);
-                                            }
-                                        }
-                                    } catch (e) {
-                                        console.warn('解析JSON失败:', e);
-                                    }
-                                }
-                            }
-                        }
-                        controller.close();
-                    } catch (error) {
-                        console.error('流式响应错误:', error);
-                        controller.error(error);
-                    }
-                }
-            });
-            
-            return new Response(stream, {
-                headers: {
-                    'Content-Type': 'text/plain; charset=utf-8',
-                    'Transfer-Encoding': 'chunked'
-                }
-            });
-        } else {
-            // 非流式响应（备用）
-            const data = await response.json();
-            console.log('AI API响应成功');
-            return new Response(JSON.stringify(data), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
+        const data = await response.json();
+        console.log('AI API响应成功');
+        return new Response(JSON.stringify(data), {
+            headers: { 'Content-Type': 'application/json' }
+        });
     } catch (error) {
         console.error('Chat API错误:', error);
         return new Response(JSON.stringify({

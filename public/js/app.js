@@ -3,9 +3,6 @@ class DevAssistant {
         this.messages = [];
         this.chatHistory = [];
         this.currentChatId = null;
-        this.isStreaming = false;
-        this.useWebSocket = false;
-        this.ws = null;
         this.currentToolType = null;
 
         this.init();
@@ -37,6 +34,10 @@ class DevAssistant {
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.modeToggle = document.getElementById('modeToggle');
         this.modeLabel = document.getElementById('modeLabel');
+        this.testBtn = document.getElementById('testBtn');
+        this.testModal = document.getElementById('testModal');
+        this.testModalClose = document.getElementById('testModalClose');
+        this.runTestBtn = document.getElementById('runTestBtn');
         this.toolCodeFix = document.getElementById('toolCodeFix');
         this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
         this.codeToolPanel = document.getElementById('codeToolPanel');
@@ -67,6 +68,9 @@ class DevAssistant {
         this.clearHistoryBtn.addEventListener('click', () => this.clearAllHistory());
 
         this.modeToggle.addEventListener('click', () => this.toggleMode());
+        this.testBtn.addEventListener('click', () => this.openTestModal());
+        this.testModalClose.addEventListener('click', () => this.closeTestModal());
+        this.runTestBtn.addEventListener('click', () => this.runAllTests());
 
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -232,7 +236,7 @@ class DevAssistant {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: apiMessages,
-                stream: true
+                stream: false
             })
         });
 
@@ -241,44 +245,23 @@ class DevAssistant {
             throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
-        // 检查是否为流式响应
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('text/plain') && response.body) {
-            // 流式响应处理
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let fullContent = '';
+        const data = await response.json();
+        let aiContent = '';
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                const chunk = decoder.decode(value, { stream: true });
-                fullContent += chunk;
-                this.updateAIMessage(aiMessageEl, fullContent);
-            }
-
-            this.messages.push({ role: 'assistant', content: fullContent });
+        if (data.choices && data.choices.length > 0) {
+            aiContent = data.choices[0].message?.content || data.choices[0].text || '';
+        } else if (data.output) {
+            aiContent = data.output.text || data.output;
+        } else if (data.data && data.data.output) {
+            aiContent = data.data.output.text || JSON.stringify(data.data.output);
+        } else if (typeof data === 'string') {
+            aiContent = data;
         } else {
-            // 非流式响应（备用）
-            const data = await response.json();
-            let aiContent = '';
-
-            if (data.choices && data.choices.length > 0) {
-                aiContent = data.choices[0].message?.content || data.choices[0].text || '';
-            } else if (data.output) {
-                aiContent = data.output.text || data.output;
-            } else if (data.data && data.data.output) {
-                aiContent = data.data.output.text || JSON.stringify(data.data.output);
-            } else if (typeof data === 'string') {
-                aiContent = data;
-            } else {
-                aiContent = JSON.stringify(data);
-            }
-
-            this.messages.push({ role: 'assistant', content: aiContent });
-            this.updateAIMessage(aiMessageEl, aiContent);
+            aiContent = JSON.stringify(data);
         }
+
+        this.messages.push({ role: 'assistant', content: aiContent });
+        this.updateAIMessage(aiMessageEl, aiContent);
     }
 
     sendViaWebSocket(aiMessageEl) {
@@ -556,6 +539,129 @@ class DevAssistant {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    openTestModal() {
+        this.testModal.classList.add('active');
+        this.resetTestStatus();
+    }
+
+    closeTestModal() {
+        this.testModal.classList.remove('active');
+    }
+
+    resetTestStatus() {
+        ['testHttp', 'testWs', 'testEmbedding'].forEach(id => {
+            const el = document.getElementById(id);
+            const status = el.querySelector('.test-status');
+            const detail = el.querySelector('.test-detail');
+            status.className = 'test-status pending';
+            status.textContent = '待测试';
+            detail.textContent = '';
+        });
+    }
+
+    async runAllTests() {
+        this.runTestBtn.disabled = true;
+        this.runTestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 测试中...';
+
+        await this.testHttpApi();
+        await this.testWebSocketApi();
+        await this.testEmbeddingApi();
+
+        this.runTestBtn.disabled = false;
+        this.runTestBtn.innerHTML = '<i class="fas fa-play"></i> 运行所有测试';
+    }
+
+    async testHttpApi() {
+        const el = document.getElementById('testHttp');
+        const status = el.querySelector('.test-status');
+        const detail = el.querySelector('.test-detail');
+
+        status.className = 'test-status running';
+        status.textContent = '测试中...';
+        detail.textContent = '正在发送HTTP请求...';
+
+        try {
+            const startTime = Date.now();
+            const response = await fetch('/api/test/http', { method: 'POST' });
+            const data = await response.json();
+            const elapsed = Date.now() - startTime;
+
+            if (data.success) {
+                status.className = 'test-status success';
+                status.textContent = `成功 (${elapsed}ms)`;
+                detail.textContent = `状态码: ${data.statusCode}\n响应时间: ${data.responseTime}ms`;
+            } else {
+                status.className = 'test-status error';
+                status.textContent = '失败';
+                detail.textContent = `错误: ${data.error || '未知错误'}`;
+            }
+        } catch (error) {
+            status.className = 'test-status error';
+            status.textContent = '失败';
+            detail.textContent = `连接错误: ${error.message}`;
+        }
+    }
+
+    async testWebSocketApi() {
+        const el = document.getElementById('testWs');
+        const status = el.querySelector('.test-status');
+        const detail = el.querySelector('.test-detail');
+
+        status.className = 'test-status running';
+        status.textContent = '测试中...';
+        detail.textContent = '正在检查WebSocket端点...';
+
+        try {
+            const response = await fetch('/api/test/ws');
+            const data = await response.json();
+
+            if (data.success) {
+                status.className = 'test-status success';
+                status.textContent = '就绪';
+                detail.textContent = `WebSocket端点可用\nURL前缀: ${data.wsUrl}`;
+            } else {
+                status.className = 'test-status error';
+                status.textContent = '失败';
+                detail.textContent = `错误: ${data.error}`;
+            }
+        } catch (error) {
+            status.className = 'test-status error';
+            status.textContent = '失败';
+            detail.textContent = `连接错误: ${error.message}`;
+        }
+    }
+
+    async testEmbeddingApi() {
+        const el = document.getElementById('testEmbedding');
+        const status = el.querySelector('.test-status');
+        const detail = el.querySelector('.test-detail');
+
+        status.className = 'test-status running';
+        status.textContent = '测试中...';
+        detail.textContent = '正在发送Embedding请求...';
+
+        try {
+            const startTime = Date.now();
+            const response = await fetch('/api/test/embedding', { method: 'POST' });
+            const data = await response.json();
+            const elapsed = Date.now() - startTime;
+
+            if (data.success) {
+                status.className = 'test-status success';
+                status.textContent = `成功 (${elapsed}ms)`;
+                detail.textContent = `状态码: ${data.statusCode}\n响应时间: ${data.responseTime}ms`;
+            } else {
+                status.className = 'test-status error';
+                status.textContent = '失败';
+                detail.textContent = `错误: ${data.error || '未知错误'}`;
+            }
+        } catch (error) {
+            status.className = 'test-status error';
+            status.textContent = '失败';
+            detail.textContent = `连接错误: ${error.message}`;
+        }
     }
 
     openCodeTool(toolType) {
