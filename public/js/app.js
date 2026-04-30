@@ -232,7 +232,7 @@ class DevAssistant {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: apiMessages,
-                stream: false
+                stream: true
             })
         });
 
@@ -241,23 +241,44 @@ class DevAssistant {
             throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
-        const data = await response.json();
-        let aiContent = '';
+        // 检查是否为流式响应
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/plain') && response.body) {
+            // 流式响应处理
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let fullContent = '';
 
-        if (data.choices && data.choices.length > 0) {
-            aiContent = data.choices[0].message?.content || data.choices[0].text || '';
-        } else if (data.output) {
-            aiContent = data.output.text || data.output;
-        } else if (data.data && data.data.output) {
-            aiContent = data.data.output.text || JSON.stringify(data.data.output);
-        } else if (typeof data === 'string') {
-            aiContent = data;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                fullContent += chunk;
+                this.updateAIMessage(aiMessageEl, fullContent);
+            }
+
+            this.messages.push({ role: 'assistant', content: fullContent });
         } else {
-            aiContent = JSON.stringify(data);
-        }
+            // 非流式响应（备用）
+            const data = await response.json();
+            let aiContent = '';
 
-        this.messages.push({ role: 'assistant', content: aiContent });
-        this.updateAIMessage(aiMessageEl, aiContent);
+            if (data.choices && data.choices.length > 0) {
+                aiContent = data.choices[0].message?.content || data.choices[0].text || '';
+            } else if (data.output) {
+                aiContent = data.output.text || data.output;
+            } else if (data.data && data.data.output) {
+                aiContent = data.data.output.text || JSON.stringify(data.data.output);
+            } else if (typeof data === 'string') {
+                aiContent = data;
+            } else {
+                aiContent = JSON.stringify(data);
+            }
+
+            this.messages.push({ role: 'assistant', content: aiContent });
+            this.updateAIMessage(aiMessageEl, aiContent);
+        }
     }
 
     sendViaWebSocket(aiMessageEl) {
