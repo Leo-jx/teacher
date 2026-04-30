@@ -197,6 +197,115 @@ async function handleConfigRequest(env) {
     });
 }
 
+async function handleCodeRequest(request, env, toolType) {
+    try {
+        console.log(`收到代码${toolType}请求...`);
+        
+        const { code, language } = await request.json();
+
+        if (!code) {
+            console.error('错误：code参数无效');
+            return new Response(JSON.stringify({ error: 'code参数无效' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        const API_URL = getConfigValue(env, 'API_URL');
+        const MODEL_ID = getConfigValue(env, 'MODEL_ID');
+        const API_KEY = getConfigValue(env, 'API_KEY');
+        const API_SECRET = getConfigValue(env, 'API_SECRET');
+
+        console.log('配置信息:', { API_URL, MODEL_ID, hasKey: !!API_KEY, hasSecret: !!API_SECRET });
+
+        if (!API_KEY || !API_SECRET) {
+            console.error('错误：API_KEY或API_SECRET未配置');
+            return new Response(JSON.stringify({
+                error: '配置错误',
+                detail: 'API_KEY或API_SECRET未配置'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        const langMap = {
+            'javascript': 'JavaScript', 'python': 'Python', 'java': 'Java',
+            'cpp': 'C++', 'c': 'C', 'sql': 'SQL', 'go': 'Go', 'rust': 'Rust',
+            'typescript': 'TypeScript', 'php': 'PHP', 'html': 'HTML',
+            'css': 'CSS', 'vue': 'Vue', 'shell': 'Shell'
+        };
+        const langLabel = langMap[language] || language;
+
+        let prompt;
+        if (toolType === 'fix') {
+            prompt = `请对以下${langLabel}代码进行全面的纠错分析，找出所有问题并给出修复方案：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码纠错报告\n\n### 发现的问题\n\n对每个问题，请提供：\n1. **错误位置**：精确到行号和具体代码段\n2. **错误类型**：语法错误/逻辑错误/性能问题/最佳实践违背\n3. **错误原因**：详细解释为什么这是一个错误\n4. **修改建议**：给出具体的修改后代码\n5. **修改依据**：说明修改的技术原理\n\n### 修改后的完整代码\n\n请给出修复后的完整代码。`;
+        } else {
+            prompt = `请对以下${langLabel}代码进行深入的结构和逻辑分析：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码分析报告\n\n### 1. 整体功能概述\n\n简要描述代码的整体功能和用途。\n\n### 2. 主要模块/函数说明\n\n列出代码中的主要模块、类和函数，说明各自的作用。\n\n### 3. 关键执行流程\n\n逐步分解代码的关键执行流程。\n\n### 4. 数据流转路径\n\n分析数据在代码中的流转路径和变换过程。\n\n### 5. 核心算法/逻辑说明\n\n解释代码中使用的核心算法或关键逻辑。\n\n### 6. 代码质量评估\n\n评估代码的可读性、可维护性和性能表现，给出改进建议。`;
+        }
+
+        const fullMessages = [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: prompt }
+        ];
+
+        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
+
+        console.log('准备调用AI API...');
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+            console.error('请求超时');
+            controller.abort();
+        }, 30000);
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+            },
+            body: JSON.stringify({
+                model: MODEL_ID,
+                messages: fullMessages,
+                stream: false,
+                temperature: 0.7,
+                max_tokens: 2048
+            }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('AI API请求失败:', response.status, errorText);
+            return new Response(JSON.stringify({
+                error: `API请求失败: ${response.status}`,
+                detail: errorText
+            }), {
+                status: response.status,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        const data = await response.json();
+        console.log('AI API响应成功');
+        return new Response(JSON.stringify(data), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error) {
+        console.error(`代码${toolType} API错误:`, error);
+        return new Response(JSON.stringify({
+            error: '服务器内部错误',
+            detail: error.message
+        }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+}
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -219,6 +328,14 @@ export default {
 
         if (path === '/api/config' && request.method === 'GET') {
             return handleConfigRequest(env);
+        }
+
+        if (path === '/api/code-fix' && request.method === 'POST') {
+            return handleCodeRequest(request, env, 'fix');
+        }
+
+        if (path === '/api/code-analyze' && request.method === 'POST') {
+            return handleCodeRequest(request, env, 'analyze');
         }
 
         // 对于其他请求，返回静态文件
