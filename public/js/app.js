@@ -37,10 +37,6 @@ class DevAssistant {
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.modeToggle = document.getElementById('modeToggle');
         this.modeLabel = document.getElementById('modeLabel');
-        this.testBtn = document.getElementById('testBtn');
-        this.testModal = document.getElementById('testModal');
-        this.testModalClose = document.getElementById('testModalClose');
-        this.runTestBtn = document.getElementById('runTestBtn');
         this.toolCodeFix = document.getElementById('toolCodeFix');
         this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
         this.codeToolPanel = document.getElementById('codeToolPanel');
@@ -71,9 +67,6 @@ class DevAssistant {
         this.clearHistoryBtn.addEventListener('click', () => this.clearAllHistory());
 
         this.modeToggle.addEventListener('click', () => this.toggleMode());
-        this.testBtn.addEventListener('click', () => this.openTestModal());
-        this.testModalClose.addEventListener('click', () => this.closeTestModal());
-        this.runTestBtn.addEventListener('click', () => this.runAllTests());
 
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -542,129 +535,6 @@ class DevAssistant {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
-
-    openTestModal() {
-        this.testModal.classList.add('active');
-        this.resetTestStatus();
-    }
-
-    closeTestModal() {
-        this.testModal.classList.remove('active');
-    }
-
-    resetTestStatus() {
-        ['testHttp', 'testWs', 'testEmbedding'].forEach(id => {
-            const el = document.getElementById(id);
-            const status = el.querySelector('.test-status');
-            const detail = el.querySelector('.test-detail');
-            status.className = 'test-status pending';
-            status.textContent = '待测试';
-            detail.textContent = '';
-        });
-    }
-
-    async runAllTests() {
-        this.runTestBtn.disabled = true;
-        this.runTestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 测试中...';
-
-        await this.testHttpApi();
-        await this.testWebSocketApi();
-        await this.testEmbeddingApi();
-
-        this.runTestBtn.disabled = false;
-        this.runTestBtn.innerHTML = '<i class="fas fa-play"></i> 运行所有测试';
-    }
-
-    async testHttpApi() {
-        const el = document.getElementById('testHttp');
-        const status = el.querySelector('.test-status');
-        const detail = el.querySelector('.test-detail');
-
-        status.className = 'test-status running';
-        status.textContent = '测试中...';
-        detail.textContent = '正在发送HTTP请求...';
-
-        try {
-            const startTime = Date.now();
-            const response = await fetch('/api/test/http', { method: 'POST' });
-            const data = await response.json();
-            const elapsed = Date.now() - startTime;
-
-            if (data.success) {
-                status.className = 'test-status success';
-                status.textContent = `成功 (${elapsed}ms)`;
-                detail.textContent = `状态码: ${data.statusCode}\n响应时间: ${data.responseTime}ms`;
-            } else {
-                status.className = 'test-status error';
-                status.textContent = '失败';
-                detail.textContent = `错误: ${data.error || '未知错误'}`;
-            }
-        } catch (error) {
-            status.className = 'test-status error';
-            status.textContent = '失败';
-            detail.textContent = `连接错误: ${error.message}`;
-        }
-    }
-
-    async testWebSocketApi() {
-        const el = document.getElementById('testWs');
-        const status = el.querySelector('.test-status');
-        const detail = el.querySelector('.test-detail');
-
-        status.className = 'test-status running';
-        status.textContent = '测试中...';
-        detail.textContent = '正在检查WebSocket端点...';
-
-        try {
-            const response = await fetch('/api/test/ws');
-            const data = await response.json();
-
-            if (data.success) {
-                status.className = 'test-status success';
-                status.textContent = '就绪';
-                detail.textContent = `WebSocket端点可用\nURL前缀: ${data.wsUrl}`;
-            } else {
-                status.className = 'test-status error';
-                status.textContent = '失败';
-                detail.textContent = `错误: ${data.error}`;
-            }
-        } catch (error) {
-            status.className = 'test-status error';
-            status.textContent = '失败';
-            detail.textContent = `连接错误: ${error.message}`;
-        }
-    }
-
-    async testEmbeddingApi() {
-        const el = document.getElementById('testEmbedding');
-        const status = el.querySelector('.test-status');
-        const detail = el.querySelector('.test-detail');
-
-        status.className = 'test-status running';
-        status.textContent = '测试中...';
-        detail.textContent = '正在发送Embedding请求...';
-
-        try {
-            const startTime = Date.now();
-            const response = await fetch('/api/test/embedding', { method: 'POST' });
-            const data = await response.json();
-            const elapsed = Date.now() - startTime;
-
-            if (data.success) {
-                status.className = 'test-status success';
-                status.textContent = `成功 (${elapsed}ms)`;
-                detail.textContent = `状态码: ${data.statusCode}\n响应时间: ${data.responseTime}ms`;
-            } else {
-                status.className = 'test-status error';
-                status.textContent = '失败';
-                detail.textContent = `错误: ${data.error || '未知错误'}`;
-            }
-        } catch (error) {
-            status.className = 'test-status error';
-            status.textContent = '失败';
-            detail.textContent = `连接错误: ${error.message}`;
-        }
     }
 
     openCodeTool(toolType) {
