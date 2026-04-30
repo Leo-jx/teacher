@@ -83,6 +83,13 @@ function getAuthHeader() {
     return `Bearer ${config.httpApi.apiKey}:${config.httpApi.apiSecret}`;
 }
 
+function withTimeout(promise, ms) {
+    const timeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`请求超时（${ms}ms）`)), ms);
+    });
+    return Promise.race([promise, timeout]);
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -104,6 +111,14 @@ module.exports = async (req, res) => {
         }
 
         const config = getConfig();
+        
+        if (!config.httpApi.apiKey || !config.httpApi.apiSecret) {
+            return res.status(500).json({ 
+                error: 'API配置未完成', 
+                detail: '请在Vercel环境变量中配置API_KEY和API_SECRET' 
+            });
+        }
+
         const fullMessages = [
             { role: 'system', content: SYSTEM_PROMPT },
             ...messages
@@ -117,14 +132,17 @@ module.exports = async (req, res) => {
             max_tokens: 2048
         };
 
-        const response = await fetch(config.httpApi.url, {
+        const fetchPromise = fetch(config.httpApi.url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': getAuthHeader()
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            timeout: 25000
         });
+
+        const response = await withTimeout(fetchPromise, 25000);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -139,6 +157,12 @@ module.exports = async (req, res) => {
         res.json(data);
     } catch (error) {
         console.error('Chat API错误:', error);
-        res.status(500).json({ error: '服务器内部错误', detail: error.message });
+        if (error.message && error.message.includes('超时')) {
+            res.status(504).json({ error: '请求超时', detail: 'AI服务响应时间过长，请稍后重试' });
+        } else if (error.message && error.message.includes('ENOTFOUND')) {
+            res.status(503).json({ error: '服务不可用', detail: '无法连接到AI服务，请检查网络连接' });
+        } else {
+            res.status(500).json({ error: '服务器内部错误', detail: error.message });
+        }
     }
 };
