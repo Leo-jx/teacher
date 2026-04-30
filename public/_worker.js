@@ -146,7 +146,7 @@ async function handleConfigRequest(env) {
 }
 
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const path = url.pathname;
 
@@ -169,6 +169,7 @@ export default {
             return handleConfigRequest(env);
         }
 
-        return new Response('Not Found', { status: 404 });
+        // 对于其他请求，返回静态文件
+        return env.ASSETS.fetch(request);
     }
 };
