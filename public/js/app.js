@@ -6,6 +6,7 @@ class DevAssistant {
         this.isStreaming = false;
         this.useWebSocket = false;
         this.ws = null;
+        this.currentToolType = null;
 
         this.init();
     }
@@ -40,6 +41,14 @@ class DevAssistant {
         this.testModal = document.getElementById('testModal');
         this.testModalClose = document.getElementById('testModalClose');
         this.runTestBtn = document.getElementById('runTestBtn');
+        this.toolCodeFix = document.getElementById('toolCodeFix');
+        this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
+        this.codeToolPanel = document.getElementById('codeToolPanel');
+        this.toolPanelClose = document.getElementById('toolPanelClose');
+        this.codeInput = document.getElementById('codeInput');
+        this.codeFileInput = document.getElementById('codeFileInput');
+        this.clearCodeBtn = document.getElementById('clearCodeBtn');
+        this.analyzeBtn = document.getElementById('analyzeBtn');
     }
 
     bindEvents() {
@@ -86,6 +95,18 @@ class DevAssistant {
                 this.copyCode(e.target);
             }
         });
+
+        this.toolCodeFix.addEventListener('click', () => this.openCodeTool('fix'));
+        this.toolCodeAnalysis.addEventListener('click', () => this.openCodeTool('analysis'));
+        this.toolPanelClose.addEventListener('click', () => this.closeCodeTool());
+        this.codeFileInput.addEventListener('change', (e) => this.handleFileUpload(e));
+        this.clearCodeBtn.addEventListener('click', () => {
+            this.codeInput.value = '';
+            document.getElementById('fileName').textContent = '';
+            this.updateCodeCharCount();
+        });
+        this.codeInput.addEventListener('input', () => this.updateCodeCharCount());
+        this.analyzeBtn.addEventListener('click', () => this.analyzeCode());
     }
 
     setupMarked() {
@@ -643,6 +664,136 @@ class DevAssistant {
             status.className = 'test-status error';
             status.textContent = '失败';
             detail.textContent = `连接错误: ${error.message}`;
+        }
+    }
+}
+
+    openCodeTool(toolType) {
+        const panel = document.getElementById('codeToolPanel');
+        const title = document.getElementById('toolPanelTitle');
+        const btnText = document.getElementById('analyzeBtnText');
+        const codeInput = document.getElementById('codeInput');
+
+        document.getElementById('toolCodeFix').classList.toggle('active', toolType === 'fix');
+        document.getElementById('toolCodeAnalysis').classList.toggle('active', toolType === 'analysis');
+
+        if (toolType === 'fix') {
+            title.innerHTML = '<i class="fas fa-bug"></i> 代码纠错';
+            btnText.textContent = '开始纠错';
+            codeInput.placeholder = '在此粘贴或输入需要纠错的代码...\n\n支持直接粘贴代码或点击上传按钮导入代码文件';
+        } else {
+            title.innerHTML = '<i class="fas fa-search-plus"></i> 代码分析';
+            btnText.textContent = '开始分析';
+            codeInput.placeholder = '在此粘贴或输入需要分析的代码...\n\n支持直接粘贴代码或点击上传按钮导入代码文件';
+        }
+
+        this.currentToolType = toolType;
+        panel.classList.add('active');
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+    }
+
+    closeCodeTool() {
+        const panel = document.getElementById('codeToolPanel');
+        panel.classList.remove('active');
+        document.getElementById('toolCodeFix').classList.remove('active');
+        document.getElementById('toolCodeAnalysis').classList.remove('active');
+        this.currentToolType = null;
+    }
+
+    handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const content = e.target.result;
+            document.getElementById('codeInput').value = content;
+            document.getElementById('fileName').textContent = file.name;
+            this.updateCodeCharCount();
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            const langMap = {
+                'js': 'javascript', 'mjs': 'javascript',
+                'py': 'python',
+                'java': 'java',
+                'cpp': 'cpp', 'cxx': 'cpp', 'cc': 'cpp', 'hpp': 'cpp',
+                'c': 'c', 'h': 'c',
+                'sql': 'sql',
+                'go': 'go',
+                'rs': 'rust',
+                'ts': 'typescript', 'tsx': 'typescript',
+                'php': 'php',
+                'html': 'html', 'htm': 'html',
+                'css': 'css',
+                'vue': 'vue',
+                'sh': 'shell', 'bash': 'shell',
+                'txt': 'javascript'
+            };
+            const detectedLang = langMap[ext] || 'javascript';
+            document.getElementById('codeLanguage').value = detectedLang;
+        };
+        reader.readAsText(file);
+    }
+
+    updateCodeCharCount() {
+        const code = document.getElementById('codeInput').value;
+        document.getElementById('codeCharCount').textContent = `${code.length} 字符`;
+    }
+
+    async analyzeCode() {
+        const code = document.getElementById('codeInput').value.trim();
+        const language = document.getElementById('codeLanguage').value;
+        const toolType = this.currentToolType;
+
+        if (!code) {
+            alert('请先输入或上传代码');
+            return;
+        }
+
+        if (!toolType) {
+            alert('请先选择工具类型');
+            return;
+        }
+
+        if (this.messages.length === 0) {
+            this.createNewChat(true);
+        }
+
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+
+        const langLabel = document.getElementById('codeLanguage').selectedOptions[0].text;
+
+        let prompt;
+        if (toolType === 'fix') {
+            prompt = `请对以下${langLabel}代码进行全面的纠错分析，找出所有问题并给出修复方案：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码纠错报告\n\n### 发现的问题\n\n对每个问题，请提供：\n1. **错误位置**：精确到行号和具体代码段\n2. **错误类型**：语法错误/逻辑错误/性能问题/最佳实践违背\n3. **错误原因**：详细解释为什么这是一个错误\n4. **修改建议**：给出具体的修改后代码\n5. **修改依据**：说明修改的技术原理\n\n### 修改后的完整代码\n\n请给出修复后的完整代码。`;
+        } else {
+            prompt = `请对以下${langLabel}代码进行深入的结构和逻辑分析：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码分析报告\n\n### 1. 整体功能概述\n\n简要描述代码的整体功能和用途。\n\n### 2. 主要模块/函数说明\n\n列出代码中的主要模块、类和函数，说明各自的作用。\n\n### 3. 关键执行流程\n\n逐步分解代码的关键执行流程。\n\n### 4. 数据流转路径\n\n分析数据在代码中的流转路径和变换过程。\n\n### 5. 核心算法/逻辑说明\n\n解释代码中使用的核心算法或关键逻辑。\n\n### 6. 代码质量评估\n\n评估代码的可读性、可维护性和性能表现，给出改进建议。`;
+        }
+
+        this.messages.push({ role: 'user', content: prompt });
+        this.appendMessage('user', prompt);
+
+        this.isStreaming = true;
+        this.sendBtn.disabled = true;
+        document.getElementById('analyzeBtn').disabled = true;
+        this.setStatus('loading', '分析中...');
+
+        const aiMessageEl = this.appendMessage('assistant', '', true);
+
+        try {
+            await this.sendViaHTTP(aiMessageEl);
+        } catch (error) {
+            console.error('代码分析失败:', error);
+            this.updateAIMessage(aiMessageEl, `抱歉，代码分析失败：${error.message}。请稍后重试。`);
+            this.setStatus('error', '分析失败');
+        } finally {
+            this.isStreaming = false;
+            this.sendBtn.disabled = false;
+            document.getElementById('analyzeBtn').disabled = false;
+            this.setStatus('ready', '就绪');
+            this.saveCurrentChat();
         }
     }
 }

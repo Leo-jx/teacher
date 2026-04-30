@@ -27,6 +27,20 @@
                     <span>新建对话</span>
                 </div>
 
+                <div class="tool-section">
+                    <h3><i class="fas fa-tools"></i> 代码工具</h3>
+                    <div class="tool-list">
+                        <div class="tool-item" id="toolCodeFix">
+                            <i class="fas fa-bug"></i>
+                            <span>代码纠错</span>
+                        </div>
+                        <div class="tool-item" id="toolCodeAnalysis">
+                            <i class="fas fa-search-plus"></i>
+                            <span>代码分析</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="knowledge-nav">
                     <h3><i class="fas fa-book"></i> 技术知识导航</h3>
                     <div class="nav-list">
@@ -179,7 +193,57 @@
                 <div class="messages" id="messages"></div>
             </div>
 
-            <div class="input-area">
+            <div class="code-tool-panel" id="codeToolPanel">
+                <div class="tool-panel-header">
+                    <h3 id="toolPanelTitle"><i class="fas fa-bug"></i> 代码纠错</h3>
+                    <button class="tool-panel-close" id="toolPanelClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="code-input-section">
+                        <div class="code-input-header">
+                            <label>代码输入</label>
+                            <div class="code-input-actions">
+                                <select id="codeLanguage" class="code-lang-select">
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="python">Python</option>
+                                    <option value="java">Java</option>
+                                    <option value="cpp">C/C++</option>
+                                    <option value="c">C</option>
+                                    <option value="sql">SQL</option>
+                                    <option value="go">Go</option>
+                                    <option value="rust">Rust</option>
+                                    <option value="typescript">TypeScript</option>
+                                    <option value="php">PHP</option>
+                                    <option value="html">HTML</option>
+                                    <option value="css">CSS</option>
+                                    <option value="vue">Vue</option>
+                                    <option value="shell">Shell</option>
+                                </select>
+                                <label class="file-upload-btn" title="上传代码文件">
+                                    <i class="fas fa-file-upload"></i>
+                                    <input type="file" id="codeFileInput" accept=".js,.py,.java,.cpp,.c,.h,.sql,.go,.rs,.ts,.php,.html,.css,.vue,.sh,.txt" hidden>
+                                </label>
+                                <button class="clear-code-btn" id="clearCodeBtn" title="清空代码">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea id="codeInput" class="code-textarea" placeholder="在此粘贴或输入代码...&#10;&#10;支持直接粘贴代码或点击上传按钮导入代码文件" rows="12" spellcheck="false"></textarea>
+                        <div class="code-input-footer">
+                            <span class="code-char-count" id="codeCharCount">0 字符</span>
+                            <span class="file-name" id="fileName"></span>
+                        </div>
+                    </div>
+                    <button class="analyze-btn" id="analyzeBtn">
+                        <i class="fas fa-play"></i>
+                        <span id="analyzeBtnText">开始纠错</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="input-area" id="inputArea">
                 <div class="input-wrapper">
                     <textarea
                         id="userInput"
