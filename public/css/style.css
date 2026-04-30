@@ -26,6 +26,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
@@ -34,6 +35,18 @@ html, body {
     background: var(--bg-dark);
     color: var(--text-primary);
     overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+button, input, select, textarea {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+button, a, input, select, textarea {
+    touch-action: manipulation;
 }
 
 .app-container {
@@ -865,6 +878,8 @@ html, body {
         top: 0;
         bottom: 0;
         transition: left 0.3s ease;
+        width: 280px;
+        min-width: 280px;
     }
 
     .sidebar.open {
@@ -896,6 +911,450 @@ html, body {
     .mode-toggle span {
         display: none;
     }
+
+    .main-header h1 {
+        font-size: 16px;
+    }
+
+    .welcome-screen h2 {
+        font-size: 20px;
+    }
+
+    .welcome-screen > p {
+        font-size: 14px;
+        padding: 0 10px;
+    }
+
+    .quick-start h3 {
+        font-size: 12px;
+    }
+
+    .quick-q {
+        font-size: 14px;
+        padding: 12px 16px;
+    }
+
+    .message-content {
+        font-size: 14px;
+        padding: 12px 14px;
+    }
+
+    .message-content pre code {
+        font-size: 12px;
+    }
+
+    .input-wrapper {
+        padding: 6px 10px;
+    }
+
+    #userInput {
+        font-size: 16px;
+    }
+
+    .send-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .nav-item {
+        padding: 12px 14px;
+        font-size: 14px;
+    }
+
+    .tool-item {
+        padding: 12px 14px;
+        font-size: 14px;
+    }
+
+    .history-item {
+        padding: 12px 14px;
+        font-size: 14px;
+    }
+
+    .new-chat-btn {
+        padding: 14px 16px;
+        font-size: 14px;
+    }
+
+    .clear-history-btn {
+        padding: 12px 14px;
+        font-size: 14px;
+    }
+
+    .code-tool-panel {
+        max-height: 60vh;
+    }
+
+    .tool-panel-header {
+        padding: 14px 16px;
+    }
+
+    .tool-panel-header h3 {
+        font-size: 16px;
+    }
+
+    .tool-panel-close {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+
+    .tool-panel-body {
+        padding: 12px 16px;
+    }
+
+    .code-input-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .code-input-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .code-lang-select {
+        padding: 10px 12px;
+        font-size: 14px;
+        min-height: 44px;
+    }
+
+    .file-upload-btn,
+    .clear-code-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .code-textarea {
+        min-height: 150px;
+        font-size: 14px;
+        padding: 12px;
+    }
+
+    .code-input-footer {
+        padding: 8px 2px;
+    }
+
+    .code-char-count,
+    .file-name {
+        font-size: 13px;
+    }
+
+    .analyze-btn {
+        padding: 14px;
+        font-size: 16px;
+        min-height: 50px;
+    }
+
+    .test-modal .modal-content {
+        width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        padding: 14px 16px;
+    }
+
+    .modal-header h3 {
+        font-size: 16px;
+    }
+
+    .modal-close {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    .test-item {
+        padding: 12px;
+    }
+
+    .test-header {
+        font-size: 14px;
+    }
+
+    .run-test-btn {
+        padding: 14px;
+        font-size: 16px;
+        min-height: 50px;
+    }
+
+    .code-header {
+        padding: 10px 12px;
+    }
+
+    .copy-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        min-height: 32px;
+    }
+
+    .status-indicator {
+        font-size: 13px;
+    }
+
+    .char-count {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: 260px;
+        min-width: 260px;
+        left: -260px;
+    }
+
+    .main-header {
+        padding: 10px 12px;
+    }
+
+    .main-header h1 {
+        font-size: 14px;
+    }
+
+    .header-actions {
+        gap: 6px;
+    }
+
+    .mode-toggle,
+    .test-btn {
+        padding: 10px 12px;
+        font-size: 14px;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .welcome-icon {
+        width: 64px;
+        height: 64px;
+    }
+
+    .welcome-icon i {
+        font-size: 28px;
+    }
+
+    .welcome-screen h2 {
+        font-size: 18px;
+    }
+
+    .welcome-screen > p {
+        font-size: 13px;
+    }
+
+    .quick-q {
+        font-size: 13px;
+        padding: 10px 14px;
+    }
+
+    .message-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .message-content {
+        font-size: 14px;
+        padding: 10px 12px;
+        max-width: 88%;
+    }
+
+    .message.user .message-content {
+        border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant .message-content {
+        border-bottom-left-radius: 4px;
+    }
+
+    .input-area {
+        padding: 12px;
+    }
+
+    .input-wrapper {
+        padding: 6px 8px;
+    }
+
+    #userInput {
+        font-size: 16px;
+        max-height: 100px;
+    }
+
+    .send-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 16px;
+    }
+
+    .input-footer {
+        padding: 4px 2px 0;
+    }
+
+    .nav-category-title {
+        font-size: 11px;
+        padding: 8px 6px 4px;
+    }
+
+    .nav-item {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .nav-item i {
+        font-size: 12px;
+    }
+
+    .tool-section h3 {
+        font-size: 11px;
+    }
+
+    .tool-item {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .history-item {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .new-chat-btn {
+        padding: 12px 14px;
+        font-size: 13px;
+    }
+
+    .clear-history-btn {
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+
+    .logo {
+        font-size: 14px;
+    }
+
+    .logo i {
+        font-size: 18px;
+    }
+
+    .sidebar-header {
+        padding: 12px 14px;
+    }
+
+    .sidebar-content {
+        padding: 10px;
+    }
+
+    .sidebar-footer {
+        padding: 10px;
+    }
+
+    .chat-container {
+        padding: 12px;
+    }
+
+    .messages {
+        gap: 12px;
+    }
+
+    .code-tool-panel {
+        max-height: 55vh;
+    }
+
+    .tool-panel-header {
+        padding: 12px 14px;
+    }
+
+    .tool-panel-header h3 {
+        font-size: 15px;
+    }
+
+    .tool-panel-body {
+        padding: 10px 14px;
+    }
+
+    .code-input-header label {
+        font-size: 14px;
+    }
+
+    .code-textarea {
+        min-height: 120px;
+        font-size: 13px;
+        padding: 10px;
+    }
+
+    .analyze-btn {
+        padding: 12px;
+        font-size: 15px;
+    }
+
+    .code-input-actions {
+        gap: 6px;
+    }
+
+    .code-lang-select {
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 360px) {
+    .sidebar {
+        width: 240px;
+        min-width: 240px;
+        left: -240px;
+    }
+
+    .main-header h1 {
+        font-size: 13px;
+    }
+
+    .welcome-screen h2 {
+        font-size: 16px;
+    }
+
+    .welcome-screen > p {
+        font-size: 12px;
+    }
+
+    .quick-q {
+        font-size: 12px;
+        padding: 8px 12px;
+    }
+
+    .message-content {
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+
+    .message-content pre code {
+        font-size: 11px;
+    }
+
+    #userInput {
+        font-size: 16px;
+    }
+
+    .code-textarea {
+        font-size: 12px;
+    }
+
+    .tool-panel-header h3 {
+        font-size: 14px;
+    }
+
+    .analyze-btn {
+        font-size: 14px;
+    }
 }
 
 @media (min-width: 769px) {
@@ -905,6 +1364,43 @@ html, body {
 
     #sidebarOpen {
         display: none;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .nav-item:hover,
+    .tool-item:hover,
+    .history-item:hover,
+    .quick-q:hover {
+        background: var(--bg-card);
+    }
+
+    .nav-item:active,
+    .tool-item:active,
+    .history-item:active,
+    .quick-q:active {
+        background: rgba(108, 92, 231, 0.15);
+    }
+
+    .send-btn:hover,
+    .analyze-btn:hover,
+    .run-test-btn:hover,
+    .new-chat-btn:hover {
+        transform: none;
+    }
+
+    .send-btn:active,
+    .analyze-btn:active,
+    .run-test-btn:active,
+    .new-chat-btn:active {
+        transform: scale(0.98);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
     }
 }
 
