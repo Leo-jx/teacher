@@ -43,14 +43,6 @@
                             <i class="fas fa-search-plus"></i>
                             <span>代码分析</span>
                         </div>
-                        <div class="tool-item" id="toolCodeRunner">
-                            <i class="fas fa-play-circle"></i>
-                            <span>代码解释器</span>
-                        </div>
-                        <div class="tool-item" id="toolCodeConvert">
-                            <i class="fas fa-exchange-alt"></i>
-                            <span>代码转换</span>
-                        </div>
                     </div>
                 </div>
 
@@ -244,117 +236,6 @@
                         <i class="fas fa-play"></i>
                         <span id="analyzeBtnText">开始纠错</span>
                     </button>
-                </div>
-            </div>
-
-            <div class="code-runner-panel" id="codeRunnerPanel">
-                <div class="tool-panel-header">
-                    <h3><i class="fas fa-play-circle"></i> 代码解释器</h3>
-                    <button class="tool-panel-close" id="runnerPanelClose">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="tool-panel-body">
-                    <div class="code-input-section">
-                        <div class="code-input-header">
-                            <label>代码输入</label>
-                            <div class="code-input-actions">
-                                <select id="runnerLanguage" class="code-lang-select">
-                                    <option value="python">Python</option>
-                                    <option value="javascript">JavaScript</option>
-                                </select>
-                                <button class="clear-code-btn" id="clearRunnerBtn" title="清空代码">
-                                    <i class="fas fa-eraser"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <textarea id="runnerCodeInput" class="code-textarea" placeholder="在此输入 Python 或 JavaScript 代码...&#10;&#10;代码将实时运行并输出结果" rows="10" spellcheck="false"></textarea>
-                    </div>
-                    <button class="analyze-btn" id="runCodeBtn">
-                        <i class="fas fa-play"></i>
-                        <span>运行代码</span>
-                    </button>
-                    <div class="runner-output-section" id="runnerOutputSection" style="display: none;">
-                        <div class="code-input-header">
-                            <label>运行结果</label>
-                            <button class="copy-btn" id="copyRunnerOutput" title="复制结果">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                        <pre class="runner-output" id="runnerOutput"></pre>
-                    </div>
-                </div>
-            </div>
-
-            <div class="code-convert-panel" id="codeConvertPanel">
-                <div class="tool-panel-header">
-                    <h3><i class="fas fa-exchange-alt"></i> 跨语言代码转换</h3>
-                    <button class="tool-panel-close" id="convertPanelClose">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="tool-panel-body">
-                    <div class="convert-lang-select">
-                        <div class="convert-lang-item">
-                            <label>源语言</label>
-                            <select id="sourceLanguage" class="code-lang-select">
-                                <option value="java">Java</option>
-                                <option value="python">Python</option>
-                                <option value="javascript">JavaScript</option>
-                                <option value="typescript">TypeScript</option>
-                                <option value="cpp">C++</option>
-                                <option value="c">C</option>
-                                <option value="go">Go</option>
-                                <option value="rust">Rust</option>
-                                <option value="php">PHP</option>
-                                <option value="sql">SQL</option>
-                                <option value="vue">Vue</option>
-                                <option value="react">React JSX</option>
-                            </select>
-                        </div>
-                        <div class="convert-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                        <div class="convert-lang-item">
-                            <label>目标语言</label>
-                            <select id="targetLanguage" class="code-lang-select">
-                                <option value="python">Python</option>
-                                <option value="java">Java</option>
-                                <option value="javascript">JavaScript</option>
-                                <option value="typescript">TypeScript</option>
-                                <option value="cpp">C++</option>
-                                <option value="c">C</option>
-                                <option value="go">Go</option>
-                                <option value="rust">Rust</option>
-                                <option value="php">PHP</option>
-                                <option value="sql">SQL</option>
-                                <option value="vue">Vue</option>
-                                <option value="react">React JSX</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="code-input-section">
-                        <div class="code-input-header">
-                            <label>源代码</label>
-                            <button class="clear-code-btn" id="clearConvertBtn" title="清空代码">
-                                <i class="fas fa-eraser"></i>
-                            </button>
-                        </div>
-                        <textarea id="convertCodeInput" class="code-textarea" placeholder="在此输入需要转换的代码..." rows="10" spellcheck="false"></textarea>
-                    </div>
-                    <button class="analyze-btn" id="convertCodeBtn">
-                        <i class="fas fa-exchange-alt"></i>
-                        <span>开始转换</span>
-                    </button>
-                    <div class="convert-output-section" id="convertOutputSection" style="display: none;">
-                        <div class="code-input-header">
-                            <label>转换结果</label>
-                            <button class="copy-btn" id="copyConvertOutput" title="复制结果">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                        <pre class="convert-output" id="convertOutput"></pre>
-                    </div>
                 </div>
             </div>
 

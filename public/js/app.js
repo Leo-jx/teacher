@@ -36,33 +36,12 @@ class DevAssistant {
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.toolCodeFix = document.getElementById('toolCodeFix');
         this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
-        this.toolCodeRunner = document.getElementById('toolCodeRunner');
-        this.toolCodeConvert = document.getElementById('toolCodeConvert');
         this.codeToolPanel = document.getElementById('codeToolPanel');
         this.toolPanelClose = document.getElementById('toolPanelClose');
         this.codeInput = document.getElementById('codeInput');
         this.codeFileInput = document.getElementById('codeFileInput');
         this.clearCodeBtn = document.getElementById('clearCodeBtn');
         this.analyzeBtn = document.getElementById('analyzeBtn');
-        this.codeRunnerPanel = document.getElementById('codeRunnerPanel');
-        this.runnerPanelClose = document.getElementById('runnerPanelClose');
-        this.runnerLanguage = document.getElementById('runnerLanguage');
-        this.runnerCodeInput = document.getElementById('runnerCodeInput');
-        this.clearRunnerBtn = document.getElementById('clearRunnerBtn');
-        this.runCodeBtn = document.getElementById('runCodeBtn');
-        this.runnerOutputSection = document.getElementById('runnerOutputSection');
-        this.runnerOutput = document.getElementById('runnerOutput');
-        this.copyRunnerOutput = document.getElementById('copyRunnerOutput');
-        this.codeConvertPanel = document.getElementById('codeConvertPanel');
-        this.convertPanelClose = document.getElementById('convertPanelClose');
-        this.sourceLanguage = document.getElementById('sourceLanguage');
-        this.targetLanguage = document.getElementById('targetLanguage');
-        this.convertCodeInput = document.getElementById('convertCodeInput');
-        this.clearConvertBtn = document.getElementById('clearConvertBtn');
-        this.convertCodeBtn = document.getElementById('convertCodeBtn');
-        this.convertOutputSection = document.getElementById('convertOutputSection');
-        this.convertOutput = document.getElementById('convertOutput');
-        this.copyConvertOutput = document.getElementById('copyConvertOutput');
     }
 
     bindEvents() {
@@ -107,8 +86,6 @@ class DevAssistant {
 
         this.toolCodeFix.addEventListener('click', () => this.openCodeTool('fix'));
         this.toolCodeAnalysis.addEventListener('click', () => this.openCodeTool('analysis'));
-        this.toolCodeRunner.addEventListener('click', () => this.openCodeRunner());
-        this.toolCodeConvert.addEventListener('click', () => this.openCodeConvert());
         this.toolPanelClose.addEventListener('click', () => this.closeCodeTool());
         this.codeFileInput.addEventListener('change', (e) => this.handleFileUpload(e));
         this.clearCodeBtn.addEventListener('click', () => {
@@ -118,22 +95,6 @@ class DevAssistant {
         });
         this.codeInput.addEventListener('input', () => this.updateCodeCharCount());
         this.analyzeBtn.addEventListener('click', () => this.analyzeCode());
-
-        this.runnerPanelClose.addEventListener('click', () => this.closeCodeRunner());
-        this.clearRunnerBtn.addEventListener('click', () => {
-            this.runnerCodeInput.value = '';
-            this.runnerOutputSection.style.display = 'none';
-        });
-        this.runCodeBtn.addEventListener('click', () => this.runCode());
-        this.copyRunnerOutput.addEventListener('click', () => this.copyOutput(this.runnerOutput));
-
-        this.convertPanelClose.addEventListener('click', () => this.closeCodeConvert());
-        this.clearConvertBtn.addEventListener('click', () => {
-            this.convertCodeInput.value = '';
-            this.convertOutputSection.style.display = 'none';
-        });
-        this.convertCodeBtn.addEventListener('click', () => this.convertCode());
-        this.copyConvertOutput.addEventListener('click', () => this.copyOutput(this.convertOutput));
     }
 
     setupMarked() {
@@ -662,170 +623,6 @@ class DevAssistant {
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
         }
-    }
-
-    openCodeRunner() {
-        this.closeAllPanels();
-        this.toolCodeRunner.classList.add('active');
-        this.codeRunnerPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-    }
-
-    closeCodeRunner() {
-        this.codeRunnerPanel.classList.remove('active');
-        this.toolCodeRunner.classList.remove('active');
-    }
-
-    async runCode() {
-        const code = this.runnerCodeInput.value.trim();
-        const language = this.runnerLanguage.value;
-
-        if (!code) {
-            this.runnerOutput.textContent = '请输入代码';
-            this.runnerOutputSection.style.display = 'block';
-            return;
-        }
-
-        this.runCodeBtn.disabled = true;
-        this.setStatus('loading', '运行中...');
-        this.runnerOutput.textContent = '正在运行代码...';
-        this.runnerOutputSection.style.display = 'block';
-
-        try {
-            const response = await fetch('/api/code-run', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, language })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            let result = '';
-
-            if (data.choices && data.choices.length > 0) {
-                result = data.choices[0].message?.content || data.choices[0].text || '';
-            } else if (data.output) {
-                result = data.output.text || data.output;
-            } else if (data.data && data.data.output) {
-                result = data.data.output.text || JSON.stringify(data.data.output);
-            } else if (typeof data === 'string') {
-                result = data;
-            } else {
-                result = JSON.stringify(data);
-            }
-
-            this.runnerOutput.innerHTML = this.renderMarkdown(result);
-        } catch (error) {
-            console.error('代码运行失败:', error);
-            this.runnerOutput.textContent = `运行失败: ${error.message}`;
-        } finally {
-            this.runCodeBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-        }
-    }
-
-    openCodeConvert() {
-        this.closeAllPanels();
-        this.toolCodeConvert.classList.add('active');
-        this.codeConvertPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-    }
-
-    closeCodeConvert() {
-        this.codeConvertPanel.classList.remove('active');
-        this.toolCodeConvert.classList.remove('active');
-    }
-
-    async convertCode() {
-        const code = this.convertCodeInput.value.trim();
-        const sourceLanguage = this.sourceLanguage.value;
-        const targetLanguage = this.targetLanguage.value;
-
-        if (!code) {
-            this.convertOutput.textContent = '请输入代码';
-            this.convertOutputSection.style.display = 'block';
-            return;
-        }
-
-        if (sourceLanguage === targetLanguage) {
-            this.convertOutput.textContent = '源语言和目标语言相同，无需转换';
-            this.convertOutputSection.style.display = 'block';
-            return;
-        }
-
-        this.convertCodeBtn.disabled = true;
-        this.setStatus('loading', '转换中...');
-        this.convertOutput.textContent = '正在转换代码...';
-        this.convertOutputSection.style.display = 'block';
-
-        try {
-            const response = await fetch('/api/code-convert', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, sourceLanguage, targetLanguage })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            let result = '';
-
-            if (data.choices && data.choices.length > 0) {
-                result = data.choices[0].message?.content || data.choices[0].text || '';
-            } else if (data.output) {
-                result = data.output.text || data.output;
-            } else if (data.data && data.data.output) {
-                result = data.data.output.text || JSON.stringify(data.data.output);
-            } else if (typeof data === 'string') {
-                result = data;
-            } else {
-                result = JSON.stringify(data);
-            }
-
-            this.convertOutput.innerHTML = this.renderMarkdown(result);
-        } catch (error) {
-            console.error('代码转换失败:', error);
-            this.convertOutput.textContent = `转换失败: ${error.message}`;
-        } finally {
-            this.convertCodeBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-        }
-    }
-
-    closeAllPanels() {
-        this.codeToolPanel.classList.remove('active');
-        this.codeRunnerPanel.classList.remove('active');
-        this.codeConvertPanel.classList.remove('active');
-        document.getElementById('toolCodeFix').classList.remove('active');
-        document.getElementById('toolCodeAnalysis').classList.remove('active');
-        this.toolCodeRunner.classList.remove('active');
-        this.toolCodeConvert.classList.remove('active');
-    }
-
-    copyOutput(outputEl) {
-        const text = outputEl.textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            this.setStatus('ready', '已复制到剪贴板');
-            setTimeout(() => this.setStatus('ready', '就绪'), 2000);
-        }).catch(() => {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            this.setStatus('ready', '已复制到剪贴板');
-            setTimeout(() => this.setStatus('ready', '就绪'), 2000);
-        });
     }
 }
 
