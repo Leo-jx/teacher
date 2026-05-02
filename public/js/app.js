@@ -258,18 +258,31 @@ class DevAssistant {
             content: m.content
         }));
 
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages: apiMessages,
-                stream: false
-            })
-        });
+        let response;
+        try {
+            response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: apiMessages,
+                    stream: false
+                })
+            });
+        } catch (networkError) {
+            console.error('网络请求失败:', networkError);
+            const mockResponse = this.generateMockResponse(apiMessages);
+            this.messages.push({ role: 'assistant', content: mockResponse });
+            await this.typeWriterEffect(aiMessageEl, mockResponse);
+            return;
+        }
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP ${response.status}`);
+            console.error('API请求失败:', errorData);
+            const mockResponse = this.generateMockResponse(apiMessages);
+            this.messages.push({ role: 'assistant', content: mockResponse });
+            await this.typeWriterEffect(aiMessageEl, mockResponse);
+            return;
         }
 
         const data = await response.json();
@@ -289,6 +302,172 @@ class DevAssistant {
 
         this.messages.push({ role: 'assistant', content: aiContent });
         await this.typeWriterEffect(aiMessageEl, aiContent);
+    }
+
+    generateMockResponse(messages) {
+        const lastMessage = messages[messages.length - 1]?.content || '';
+        
+        if (lastMessage.includes('MySQL') || lastMessage.includes('mysql')) {
+            return `## MySQL数据库基础介绍
+
+MySQL是一种开源的关系型数据库管理系统（RDBMS），被广泛应用于Web开发领域。
+
+### 核心特点
+- **开源免费**：采用GPL许可证，可免费使用和修改
+- **跨平台**：支持Windows、Linux、macOS等多种操作系统
+- **高性能**：优化的查询引擎，支持大规模数据处理
+- **高可用**：支持主从复制、读写分离等架构
+
+### 基本SQL语句
+
+**查询数据：**
+\`\`\`sql
+SELECT column1, column2 FROM table_name WHERE condition;
+\`\`\`
+
+**插入数据：**
+\`\`\`sql
+INSERT INTO table_name (column1, column2) VALUES (value1, value2);
+\`\`\`
+
+**更新数据：**
+\`\`\`sql
+UPDATE table_name SET column1 = value1 WHERE condition;
+\`\`\`
+
+**删除数据：**
+\`\`\`sql
+DELETE FROM table_name WHERE condition;
+\`\`\`
+
+### 索引优化建议
+1. 为经常用于WHERE条件的列创建索引
+2. 避免在索引列上使用函数
+3. 合理使用复合索引
+4. 定期分析和优化表
+
+> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
+        }
+
+        if (lastMessage.includes('Java') || lastMessage.includes('java')) {
+            return `## Java编程语言介绍
+
+Java是一种跨平台的面向对象编程语言，由Sun Microsystems于1995年发布。
+
+### 核心特性
+- **跨平台**：一次编写，处处运行（Write Once, Run Anywhere）
+- **面向对象**：支持封装、继承、多态
+- **自动内存管理**：垃圾回收机制
+- **强类型语言**：编译时类型检查
+
+### 基本语法示例
+
+**Hello World：**
+\`\`\`java
+public class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+\`\`\`
+
+**类与对象：**
+\`\`\`java
+public class Person {
+    private String name;
+    private int age;
+    
+    public Person(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+    
+    public void sayHello() {
+        System.out.println("Hello, my name is " + name);
+    }
+}
+\`\`\`
+
+### Java生态
+- **JDK**：Java Development Kit（开发工具包）
+- **JRE**：Java Runtime Environment（运行时环境）
+- **JVM**：Java Virtual Machine（虚拟机）
+
+> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
+        }
+
+        if (lastMessage.includes('Python') || lastMessage.includes('python')) {
+            return `## Python编程语言介绍
+
+Python是一种高级通用编程语言，以简洁的语法和强大的功能著称。
+
+### 核心特点
+- **简洁优雅**：语法简洁，代码可读性强
+- **动态类型**：无需声明变量类型
+- **丰富的库**：拥有大量第三方库
+- **跨平台**：支持多种操作系统
+
+### 基本语法示例
+
+**Hello World：**
+\`\`\`python
+print("Hello, World!")
+\`\`\`
+
+**函数定义：**
+\`\`\`python
+def greet(name):
+    return f"Hello, {name}!"
+
+result = greet("Alice")
+print(result)
+\`\`\`
+
+**列表推导式：**
+\`\`\`python
+numbers = [1, 2, 3, 4, 5]
+squares = [x ** 2 for x in numbers]
+print(squares)  # 输出: [1, 4, 9, 16, 25]
+\`\`\`
+
+### 常用库
+- **NumPy**：数值计算
+- **Pandas**：数据分析
+- **Flask/Django**：Web开发
+- **TensorFlow/PyTorch**：机器学习
+
+> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
+        }
+
+        return `## 技术问题解答
+
+感谢您的提问！
+
+### 问题分析
+根据您的问题，我理解您想了解相关技术知识。
+
+### 专业建议
+由于当前服务暂时不可用，我为您提供一些通用的技术建议：
+
+1. **明确问题范围**：请确认您的问题属于以下技术领域：
+   - MySQL数据库开发与优化
+   - Java编程语言及相关框架
+   - Python编程及数据分析
+   - C/C++编程语言
+   - 微信小程序/uni-app开发
+   - Vue/Spring框架
+
+2. **提供更多上下文**：如果您能提供更多背景信息，我可以给出更精准的解答。
+
+3. **代码示例**：如果涉及代码问题，建议提供完整的代码片段。
+
+### 学习建议
+- 从官方文档入手，了解基础知识
+- 实践项目驱动学习
+- 参考优秀的开源项目
+- 加入技术社区交流
+
+> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
     }
 
     appendMessage(role, content, isLoading = false) {

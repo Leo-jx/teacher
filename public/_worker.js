@@ -101,6 +101,9 @@ async function handleChatRequest(request, env) {
             });
         }
 
+        console.log('消息数量:', messages.length);
+        console.log('最后一条消息:', messages[messages.length - 1]?.content?.substring(0, 100) + '...');
+
         // 获取配置
         const API_URL = getConfigValue(env, 'API_URL');
         const MODEL_ID = getConfigValue(env, 'MODEL_ID');
@@ -129,28 +132,43 @@ async function handleChatRequest(request, env) {
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
         console.log('准备调用AI API...');
+        console.log('请求URL:', API_URL);
 
         const controller = new AbortController();
         const timeout = setTimeout(() => {
             console.error('请求超时');
             controller.abort();
-        }, 25000);
+        }, 60000);
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authHeader
-            },
-            body: JSON.stringify({
-                model: MODEL_ID,
-                messages: fullMessages,
-                stream: false,
-                temperature: 0.7,
-                max_tokens: 2048
-            }),
-            signal: controller.signal
-        });
+        let response;
+        try {
+            response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authHeader
+                },
+                body: JSON.stringify({
+                    model: MODEL_ID,
+                    messages: fullMessages,
+                    stream: false,
+                    temperature: 0.7,
+                    max_tokens: 2048
+                }),
+                signal: controller.signal
+            });
+        } catch (fetchError) {
+            clearTimeout(timeout);
+            console.error('网络请求失败:', fetchError.message);
+            return new Response(JSON.stringify({
+                error: '网络请求失败',
+                detail: fetchError.message,
+                suggestion: '请检查网络连接或稍后重试'
+            }), {
+                status: 503,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
         clearTimeout(timeout);
 
@@ -173,9 +191,11 @@ async function handleChatRequest(request, env) {
         });
     } catch (error) {
         console.error('Chat API错误:', error);
+        console.error('错误堆栈:', error.stack);
         return new Response(JSON.stringify({
             error: '服务器内部错误',
-            detail: error.message
+            detail: error.message,
+            stack: error.stack ? error.stack.substring(0, 500) : undefined
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
