@@ -48,6 +48,12 @@ class DevAssistant {
         this.syntaxLearnBtn = document.getElementById('syntaxLearnBtn');
         this.syntaxLanguage = document.getElementById('syntaxLanguage');
         this.syntaxKeyword = document.getElementById('syntaxKeyword');
+        this.toolAlgorithm = document.getElementById('toolAlgorithm');
+        this.algorithmPanel = document.getElementById('algorithmPanel');
+        this.algorithmPanelClose = document.getElementById('algorithmPanelClose');
+        this.algorithmLearnBtn = document.getElementById('algorithmLearnBtn');
+        this.algorithmType = document.getElementById('algorithmType');
+        this.algorithmName = document.getElementById('algorithmName');
     }
 
     bindEvents() {
@@ -108,6 +114,17 @@ class DevAssistant {
         document.querySelectorAll('.syntax-quick-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.syntaxKeyword.value = btn.dataset.keyword;
+            });
+        });
+
+        this.toolAlgorithm.addEventListener('click', () => this.openAlgorithmPanel());
+        this.algorithmPanelClose.addEventListener('click', () => this.closeAlgorithmPanel());
+        this.algorithmLearnBtn.addEventListener('click', () => this.learnAlgorithm());
+
+        document.querySelectorAll('.algorithm-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.algorithmType.value = btn.dataset.type;
+                this.algorithmName.value = btn.dataset.name;
             });
         });
     }
@@ -512,6 +529,9 @@ class DevAssistant {
         const btnText = document.getElementById('analyzeBtnText');
         const codeInput = document.getElementById('codeInput');
 
+        this.closeSyntaxLearn();
+        this.closeAlgorithmPanel();
+
         document.getElementById('toolCodeFix').classList.toggle('active', toolType === 'fix');
         document.getElementById('toolCodeAnalysis').classList.toggle('active', toolType === 'analysis');
 
@@ -642,6 +662,7 @@ class DevAssistant {
 
     openSyntaxLearn() {
         this.closeCodeTool();
+        this.closeAlgorithmPanel();
         document.getElementById('toolSyntaxLearn').classList.add('active');
         this.syntaxLearnPanel.classList.add('active');
         this.welcomeScreen.style.display = 'none';
@@ -723,6 +744,124 @@ class DevAssistant {
         } finally {
             this.sendBtn.disabled = false;
             this.syntaxLearnBtn.disabled = false;
+            this.setStatus('ready', '就绪');
+            this.saveCurrentChat();
+        }
+    }
+
+    openAlgorithmPanel() {
+        this.closeCodeTool();
+        this.closeSyntaxLearn();
+        document.getElementById('toolAlgorithm').classList.add('active');
+        this.algorithmPanel.classList.add('active');
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+    }
+
+    closeAlgorithmPanel() {
+        this.algorithmPanel.classList.remove('active');
+        document.getElementById('toolAlgorithm').classList.remove('active');
+    }
+
+    async learnAlgorithm() {
+        const algorithmType = this.algorithmType.value;
+        const algorithmName = this.algorithmName.value.trim();
+
+        if (!algorithmName) {
+            alert('请输入要学习的算法名称');
+            return;
+        }
+
+        if (this.isTyping) {
+            alert('请等待当前输出完成');
+            return;
+        }
+
+        if (this.messages.length === 0) {
+            this.createNewChat(true);
+        }
+
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+
+        const typeLabels = {
+            'sorting': '排序算法',
+            'searching': '查找算法',
+            'tree': '树结构',
+            'graph': '图算法',
+            'dp': '动态规划',
+            'greedy': '贪心算法',
+            'divide': '分治算法',
+            'backtracking': '回溯算法',
+            'other': '其他算法'
+        };
+
+        const typeLabel = typeLabels[algorithmType] || '算法';
+
+        const prompt = `请详细讲解${typeLabel}中的"${algorithmName}"，要求包含以下内容：
+
+## 算法讲解：${algorithmName}
+
+### 1. 算法简介
+- 算法的基本概念和定义
+- 算法的历史背景和发明者（如果有）
+- 算法的主要应用场景
+
+### 2. 核心思想
+- 用通俗易懂的语言解释算法的核心思想
+- 算法的关键步骤和流程
+
+### 3. 分步骤可视化讲解
+请用文字描述的方式，逐步展示算法的执行过程：
+- 步骤1：初始状态说明
+- 步骤2：第一步操作及结果
+- 步骤3：后续操作及变化
+- ...继续直到算法完成
+- 每一步都要清晰说明当前状态和变化
+
+### 4. 代码实现
+请提供以下语言的实现（至少提供Java和Python）：
+- Java实现
+- Python实现
+- 代码中要有详细的注释
+
+### 5. 复杂度分析
+- **时间复杂度**：最好情况、最坏情况、平均情况
+- **空间复杂度**：详细说明空间消耗
+- 请给出数学推导或解释
+
+### 6. 算法优化
+- 常见的优化方法
+- 变体算法介绍
+
+### 7. 实际应用
+- 该算法在实际开发中的应用场景
+- 相关的面试题或经典题目
+
+### 8. 注意事项
+- 使用该算法时需要注意的问题
+- 常见的错误和陷阱`;
+
+        this.messages.push({ role: 'user', content: prompt });
+        this.appendMessage('user', prompt);
+
+        this.sendBtn.disabled = true;
+        this.algorithmLearnBtn.disabled = true;
+        this.setStatus('loading', '讲解中...');
+
+        const aiMessageEl = this.appendMessage('assistant', '', true);
+
+        try {
+            await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
+        } catch (error) {
+            console.error('算法讲解失败:', error);
+            this.updateAIMessage(aiMessageEl, `抱歉，算法讲解失败：${error.message}。请稍后重试。`);
+            await this.waitForTypingComplete();
+            this.setStatus('error', '讲解失败');
+        } finally {
+            this.sendBtn.disabled = false;
+            this.algorithmLearnBtn.disabled = false;
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
         }

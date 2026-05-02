@@ -47,6 +47,10 @@
                             <i class="fas fa-graduation-cap"></i>
                             <span>语法学习</span>
                         </div>
+                        <div class="tool-item" id="toolAlgorithm">
+                            <i class="fas fa-project-diagram"></i>
+                            <span>算法讲解</span>
+                        </div>
                     </div>
                 </div>
 
@@ -294,6 +298,56 @@
                     <button class="analyze-btn" id="syntaxLearnBtn">
                         <i class="fas fa-lightbulb"></i>
                         <span>开始学习</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="algorithm-panel" id="algorithmPanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-project-diagram"></i> 算法可视化讲解</h3>
+                    <button class="tool-panel-close" id="algorithmPanelClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="algorithm-input-section">
+                        <div class="algorithm-input-row">
+                            <div class="algorithm-field">
+                                <label>选择算法类型</label>
+                                <select id="algorithmType" class="algorithm-type-select">
+                                    <option value="sorting">排序算法</option>
+                                    <option value="searching">查找算法</option>
+                                    <option value="tree">树结构</option>
+                                    <option value="graph">图算法</option>
+                                    <option value="dp">动态规划</option>
+                                    <option value="greedy">贪心算法</option>
+                                    <option value="divide">分治算法</option>
+                                    <option value="backtracking">回溯算法</option>
+                                    <option value="other">其他算法</option>
+                                </select>
+                            </div>
+                            <div class="algorithm-field algorithm-name-field">
+                                <label>输入算法名称</label>
+                                <input type="text" id="algorithmName" class="algorithm-name-input" placeholder="例如: 快速排序、二叉树遍历...">
+                            </div>
+                        </div>
+                        <div class="algorithm-examples">
+                            <label>快速选择经典算法</label>
+                            <div class="algorithm-quick-btns">
+                                <button class="algorithm-quick-btn" data-type="sorting" data-name="快速排序">快速排序</button>
+                                <button class="algorithm-quick-btn" data-type="sorting" data-name="归并排序">归并排序</button>
+                                <button class="algorithm-quick-btn" data-type="sorting" data-name="冒泡排序">冒泡排序</button>
+                                <button class="algorithm-quick-btn" data-type="searching" data-name="二分查找">二分查找</button>
+                                <button class="algorithm-quick-btn" data-type="tree" data-name="二叉树遍历">二叉树遍历</button>
+                                <button class="algorithm-quick-btn" data-type="tree" data-name="二叉搜索树">二叉搜索树</button>
+                                <button class="algorithm-quick-btn" data-type="dp" data-name="背包问题">背包问题</button>
+                                <button class="algorithm-quick-btn" data-type="graph" data-name="最短路径">最短路径</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="analyze-btn" id="algorithmLearnBtn">
+                        <i class="fas fa-play-circle"></i>
+                        <span>开始讲解</span>
                     </button>
                 </div>
             </div>
