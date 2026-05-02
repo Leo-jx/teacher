@@ -40,6 +40,25 @@ class DevAssistant {
         this.codeFileInput = document.getElementById('codeFileInput');
         this.clearCodeBtn = document.getElementById('clearCodeBtn');
         this.analyzeBtn = document.getElementById('analyzeBtn');
+        this.toolSyntaxLearn = document.getElementById('toolSyntaxLearn');
+        this.toolAlgorithm = document.getElementById('toolAlgorithm');
+        this.toolErrorDecoder = document.getElementById('toolErrorDecoder');
+        this.syntaxLearnPanel = document.getElementById('syntaxLearnPanel');
+        this.algorithmPanel = document.getElementById('algorithmPanel');
+        this.errorDecoderPanel = document.getElementById('errorDecoderPanel');
+        this.syntaxPanelClose = document.getElementById('syntaxPanelClose');
+        this.algorithmPanelClose = document.getElementById('algorithmPanelClose');
+        this.errorDecoderPanelClose = document.getElementById('errorDecoderPanelClose');
+        this.syntaxLearnBtn = document.getElementById('syntaxLearnBtn');
+        this.algorithmLearnBtn = document.getElementById('algorithmLearnBtn');
+        this.decodeErrorBtn = document.getElementById('decodeErrorBtn');
+        this.syntaxLanguage = document.getElementById('syntaxLanguage');
+        this.syntaxKeyword = document.getElementById('syntaxKeyword');
+        this.algorithmType = document.getElementById('algorithmType');
+        this.algorithmName = document.getElementById('algorithmName');
+        this.errorInput = document.getElementById('errorInput');
+        this.errorLanguage = document.getElementById('errorLanguage');
+        this.clearErrorBtn = document.getElementById('clearErrorBtn');
     }
 
     bindEvents() {
@@ -93,6 +112,45 @@ class DevAssistant {
         });
         this.codeInput.addEventListener('input', () => this.updateCodeCharCount());
         this.analyzeBtn.addEventListener('click', () => this.analyzeCode());
+
+        this.toolSyntaxLearn.addEventListener('click', () => this.openSyntaxLearn());
+        this.syntaxPanelClose.addEventListener('click', () => this.closeSyntaxLearn());
+        this.syntaxLearnBtn.addEventListener('click', () => this.learnSyntax());
+        this.syntaxKeyword.addEventListener('input', () => this.updateSyntaxCharCount());
+
+        this.toolAlgorithm.addEventListener('click', () => this.openAlgorithmPanel());
+        this.algorithmPanelClose.addEventListener('click', () => this.closeAlgorithmPanel());
+        this.algorithmLearnBtn.addEventListener('click', () => this.learnAlgorithm());
+
+        this.toolErrorDecoder.addEventListener('click', () => this.openErrorDecoder());
+        this.errorDecoderPanelClose.addEventListener('click', () => this.closeErrorDecoder());
+        this.decodeErrorBtn.addEventListener('click', () => this.decodeError());
+        this.clearErrorBtn.addEventListener('click', () => {
+            this.errorInput.value = '';
+            this.updateErrorCharCount();
+        });
+        this.errorInput.addEventListener('input', () => this.updateErrorCharCount());
+
+        document.querySelectorAll('.syntax-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.syntaxKeyword.value = btn.dataset.keyword;
+            });
+        });
+
+        document.querySelectorAll('.algorithm-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.algorithmType.value = btn.dataset.type;
+                this.algorithmName.value = btn.dataset.name;
+            });
+        });
+
+        document.querySelectorAll('.error-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const errorType = btn.dataset.error;
+                this.errorInput.value = `${errorType}\n\n请分析这个错误的原因和解决方案。`;
+                this.updateErrorCharCount();
+            });
+        });
     }
 
     setupMarked() {
@@ -446,6 +504,10 @@ class DevAssistant {
         const btnText = document.getElementById('analyzeBtnText');
         const codeInput = document.getElementById('codeInput');
 
+        this.closeSyntaxLearn();
+        this.closeAlgorithmPanel();
+        this.closeErrorDecoder();
+
         document.getElementById('toolCodeFix').classList.toggle('active', toolType === 'fix');
         document.getElementById('toolCodeAnalysis').classList.toggle('active', toolType === 'analysis');
 
@@ -562,6 +624,274 @@ class DevAssistant {
         } finally {
             this.sendBtn.disabled = false;
             document.getElementById('analyzeBtn').disabled = false;
+            this.setStatus('ready', '就绪');
+            this.saveCurrentChat();
+        }
+    }
+
+    openSyntaxLearn() {
+        this.closeCodeTool();
+        this.closeAlgorithmPanel();
+        this.closeErrorDecoder();
+        document.getElementById('toolSyntaxLearn').classList.add('active');
+        this.syntaxLearnPanel.classList.add('active');
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+    }
+
+    closeSyntaxLearn() {
+        this.syntaxLearnPanel.classList.remove('active');
+        document.getElementById('toolSyntaxLearn').classList.remove('active');
+    }
+
+    updateSyntaxCharCount() {
+        const count = this.syntaxKeyword.value.length;
+    }
+
+    async learnSyntax() {
+        const language = this.syntaxLanguage.value;
+        const keyword = this.syntaxKeyword.value.trim();
+
+        if (!keyword) {
+            alert('请输入要学习的语法关键词');
+            return;
+        }
+
+        if (this.messages.length === 0) {
+            this.createNewChat(true);
+        }
+
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+
+        const langLabel = this.syntaxLanguage.selectedOptions[0].text;
+
+        const prompt = `请详细讲解${langLabel}编程语言中的"${keyword}"语法知识，要求包含以下内容：
+
+## ${langLabel}语法讲解：${keyword}
+
+### 1. 基本概念
+- ${keyword}的定义和作用
+- 适用场景
+
+### 2. 语法格式
+- 完整的语法格式说明
+- 参数详解（如果有）
+
+### 3. 使用示例
+请提供3-5个由浅入深的代码示例：
+- 示例1：最基础用法
+- 示例2：常见用法
+- 示例3：进阶用法
+- 示例4：实际应用场景（如果适用）
+
+### 4. 注意事项
+- 常见错误和陷阱
+- 最佳实践建议
+
+### 5. 相关语法
+- 与${keyword}相关的其他语法知识`;
+
+        this.messages.push({ role: 'user', content: prompt });
+        this.appendMessage('user', prompt);
+
+        this.sendBtn.disabled = true;
+        this.syntaxLearnBtn.disabled = true;
+        this.setStatus('loading', '讲解中...');
+
+        const aiMessageEl = this.appendMessage('assistant', '', true);
+
+        try {
+            await this.sendViaHTTP(aiMessageEl);
+        } catch (error) {
+            console.error('语法讲解失败:', error);
+            this.updateAIMessage(aiMessageEl, `抱歉，语法讲解失败：${error.message}。请稍后重试。`);
+            this.setStatus('error', '讲解失败');
+        } finally {
+            this.sendBtn.disabled = false;
+            this.syntaxLearnBtn.disabled = false;
+            this.setStatus('ready', '就绪');
+            this.saveCurrentChat();
+        }
+    }
+
+    openAlgorithmPanel() {
+        this.closeCodeTool();
+        this.closeSyntaxLearn();
+        this.closeErrorDecoder();
+        document.getElementById('toolAlgorithm').classList.add('active');
+        this.algorithmPanel.classList.add('active');
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+    }
+
+    closeAlgorithmPanel() {
+        this.algorithmPanel.classList.remove('active');
+        document.getElementById('toolAlgorithm').classList.remove('active');
+    }
+
+    async learnAlgorithm() {
+        const algorithmType = this.algorithmType.value;
+        const algorithmName = this.algorithmName.value.trim();
+
+        if (!algorithmName) {
+            alert('请输入要学习的算法名称');
+            return;
+        }
+
+        if (this.messages.length === 0) {
+            this.createNewChat(true);
+        }
+
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+
+        const typeLabels = {
+            'sorting': '排序算法',
+            'searching': '查找算法',
+            'tree': '树结构',
+            'graph': '图算法',
+            'dp': '动态规划',
+            'greedy': '贪心算法',
+            'divide': '分治算法',
+            'backtracking': '回溯算法',
+            'other': '其他算法'
+        };
+
+        const typeLabel = typeLabels[algorithmType] || '算法';
+
+        const prompt = `请详细讲解${typeLabel}中的"${algorithmName}"，要求包含以下内容：
+
+## 算法讲解：${algorithmName}
+
+### 1. 算法简介
+- 算法的基本概念和定义
+- 算法的历史背景和发明者（如果有）
+- 算法的主要应用场景
+
+### 2. 核心思想
+- 用通俗易懂的语言解释算法的核心思想
+- 算法的关键步骤和流程
+
+### 3. 分步骤可视化讲解
+请用文字描述的方式，逐步展示算法的执行过程
+
+### 4. 代码实现
+请提供Java和Python的实现，代码中要有详细的注释
+
+### 5. 复杂度分析
+- 时间复杂度：最好情况、最坏情况、平均情况
+- 空间复杂度：详细说明空间消耗
+
+### 6. 算法优化
+- 常见的优化方法
+- 变体算法介绍`;
+
+        this.messages.push({ role: 'user', content: prompt });
+        this.appendMessage('user', prompt);
+
+        this.sendBtn.disabled = true;
+        this.algorithmLearnBtn.disabled = true;
+        this.setStatus('loading', '讲解中...');
+
+        const aiMessageEl = this.appendMessage('assistant', '', true);
+
+        try {
+            await this.sendViaHTTP(aiMessageEl);
+        } catch (error) {
+            console.error('算法讲解失败:', error);
+            this.updateAIMessage(aiMessageEl, `抱歉，算法讲解失败：${error.message}。请稍后重试。`);
+            this.setStatus('error', '讲解失败');
+        } finally {
+            this.sendBtn.disabled = false;
+            this.algorithmLearnBtn.disabled = false;
+            this.setStatus('ready', '就绪');
+            this.saveCurrentChat();
+        }
+    }
+
+    openErrorDecoder() {
+        this.closeCodeTool();
+        this.closeSyntaxLearn();
+        this.closeAlgorithmPanel();
+        document.getElementById('toolErrorDecoder').classList.add('active');
+        this.errorDecoderPanel.classList.add('active');
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+    }
+
+    closeErrorDecoder() {
+        this.errorDecoderPanel.classList.remove('active');
+        document.getElementById('toolErrorDecoder').classList.remove('active');
+    }
+
+    updateErrorCharCount() {
+        const count = this.errorInput.value.length;
+        document.getElementById('errorCharCount').textContent = `${count} 字符`;
+    }
+
+    async decodeError() {
+        const errorMessage = this.errorInput.value.trim();
+        const language = this.errorLanguage.value;
+
+        if (!errorMessage) {
+            alert('请粘贴错误信息');
+            return;
+        }
+
+        if (this.messages.length === 0) {
+            this.createNewChat(true);
+        }
+
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+
+        const langLabel = this.errorLanguage.selectedOptions[0].text;
+
+        const prompt = `请帮我分析以下${langLabel !== '自动识别' ? langLabel : ''}错误信息，并提供详细的解决方案：
+
+## 错误信息
+
+\`\`\`
+${errorMessage}
+\`\`\`
+
+请按以下格式进行分析：
+
+### 1. 错误类型识别
+- 识别这是什么类型的错误
+- 错误的严重程度
+
+### 2. 错误原因分析
+- 详细解释导致这个错误的根本原因
+- 分析错误发生的上下文环境
+
+### 3. 解决方案
+- 提供具体的修复步骤
+- 给出修正后的代码示例（如果适用）
+
+### 4. 预防措施
+- 如何避免类似错误再次发生
+- 最佳实践建议`;
+
+        this.messages.push({ role: 'user', content: prompt });
+        this.appendMessage('user', prompt);
+
+        this.sendBtn.disabled = true;
+        this.decodeErrorBtn.disabled = true;
+        this.setStatus('loading', '解读中...');
+
+        const aiMessageEl = this.appendMessage('assistant', '', true);
+
+        try {
+            await this.sendViaHTTP(aiMessageEl);
+        } catch (error) {
+            console.error('错误解读失败:', error);
+            this.updateAIMessage(aiMessageEl, `抱歉，错误解读失败：${error.message}。请稍后重试。`);
+            this.setStatus('error', '解读失败');
+        } finally {
+            this.sendBtn.disabled = false;
+            this.decodeErrorBtn.disabled = false;
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
         }
