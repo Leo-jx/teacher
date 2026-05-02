@@ -55,6 +55,13 @@ class DevAssistant {
         this.algorithmType = document.getElementById('algorithmType');
         this.algorithmName = document.getElementById('algorithmName');
         this.webSearchToggle = document.getElementById('webSearchToggle');
+        this.toolErrorDecoder = document.getElementById('toolErrorDecoder');
+        this.errorDecoderPanel = document.getElementById('errorDecoderPanel');
+        this.errorDecoderPanelClose = document.getElementById('errorDecoderPanelClose');
+        this.errorInput = document.getElementById('errorInput');
+        this.errorLanguage = document.getElementById('errorLanguage');
+        this.clearErrorBtn = document.getElementById('clearErrorBtn');
+        this.decodeErrorBtn = document.getElementById('decodeErrorBtn');
     }
 
     bindEvents() {
@@ -126,6 +133,23 @@ class DevAssistant {
             btn.addEventListener('click', () => {
                 this.algorithmType.value = btn.dataset.type;
                 this.algorithmName.value = btn.dataset.name;
+            });
+        });
+
+        this.toolErrorDecoder.addEventListener('click', () => this.openErrorDecoder());
+        this.errorDecoderPanelClose.addEventListener('click', () => this.closeErrorDecoder());
+        this.clearErrorBtn.addEventListener('click', () => {
+            this.errorInput.value = '';
+            this.updateErrorCharCount();
+        });
+        this.errorInput.addEventListener('input', () => this.updateErrorCharCount());
+        this.decodeErrorBtn.addEventListener('click', () => this.decodeError());
+
+        document.querySelectorAll('.error-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const errorType = btn.dataset.error;
+                this.errorInput.value = `${errorType}\n\n请分析这个错误的原因和解决方案。`;
+                this.updateErrorCharCount();
             });
         });
     }
@@ -535,6 +559,7 @@ class DevAssistant {
 
         this.closeSyntaxLearn();
         this.closeAlgorithmPanel();
+        this.closeErrorDecoder();
 
         document.getElementById('toolCodeFix').classList.toggle('active', toolType === 'fix');
         document.getElementById('toolCodeAnalysis').classList.toggle('active', toolType === 'analysis');
@@ -667,6 +692,7 @@ class DevAssistant {
     openSyntaxLearn() {
         this.closeCodeTool();
         this.closeAlgorithmPanel();
+        this.closeErrorDecoder();
         document.getElementById('toolSyntaxLearn').classList.add('active');
         this.syntaxLearnPanel.classList.add('active');
         this.welcomeScreen.style.display = 'none';
@@ -756,6 +782,7 @@ class DevAssistant {
     openAlgorithmPanel() {
         this.closeCodeTool();
         this.closeSyntaxLearn();
+        this.closeErrorDecoder();
         document.getElementById('toolAlgorithm').classList.add('active');
         this.algorithmPanel.classList.add('active');
         this.welcomeScreen.style.display = 'none';
@@ -866,6 +893,122 @@ class DevAssistant {
         } finally {
             this.sendBtn.disabled = false;
             this.algorithmLearnBtn.disabled = false;
+            this.setStatus('ready', '就绪');
+            this.saveCurrentChat();
+        }
+    }
+
+    openErrorDecoder() {
+        this.closeCodeTool();
+        this.closeSyntaxLearn();
+        this.closeAlgorithmPanel();
+        document.getElementById('toolErrorDecoder').classList.add('active');
+        this.errorDecoderPanel.classList.add('active');
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+    }
+
+    closeErrorDecoder() {
+        this.errorDecoderPanel.classList.remove('active');
+        document.getElementById('toolErrorDecoder').classList.remove('active');
+    }
+
+    updateErrorCharCount() {
+        const count = this.errorInput.value.length;
+        document.getElementById('errorCharCount').textContent = `${count} 字符`;
+    }
+
+    async decodeError() {
+        const errorMessage = this.errorInput.value.trim();
+        const language = this.errorLanguage.value;
+
+        if (!errorMessage) {
+            alert('请粘贴错误信息');
+            return;
+        }
+
+        if (this.isTyping) {
+            alert('请等待当前输出完成');
+            return;
+        }
+
+        if (this.messages.length === 0) {
+            this.createNewChat(true);
+        }
+
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+
+        const languageLabels = {
+            'auto': '自动识别',
+            'java': 'Java',
+            'python': 'Python',
+            'javascript': 'JavaScript',
+            'cpp': 'C/C++',
+            'c': 'C',
+            'go': 'Go',
+            'rust': 'Rust',
+            'php': 'PHP',
+            'sql': 'SQL',
+            'shell': 'Shell',
+            'other': '其他'
+        };
+
+        const langLabel = languageLabels[language] || '自动识别';
+
+        const prompt = `请帮我分析以下${langLabel !== '自动识别' ? langLabel : ''}错误信息，并提供详细的解决方案：
+
+## 错误信息
+
+\`\`\`
+${errorMessage}
+\`\`\`
+
+请按以下格式进行分析：
+
+### 1. 错误类型识别
+- 识别这是什么类型的错误（编译错误、运行时错误、逻辑错误等）
+- 错误的严重程度
+
+### 2. 错误原因分析
+- 详细解释导致这个错误的根本原因
+- 分析错误发生的上下文环境
+- 如果是常见错误，说明其典型场景
+
+### 3. 解决方案
+- 提供具体的修复步骤
+- 给出修正后的代码示例（如果适用）
+- 说明修复的原理
+
+### 4. 预防措施
+- 如何避免类似错误再次发生
+- 最佳实践建议
+- 相关的调试技巧
+
+### 5. 相关资源
+- 官方文档链接（如果有）
+- 相关技术文章或教程推荐`;
+
+        this.messages.push({ role: 'user', content: prompt });
+        this.appendMessage('user', prompt);
+
+        this.sendBtn.disabled = true;
+        this.decodeErrorBtn.disabled = true;
+        this.setStatus('loading', '解读中...');
+
+        const aiMessageEl = this.appendMessage('assistant', '', true);
+
+        try {
+            await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
+        } catch (error) {
+            console.error('错误解读失败:', error);
+            this.updateAIMessage(aiMessageEl, `抱歉，错误解读失败：${error.message}。请稍后重试。`);
+            await this.waitForTypingComplete();
+            this.setStatus('error', '解读失败');
+        } finally {
+            this.sendBtn.disabled = false;
+            this.decodeErrorBtn.disabled = false;
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
         }
