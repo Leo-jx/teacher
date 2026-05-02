@@ -89,7 +89,7 @@ function getConfigValue(env, key) {
 
 async function searchWeb(query) {
     try {
-        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1&limit=3`;
+        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
         
         const response = await fetch(url, {
             headers: {
@@ -115,13 +115,21 @@ async function searchWeb(query) {
         
         if (data.RelatedTopics && data.RelatedTopics.length > 0) {
             searchResult += '\n【相关信息】\n';
-            for (let i = 0; i < Math.min(3, data.RelatedTopics.length); i++) {
-                const topic = data.RelatedTopics[i];
-                if (topic.Text) {
-                    searchResult += `- ${topic.Text}\n`;
-                    if (topic.FirstURL) {
-                        searchResult += `  链接: ${topic.FirstURL}\n`;
-                    }
+            const validTopics = data.RelatedTopics.filter(t => t.Text);
+            for (let i = 0; i < Math.min(5, validTopics.length); i++) {
+                const topic = validTopics[i];
+                searchResult += `${i + 1}. ${topic.Text}\n`;
+                if (topic.FirstURL) {
+                    searchResult += `   链接: ${topic.FirstURL}\n`;
+                }
+            }
+        }
+        
+        if (data.Infobox && data.Infobox.content) {
+            searchResult += '\n【详细信息】\n';
+            for (const item of data.Infobox.content.slice(0, 3)) {
+                if (item.label && item.value) {
+                    searchResult += `- ${item.label}: ${item.value}\n`;
                 }
             }
         }
