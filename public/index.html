@@ -43,6 +43,10 @@
                             <i class="fas fa-search-plus"></i>
                             <span>代码分析</span>
                         </div>
+                        <div class="tool-item" id="toolSyntaxLearn">
+                            <i class="fas fa-graduation-cap"></i>
+                            <span>语法学习</span>
+                        </div>
                     </div>
                 </div>
 
@@ -235,6 +239,61 @@
                     <button class="analyze-btn" id="analyzeBtn">
                         <i class="fas fa-play"></i>
                         <span id="analyzeBtnText">开始纠错</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="syntax-learn-panel" id="syntaxLearnPanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-graduation-cap"></i> 语法学习助手</h3>
+                    <button class="tool-panel-close" id="syntaxPanelClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="syntax-input-section">
+                        <div class="syntax-input-row">
+                            <div class="syntax-field">
+                                <label>选择编程语言</label>
+                                <select id="syntaxLanguage" class="syntax-lang-select">
+                                    <option value="java">Java</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="cpp">C++</option>
+                                    <option value="c">C</option>
+                                    <option value="go">Go</option>
+                                    <option value="rust">Rust</option>
+                                    <option value="typescript">TypeScript</option>
+                                    <option value="php">PHP</option>
+                                    <option value="sql">SQL</option>
+                                    <option value="html">HTML</option>
+                                    <option value="css">CSS</option>
+                                    <option value="vue">Vue</option>
+                                    <option value="shell">Shell</option>
+                                </select>
+                            </div>
+                            <div class="syntax-field syntax-keyword-field">
+                                <label>输入语法关键词</label>
+                                <input type="text" id="syntaxKeyword" class="syntax-keyword-input" placeholder="例如: if, for, class, async/await...">
+                            </div>
+                        </div>
+                        <div class="syntax-examples">
+                            <label>快速选择常见语法</label>
+                            <div class="syntax-quick-btns">
+                                <button class="syntax-quick-btn" data-keyword="if">if条件</button>
+                                <button class="syntax-quick-btn" data-keyword="for">for循环</button>
+                                <button class="syntax-quick-btn" data-keyword="while">while循环</button>
+                                <button class="syntax-quick-btn" data-keyword="function">函数</button>
+                                <button class="syntax-quick-btn" data-keyword="class">类</button>
+                                <button class="syntax-quick-btn" data-keyword="array">数组</button>
+                                <button class="syntax-quick-btn" data-keyword="map">Map/字典</button>
+                                <button class="syntax-quick-btn" data-keyword="async">异步</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="analyze-btn" id="syntaxLearnBtn">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>开始学习</span>
                     </button>
                 </div>
             </div>

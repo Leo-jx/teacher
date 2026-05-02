@@ -36,12 +36,18 @@ class DevAssistant {
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.toolCodeFix = document.getElementById('toolCodeFix');
         this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
+        this.toolSyntaxLearn = document.getElementById('toolSyntaxLearn');
         this.codeToolPanel = document.getElementById('codeToolPanel');
+        this.syntaxLearnPanel = document.getElementById('syntaxLearnPanel');
         this.toolPanelClose = document.getElementById('toolPanelClose');
+        this.syntaxPanelClose = document.getElementById('syntaxPanelClose');
         this.codeInput = document.getElementById('codeInput');
         this.codeFileInput = document.getElementById('codeFileInput');
         this.clearCodeBtn = document.getElementById('clearCodeBtn');
         this.analyzeBtn = document.getElementById('analyzeBtn');
+        this.syntaxLearnBtn = document.getElementById('syntaxLearnBtn');
+        this.syntaxLanguage = document.getElementById('syntaxLanguage');
+        this.syntaxKeyword = document.getElementById('syntaxKeyword');
     }
 
     bindEvents() {
@@ -86,7 +92,9 @@ class DevAssistant {
 
         this.toolCodeFix.addEventListener('click', () => this.openCodeTool('fix'));
         this.toolCodeAnalysis.addEventListener('click', () => this.openCodeTool('analysis'));
+        this.toolSyntaxLearn.addEventListener('click', () => this.openSyntaxLearn());
         this.toolPanelClose.addEventListener('click', () => this.closeCodeTool());
+        this.syntaxPanelClose.addEventListener('click', () => this.closeSyntaxLearn());
         this.codeFileInput.addEventListener('change', (e) => this.handleFileUpload(e));
         this.clearCodeBtn.addEventListener('click', () => {
             this.codeInput.value = '';
@@ -95,6 +103,13 @@ class DevAssistant {
         });
         this.codeInput.addEventListener('input', () => this.updateCodeCharCount());
         this.analyzeBtn.addEventListener('click', () => this.analyzeCode());
+        this.syntaxLearnBtn.addEventListener('click', () => this.learnSyntax());
+
+        document.querySelectorAll('.syntax-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.syntaxKeyword.value = btn.dataset.keyword;
+            });
+        });
     }
 
     setupMarked() {
@@ -620,6 +635,94 @@ class DevAssistant {
         } finally {
             this.sendBtn.disabled = false;
             document.getElementById('analyzeBtn').disabled = false;
+            this.setStatus('ready', '就绪');
+            this.saveCurrentChat();
+        }
+    }
+
+    openSyntaxLearn() {
+        this.closeCodeTool();
+        document.getElementById('toolSyntaxLearn').classList.add('active');
+        this.syntaxLearnPanel.classList.add('active');
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+    }
+
+    closeSyntaxLearn() {
+        this.syntaxLearnPanel.classList.remove('active');
+        document.getElementById('toolSyntaxLearn').classList.remove('active');
+    }
+
+    async learnSyntax() {
+        const language = this.syntaxLanguage.value;
+        const keyword = this.syntaxKeyword.value.trim();
+
+        if (!keyword) {
+            alert('请输入要学习的语法关键词');
+            return;
+        }
+
+        if (this.isTyping) {
+            alert('请等待当前输出完成');
+            return;
+        }
+
+        if (this.messages.length === 0) {
+            this.createNewChat(true);
+        }
+
+        this.welcomeScreen.style.display = 'none';
+        this.messagesDiv.style.display = 'flex';
+
+        const langLabel = this.syntaxLanguage.selectedOptions[0].text;
+
+        const prompt = `我想学习${langLabel}编程语言中的"${keyword}"语法。请详细讲解这个语法知识点，包括：
+
+## 语法学习：${langLabel} - ${keyword}
+
+### 1. 基本概念
+请详细解释"${keyword}"在${langLabel}中的基本概念和用途。
+
+### 2. 语法格式
+请给出"${keyword}"的标准语法格式和参数说明。
+
+### 3. 基础示例
+请提供2-3个由浅入深的基础示例代码，每个示例都要有详细的注释说明。
+
+### 4. 进阶用法
+请介绍"${keyword}"的进阶用法和高级特性（如果有的话）。
+
+### 5. 常见错误与注意事项
+请列出使用"${keyword}"时常见的错误和需要注意的事项。
+
+### 6. 最佳实践
+请给出使用"${keyword}"的最佳实践建议。
+
+### 7. 相关语法
+请介绍与"${keyword}"相关的其他语法或替代方案。
+
+请确保所有代码示例都是完整可运行的，并附有详细的注释说明。`;
+
+        this.messages.push({ role: 'user', content: prompt });
+        this.appendMessage('user', prompt);
+
+        this.sendBtn.disabled = true;
+        this.syntaxLearnBtn.disabled = true;
+        this.setStatus('loading', '学习中...');
+
+        const aiMessageEl = this.appendMessage('assistant', '', true);
+
+        try {
+            await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
+        } catch (error) {
+            console.error('语法学习失败:', error);
+            this.updateAIMessage(aiMessageEl, `抱歉，语法学习失败：${error.message}。请稍后重试。`);
+            await this.waitForTypingComplete();
+            this.setStatus('error', '学习失败');
+        } finally {
+            this.sendBtn.disabled = false;
+            this.syntaxLearnBtn.disabled = false;
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
         }
