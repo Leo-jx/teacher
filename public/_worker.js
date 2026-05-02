@@ -87,65 +87,11 @@ function getConfigValue(env, key) {
     return DEFAULT_CONFIG[key];
 }
 
-async function searchWeb(query) {
-    try {
-        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
-        
-        const response = await fetch(url, {
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            console.error('DuckDuckGo API请求失败:', response.status);
-            return null;
-        }
-        
-        const data = await response.json();
-        
-        let searchResult = '';
-        
-        if (data.AbstractText) {
-            searchResult += `【摘要】${data.AbstractText}\n`;
-            if (data.AbstractURL) {
-                searchResult += `来源: ${data.AbstractURL}\n`;
-            }
-        }
-        
-        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-            searchResult += '\n【相关信息】\n';
-            const validTopics = data.RelatedTopics.filter(t => t.Text);
-            for (let i = 0; i < Math.min(5, validTopics.length); i++) {
-                const topic = validTopics[i];
-                searchResult += `${i + 1}. ${topic.Text}\n`;
-                if (topic.FirstURL) {
-                    searchResult += `   链接: ${topic.FirstURL}\n`;
-                }
-            }
-        }
-        
-        if (data.Infobox && data.Infobox.content) {
-            searchResult += '\n【详细信息】\n';
-            for (const item of data.Infobox.content.slice(0, 3)) {
-                if (item.label && item.value) {
-                    searchResult += `- ${item.label}: ${item.value}\n`;
-                }
-            }
-        }
-        
-        return searchResult || null;
-    } catch (error) {
-        console.error('搜索失败:', error);
-        return null;
-    }
-}
-
 async function handleChatRequest(request, env) {
     try {
         console.log('收到API请求...');
         
-        const { messages, webSearch } = await request.json();
+        const { messages } = await request.json();
 
         if (!messages || !Array.isArray(messages)) {
             console.error('错误：messages参数无效');
@@ -175,27 +121,10 @@ async function handleChatRequest(request, env) {
             });
         }
 
-        let fullMessages = [
-            { role: 'system', content: SYSTEM_PROMPT }
+        const fullMessages = [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...messages
         ];
-
-        // 如果开启了联网搜索，先搜索
-        if (webSearch && messages.length > 0) {
-            const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-            if (lastUserMessage) {
-                console.log('联网搜索:', lastUserMessage.content);
-                const searchResult = await searchWeb(lastUserMessage.content);
-                
-                if (searchResult) {
-                    fullMessages.push({
-                        role: 'system',
-                        content: `以下是从网络搜索获取的相关信息，请结合这些信息回答用户问题：\n\n${searchResult}\n\n请基于以上搜索结果，结合你的知识，为用户提供准确、全面的回答。如果搜索结果与用户问题不相关，请忽略搜索结果，直接回答用户问题。`
-                    });
-                }
-            }
-        }
-
-        fullMessages = [...fullMessages, ...messages];
 
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
@@ -205,7 +134,7 @@ async function handleChatRequest(request, env) {
         const timeout = setTimeout(() => {
             console.error('请求超时');
             controller.abort();
-        }, 60000);
+        }, 25000);
 
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -244,17 +173,9 @@ async function handleChatRequest(request, env) {
         });
     } catch (error) {
         console.error('Chat API错误:', error);
-        let errorMessage = '服务器内部错误';
-        let errorDetail = error.message;
-        
-        if (error.name === 'AbortError') {
-            errorMessage = '请求超时';
-            errorDetail = 'AI服务响应时间过长，请稍后重试';
-        }
-        
         return new Response(JSON.stringify({
-            error: errorMessage,
-            detail: errorDetail
+            error: '服务器内部错误',
+            detail: error.message
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
@@ -274,115 +195,6 @@ async function handleConfigRequest(env) {
     }), {
         headers: { 'Content-Type': 'application/json' }
     });
-}
-
-async function handleCodeRequest(request, env, toolType) {
-    try {
-        console.log(`收到代码${toolType}请求...`);
-        
-        const { code, language } = await request.json();
-
-        if (!code) {
-            console.error('错误：code参数无效');
-            return new Response(JSON.stringify({ error: 'code参数无效' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
-        const API_URL = getConfigValue(env, 'API_URL');
-        const MODEL_ID = getConfigValue(env, 'MODEL_ID');
-        const API_KEY = getConfigValue(env, 'API_KEY');
-        const API_SECRET = getConfigValue(env, 'API_SECRET');
-
-        console.log('配置信息:', { API_URL, MODEL_ID, hasKey: !!API_KEY, hasSecret: !!API_SECRET });
-
-        if (!API_KEY || !API_SECRET) {
-            console.error('错误：API_KEY或API_SECRET未配置');
-            return new Response(JSON.stringify({
-                error: '配置错误',
-                detail: 'API_KEY或API_SECRET未配置'
-            }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
-        const langMap = {
-            'javascript': 'JavaScript', 'python': 'Python', 'java': 'Java',
-            'cpp': 'C++', 'c': 'C', 'sql': 'SQL', 'go': 'Go', 'rust': 'Rust',
-            'typescript': 'TypeScript', 'php': 'PHP', 'html': 'HTML',
-            'css': 'CSS', 'vue': 'Vue', 'shell': 'Shell'
-        };
-        const langLabel = langMap[language] || language;
-
-        let prompt;
-        if (toolType === 'fix') {
-            prompt = `请对以下${langLabel}代码进行全面的纠错分析，找出所有问题并给出修复方案：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码纠错报告\n\n### 发现的问题\n\n对每个问题，请提供：\n1. **错误位置**：精确到行号和具体代码段\n2. **错误类型**：语法错误/逻辑错误/性能问题/最佳实践违背\n3. **错误原因**：详细解释为什么这是一个错误\n4. **修改建议**：给出具体的修改后代码\n5. **修改依据**：说明修改的技术原理\n\n### 修改后的完整代码\n\n请给出修复后的完整代码。`;
-        } else {
-            prompt = `请对以下${langLabel}代码进行深入的结构和逻辑分析：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码分析报告\n\n### 1. 整体功能概述\n\n简要描述代码的整体功能和用途。\n\n### 2. 主要模块/函数说明\n\n列出代码中的主要模块、类和函数，说明各自的作用。\n\n### 3. 关键执行流程\n\n逐步分解代码的关键执行流程。\n\n### 4. 数据流转路径\n\n分析数据在代码中的流转路径和变换过程。\n\n### 5. 核心算法/逻辑说明\n\n解释代码中使用的核心算法或关键逻辑。\n\n### 6. 代码质量评估\n\n评估代码的可读性、可维护性和性能表现，给出改进建议。`;
-        }
-
-        const fullMessages = [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: prompt }
-        ];
-
-        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
-
-        console.log('准备调用AI API...');
-
-        const controller = new AbortController();
-        const timeout = setTimeout(() => {
-            console.error('请求超时');
-            controller.abort();
-        }, 30000);
-
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authHeader
-            },
-            body: JSON.stringify({
-                model: MODEL_ID,
-                messages: fullMessages,
-                stream: false,
-                temperature: 0.7,
-                max_tokens: 2048
-            }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('AI API请求失败:', response.status, errorText);
-            return new Response(JSON.stringify({
-                error: `API请求失败: ${response.status}`,
-                detail: errorText
-            }), {
-                status: response.status,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
-        const data = await response.json();
-        console.log('AI API响应成功');
-        return new Response(JSON.stringify(data), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-    } catch (error) {
-        console.error(`代码${toolType} API错误:`, error);
-        return new Response(JSON.stringify({
-            error: '服务器内部错误',
-            detail: error.message
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
 }
 
 export default {
@@ -407,14 +219,6 @@ export default {
 
         if (path === '/api/config' && request.method === 'GET') {
             return handleConfigRequest(env);
-        }
-
-        if (path === '/api/code-fix' && request.method === 'POST') {
-            return handleCodeRequest(request, env, 'fix');
-        }
-
-        if (path === '/api/code-analyze' && request.method === 'POST') {
-            return handleCodeRequest(request, env, 'analyze');
         }
 
         // 对于其他请求，返回静态文件

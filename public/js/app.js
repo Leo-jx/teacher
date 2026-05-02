@@ -4,8 +4,6 @@ class DevAssistant {
         this.chatHistory = [];
         this.currentChatId = null;
         this.currentToolType = null;
-        this.isTyping = false;
-        this.typingSpeed = 15;
 
         this.init();
     }
@@ -36,32 +34,12 @@ class DevAssistant {
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.toolCodeFix = document.getElementById('toolCodeFix');
         this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
-        this.toolSyntaxLearn = document.getElementById('toolSyntaxLearn');
         this.codeToolPanel = document.getElementById('codeToolPanel');
-        this.syntaxLearnPanel = document.getElementById('syntaxLearnPanel');
         this.toolPanelClose = document.getElementById('toolPanelClose');
-        this.syntaxPanelClose = document.getElementById('syntaxPanelClose');
         this.codeInput = document.getElementById('codeInput');
         this.codeFileInput = document.getElementById('codeFileInput');
         this.clearCodeBtn = document.getElementById('clearCodeBtn');
         this.analyzeBtn = document.getElementById('analyzeBtn');
-        this.syntaxLearnBtn = document.getElementById('syntaxLearnBtn');
-        this.syntaxLanguage = document.getElementById('syntaxLanguage');
-        this.syntaxKeyword = document.getElementById('syntaxKeyword');
-        this.toolAlgorithm = document.getElementById('toolAlgorithm');
-        this.algorithmPanel = document.getElementById('algorithmPanel');
-        this.algorithmPanelClose = document.getElementById('algorithmPanelClose');
-        this.algorithmLearnBtn = document.getElementById('algorithmLearnBtn');
-        this.algorithmType = document.getElementById('algorithmType');
-        this.algorithmName = document.getElementById('algorithmName');
-        this.webSearchToggle = document.getElementById('webSearchToggle');
-        this.toolErrorDecoder = document.getElementById('toolErrorDecoder');
-        this.errorDecoderPanel = document.getElementById('errorDecoderPanel');
-        this.errorDecoderPanelClose = document.getElementById('errorDecoderPanelClose');
-        this.errorInput = document.getElementById('errorInput');
-        this.errorLanguage = document.getElementById('errorLanguage');
-        this.clearErrorBtn = document.getElementById('clearErrorBtn');
-        this.decodeErrorBtn = document.getElementById('decodeErrorBtn');
     }
 
     bindEvents() {
@@ -106,9 +84,7 @@ class DevAssistant {
 
         this.toolCodeFix.addEventListener('click', () => this.openCodeTool('fix'));
         this.toolCodeAnalysis.addEventListener('click', () => this.openCodeTool('analysis'));
-        this.toolSyntaxLearn.addEventListener('click', () => this.openSyntaxLearn());
         this.toolPanelClose.addEventListener('click', () => this.closeCodeTool());
-        this.syntaxPanelClose.addEventListener('click', () => this.closeSyntaxLearn());
         this.codeFileInput.addEventListener('change', (e) => this.handleFileUpload(e));
         this.clearCodeBtn.addEventListener('click', () => {
             this.codeInput.value = '';
@@ -117,41 +93,6 @@ class DevAssistant {
         });
         this.codeInput.addEventListener('input', () => this.updateCodeCharCount());
         this.analyzeBtn.addEventListener('click', () => this.analyzeCode());
-        this.syntaxLearnBtn.addEventListener('click', () => this.learnSyntax());
-
-        document.querySelectorAll('.syntax-quick-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.syntaxKeyword.value = btn.dataset.keyword;
-            });
-        });
-
-        this.toolAlgorithm.addEventListener('click', () => this.openAlgorithmPanel());
-        this.algorithmPanelClose.addEventListener('click', () => this.closeAlgorithmPanel());
-        this.algorithmLearnBtn.addEventListener('click', () => this.learnAlgorithm());
-
-        document.querySelectorAll('.algorithm-quick-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.algorithmType.value = btn.dataset.type;
-                this.algorithmName.value = btn.dataset.name;
-            });
-        });
-
-        this.toolErrorDecoder.addEventListener('click', () => this.openErrorDecoder());
-        this.errorDecoderPanelClose.addEventListener('click', () => this.closeErrorDecoder());
-        this.clearErrorBtn.addEventListener('click', () => {
-            this.errorInput.value = '';
-            this.updateErrorCharCount();
-        });
-        this.errorInput.addEventListener('input', () => this.updateErrorCharCount());
-        this.decodeErrorBtn.addEventListener('click', () => this.decodeError());
-
-        document.querySelectorAll('.error-quick-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const errorType = btn.dataset.error;
-                this.errorInput.value = `${errorType}\n\n请分析这个错误的原因和解决方案。`;
-                this.updateErrorCharCount();
-            });
-        });
     }
 
     setupMarked() {
@@ -212,7 +153,7 @@ class DevAssistant {
 
     async sendMessage() {
         const content = this.userInput.value.trim();
-        if (!content || this.isTyping) return;
+        if (!content) return;
         if (content.length > 2000) {
             this.setStatus('error', '消息过长，请控制在2000字以内');
             return;
@@ -238,11 +179,9 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
         } catch (error) {
             console.error('发送消息失败:', error);
             this.updateAIMessage(aiMessageEl, `抱歉，发生了错误：${error.message}。请稍后重试。`);
-            await this.waitForTypingComplete();
             this.setStatus('error', '请求失败');
         } finally {
             this.sendBtn.disabled = false;
@@ -251,41 +190,24 @@ class DevAssistant {
         }
     }
 
-    waitForTypingComplete() {
-        return new Promise(resolve => {
-            const check = () => {
-                if (!this.isTyping) {
-                    resolve();
-                } else {
-                    setTimeout(check, 100);
-                }
-            };
-            check();
-        });
-    }
-
     async sendViaHTTP(aiMessageEl) {
         const apiMessages = this.messages.map(m => ({
             role: m.role,
             content: m.content
         }));
 
-        const webSearchEnabled = this.webSearchToggle && this.webSearchToggle.checked;
-
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: apiMessages,
-                stream: false,
-                webSearch: webSearchEnabled
+                stream: false
             })
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const errorMsg = errorData.detail || errorData.error || `HTTP ${response.status}`;
-            throw new Error(errorMsg);
+            throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
         const data = await response.json();
@@ -337,41 +259,8 @@ class DevAssistant {
     }
 
     updateAIMessage(contentEl, content) {
-        this.typeWriter(contentEl, content);
-    }
-
-    typeWriter(contentEl, content) {
-        this.isTyping = true;
-        let index = 0;
-        let currentText = '';
-        
-        const type = () => {
-            if (index < content.length) {
-                const char = content[index];
-                currentText += char;
-                index++;
-                
-                contentEl.innerHTML = this.renderMarkdown(currentText);
-                this.scrollToBottom();
-                
-                let delay = this.typingSpeed;
-                if (char === '\n') {
-                    delay = this.typingSpeed * 2;
-                } else if (['。', '！', '？', '.', '!', '?'].includes(char)) {
-                    delay = this.typingSpeed * 3;
-                } else if (['，', '、', ',', ';', '；'].includes(char)) {
-                    delay = this.typingSpeed * 2;
-                }
-                
-                setTimeout(type, delay);
-            } else {
-                this.isTyping = false;
-                contentEl.innerHTML = this.renderMarkdown(content);
-                this.scrollToBottom();
-            }
-        };
-        
-        type();
+        contentEl.innerHTML = this.renderMarkdown(content);
+        this.scrollToBottom();
     }
 
     renderMarkdown(text) {
@@ -557,10 +446,6 @@ class DevAssistant {
         const btnText = document.getElementById('analyzeBtnText');
         const codeInput = document.getElementById('codeInput');
 
-        this.closeSyntaxLearn();
-        this.closeAlgorithmPanel();
-        this.closeErrorDecoder();
-
         document.getElementById('toolCodeFix').classList.toggle('active', toolType === 'fix');
         document.getElementById('toolCodeAnalysis').classList.toggle('active', toolType === 'analysis');
 
@@ -643,11 +528,6 @@ class DevAssistant {
             return;
         }
 
-        if (this.isTyping) {
-            alert('请等待当前输出完成');
-            return;
-        }
-
         if (this.messages.length === 0) {
             this.createNewChat(true);
         }
@@ -675,340 +555,13 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
         } catch (error) {
             console.error('代码分析失败:', error);
             this.updateAIMessage(aiMessageEl, `抱歉，代码分析失败：${error.message}。请稍后重试。`);
-            await this.waitForTypingComplete();
             this.setStatus('error', '分析失败');
         } finally {
             this.sendBtn.disabled = false;
             document.getElementById('analyzeBtn').disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
-        }
-    }
-
-    openSyntaxLearn() {
-        this.closeCodeTool();
-        this.closeAlgorithmPanel();
-        this.closeErrorDecoder();
-        document.getElementById('toolSyntaxLearn').classList.add('active');
-        this.syntaxLearnPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-    }
-
-    closeSyntaxLearn() {
-        this.syntaxLearnPanel.classList.remove('active');
-        document.getElementById('toolSyntaxLearn').classList.remove('active');
-    }
-
-    async learnSyntax() {
-        const language = this.syntaxLanguage.value;
-        const keyword = this.syntaxKeyword.value.trim();
-
-        if (!keyword) {
-            alert('请输入要学习的语法关键词');
-            return;
-        }
-
-        if (this.isTyping) {
-            alert('请等待当前输出完成');
-            return;
-        }
-
-        if (this.messages.length === 0) {
-            this.createNewChat(true);
-        }
-
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        const langLabel = this.syntaxLanguage.selectedOptions[0].text;
-
-        const prompt = `我想学习${langLabel}编程语言中的"${keyword}"语法。请详细讲解这个语法知识点，包括：
-
-## 语法学习：${langLabel} - ${keyword}
-
-### 1. 基本概念
-请详细解释"${keyword}"在${langLabel}中的基本概念和用途。
-
-### 2. 语法格式
-请给出"${keyword}"的标准语法格式和参数说明。
-
-### 3. 基础示例
-请提供2-3个由浅入深的基础示例代码，每个示例都要有详细的注释说明。
-
-### 4. 进阶用法
-请介绍"${keyword}"的进阶用法和高级特性（如果有的话）。
-
-### 5. 常见错误与注意事项
-请列出使用"${keyword}"时常见的错误和需要注意的事项。
-
-### 6. 最佳实践
-请给出使用"${keyword}"的最佳实践建议。
-
-### 7. 相关语法
-请介绍与"${keyword}"相关的其他语法或替代方案。
-
-请确保所有代码示例都是完整可运行的，并附有详细的注释说明。`;
-
-        this.messages.push({ role: 'user', content: prompt });
-        this.appendMessage('user', prompt);
-
-        this.sendBtn.disabled = true;
-        this.syntaxLearnBtn.disabled = true;
-        this.setStatus('loading', '学习中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
-
-        try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
-        } catch (error) {
-            console.error('语法学习失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，语法学习失败：${error.message}。请稍后重试。`);
-            await this.waitForTypingComplete();
-            this.setStatus('error', '学习失败');
-        } finally {
-            this.sendBtn.disabled = false;
-            this.syntaxLearnBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
-        }
-    }
-
-    openAlgorithmPanel() {
-        this.closeCodeTool();
-        this.closeSyntaxLearn();
-        this.closeErrorDecoder();
-        document.getElementById('toolAlgorithm').classList.add('active');
-        this.algorithmPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-    }
-
-    closeAlgorithmPanel() {
-        this.algorithmPanel.classList.remove('active');
-        document.getElementById('toolAlgorithm').classList.remove('active');
-    }
-
-    async learnAlgorithm() {
-        const algorithmType = this.algorithmType.value;
-        const algorithmName = this.algorithmName.value.trim();
-
-        if (!algorithmName) {
-            alert('请输入要学习的算法名称');
-            return;
-        }
-
-        if (this.isTyping) {
-            alert('请等待当前输出完成');
-            return;
-        }
-
-        if (this.messages.length === 0) {
-            this.createNewChat(true);
-        }
-
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        const typeLabels = {
-            'sorting': '排序算法',
-            'searching': '查找算法',
-            'tree': '树结构',
-            'graph': '图算法',
-            'dp': '动态规划',
-            'greedy': '贪心算法',
-            'divide': '分治算法',
-            'backtracking': '回溯算法',
-            'other': '其他算法'
-        };
-
-        const typeLabel = typeLabels[algorithmType] || '算法';
-
-        const prompt = `请详细讲解${typeLabel}中的"${algorithmName}"，要求包含以下内容：
-
-## 算法讲解：${algorithmName}
-
-### 1. 算法简介
-- 算法的基本概念和定义
-- 算法的历史背景和发明者（如果有）
-- 算法的主要应用场景
-
-### 2. 核心思想
-- 用通俗易懂的语言解释算法的核心思想
-- 算法的关键步骤和流程
-
-### 3. 分步骤可视化讲解
-请用文字描述的方式，逐步展示算法的执行过程：
-- 步骤1：初始状态说明
-- 步骤2：第一步操作及结果
-- 步骤3：后续操作及变化
-- ...继续直到算法完成
-- 每一步都要清晰说明当前状态和变化
-
-### 4. 代码实现
-请提供以下语言的实现（至少提供Java和Python）：
-- Java实现
-- Python实现
-- 代码中要有详细的注释
-
-### 5. 复杂度分析
-- **时间复杂度**：最好情况、最坏情况、平均情况
-- **空间复杂度**：详细说明空间消耗
-- 请给出数学推导或解释
-
-### 6. 算法优化
-- 常见的优化方法
-- 变体算法介绍
-
-### 7. 实际应用
-- 该算法在实际开发中的应用场景
-- 相关的面试题或经典题目
-
-### 8. 注意事项
-- 使用该算法时需要注意的问题
-- 常见的错误和陷阱`;
-
-        this.messages.push({ role: 'user', content: prompt });
-        this.appendMessage('user', prompt);
-
-        this.sendBtn.disabled = true;
-        this.algorithmLearnBtn.disabled = true;
-        this.setStatus('loading', '讲解中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
-
-        try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
-        } catch (error) {
-            console.error('算法讲解失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，算法讲解失败：${error.message}。请稍后重试。`);
-            await this.waitForTypingComplete();
-            this.setStatus('error', '讲解失败');
-        } finally {
-            this.sendBtn.disabled = false;
-            this.algorithmLearnBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
-        }
-    }
-
-    openErrorDecoder() {
-        this.closeCodeTool();
-        this.closeSyntaxLearn();
-        this.closeAlgorithmPanel();
-        document.getElementById('toolErrorDecoder').classList.add('active');
-        this.errorDecoderPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-    }
-
-    closeErrorDecoder() {
-        this.errorDecoderPanel.classList.remove('active');
-        document.getElementById('toolErrorDecoder').classList.remove('active');
-    }
-
-    updateErrorCharCount() {
-        const count = this.errorInput.value.length;
-        document.getElementById('errorCharCount').textContent = `${count} 字符`;
-    }
-
-    async decodeError() {
-        const errorMessage = this.errorInput.value.trim();
-        const language = this.errorLanguage.value;
-
-        if (!errorMessage) {
-            alert('请粘贴错误信息');
-            return;
-        }
-
-        if (this.isTyping) {
-            alert('请等待当前输出完成');
-            return;
-        }
-
-        if (this.messages.length === 0) {
-            this.createNewChat(true);
-        }
-
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        const languageLabels = {
-            'auto': '自动识别',
-            'java': 'Java',
-            'python': 'Python',
-            'javascript': 'JavaScript',
-            'cpp': 'C/C++',
-            'c': 'C',
-            'go': 'Go',
-            'rust': 'Rust',
-            'php': 'PHP',
-            'sql': 'SQL',
-            'shell': 'Shell',
-            'other': '其他'
-        };
-
-        const langLabel = languageLabels[language] || '自动识别';
-
-        const prompt = `请帮我分析以下${langLabel !== '自动识别' ? langLabel : ''}错误信息，并提供详细的解决方案：
-
-## 错误信息
-
-\`\`\`
-${errorMessage}
-\`\`\`
-
-请按以下格式进行分析：
-
-### 1. 错误类型识别
-- 识别这是什么类型的错误（编译错误、运行时错误、逻辑错误等）
-- 错误的严重程度
-
-### 2. 错误原因分析
-- 详细解释导致这个错误的根本原因
-- 分析错误发生的上下文环境
-- 如果是常见错误，说明其典型场景
-
-### 3. 解决方案
-- 提供具体的修复步骤
-- 给出修正后的代码示例（如果适用）
-- 说明修复的原理
-
-### 4. 预防措施
-- 如何避免类似错误再次发生
-- 最佳实践建议
-- 相关的调试技巧
-
-### 5. 相关资源
-- 官方文档链接（如果有）
-- 相关技术文章或教程推荐`;
-
-        this.messages.push({ role: 'user', content: prompt });
-        this.appendMessage('user', prompt);
-
-        this.sendBtn.disabled = true;
-        this.decodeErrorBtn.disabled = true;
-        this.setStatus('loading', '解读中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
-
-        try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
-        } catch (error) {
-            console.error('错误解读失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，错误解读失败：${error.message}。请稍后重试。`);
-            await this.waitForTypingComplete();
-            this.setStatus('error', '解读失败');
-        } finally {
-            this.sendBtn.disabled = false;
-            this.decodeErrorBtn.disabled = false;
             this.setStatus('ready', '就绪');
             this.saveCurrentChat();
         }
