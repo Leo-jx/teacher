@@ -4,6 +4,9 @@ class DevAssistant {
         this.chatHistory = [];
         this.currentChatId = null;
         this.currentToolType = null;
+        this.isTyping = false;
+        this.typingQueue = [];
+        this.typingSpeed = 15;
 
         this.init();
     }
@@ -237,9 +240,10 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
         } catch (error) {
             console.error('发送消息失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，发生了错误：${error.message}。请稍后重试。`);
+            await this.typeWriterEffect(aiMessageEl, `抱歉，发生了错误：${error.message}。请稍后重试。`);
             this.setStatus('error', '请求失败');
         } finally {
             this.sendBtn.disabled = false;
@@ -284,7 +288,7 @@ class DevAssistant {
         }
 
         this.messages.push({ role: 'assistant', content: aiContent });
-        this.updateAIMessage(aiMessageEl, aiContent);
+        await this.typeWriterEffect(aiMessageEl, aiContent);
     }
 
     appendMessage(role, content, isLoading = false) {
@@ -319,6 +323,59 @@ class DevAssistant {
     updateAIMessage(contentEl, content) {
         contentEl.innerHTML = this.renderMarkdown(content);
         this.scrollToBottom();
+    }
+
+    async typeWriterEffect(contentEl, fullContent) {
+        this.isTyping = true;
+        let displayedContent = '';
+        let charIndex = 0;
+        
+        contentEl.classList.add('typing');
+        
+        const typeNextChunk = () => {
+            return new Promise(resolve => {
+                const typeChunk = () => {
+                    if (charIndex >= fullContent.length) {
+                        this.isTyping = false;
+                        contentEl.classList.remove('typing');
+                        resolve();
+                        return;
+                    }
+                    
+                    const chunkSize = Math.min(3, fullContent.length - charIndex);
+                    displayedContent += fullContent.substring(charIndex, charIndex + chunkSize);
+                    charIndex += chunkSize;
+                    
+                    contentEl.innerHTML = this.renderMarkdown(displayedContent);
+                    this.scrollToBottom();
+                    
+                    if (charIndex < fullContent.length) {
+                        setTimeout(typeChunk, this.typingSpeed);
+                    } else {
+                        this.isTyping = false;
+                        contentEl.classList.remove('typing');
+                        resolve();
+                    }
+                };
+                
+                typeChunk();
+            });
+        };
+        
+        await typeNextChunk();
+    }
+
+    waitForTypingComplete() {
+        return new Promise(resolve => {
+            const checkTyping = () => {
+                if (!this.isTyping) {
+                    resolve();
+                } else {
+                    setTimeout(checkTyping, 100);
+                }
+            };
+            checkTyping();
+        });
     }
 
     renderMarkdown(text) {
@@ -617,9 +674,10 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
         } catch (error) {
             console.error('代码分析失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，代码分析失败：${error.message}。请稍后重试。`);
+            await this.typeWriterEffect(aiMessageEl, `抱歉，代码分析失败：${error.message}。请稍后重试。`);
             this.setStatus('error', '分析失败');
         } finally {
             this.sendBtn.disabled = false;
@@ -703,9 +761,10 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
         } catch (error) {
             console.error('语法讲解失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，语法讲解失败：${error.message}。请稍后重试。`);
+            await this.typeWriterEffect(aiMessageEl, `抱歉，语法讲解失败：${error.message}。请稍后重试。`);
             this.setStatus('error', '讲解失败');
         } finally {
             this.sendBtn.disabled = false;
@@ -798,9 +857,10 @@ class DevAssistant {
 
         try {
             await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
         } catch (error) {
             console.error('算法讲解失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，算法讲解失败：${error.message}。请稍后重试。`);
+            await this.typeWriterEffect(aiMessageEl, `抱歉，算法讲解失败：${error.message}。请稍后重试。`);
             this.setStatus('error', '讲解失败');
         } finally {
             this.sendBtn.disabled = false;
@@ -885,9 +945,10 @@ ${errorMessage}
 
         try {
             await this.sendViaHTTP(aiMessageEl);
+            await this.waitForTypingComplete();
         } catch (error) {
             console.error('错误解读失败:', error);
-            this.updateAIMessage(aiMessageEl, `抱歉，错误解读失败：${error.message}。请稍后重试。`);
+            await this.typeWriterEffect(aiMessageEl, `抱歉，错误解读失败：${error.message}。请稍后重试。`);
             this.setStatus('error', '解读失败');
         } finally {
             this.sendBtn.disabled = false;

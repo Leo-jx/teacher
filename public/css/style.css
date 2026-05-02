@@ -504,6 +504,23 @@ button, a, input, select, textarea {
     margin-bottom: 0;
 }
 
+.message.assistant .message-content.typing::after {
+    content: '▋';
+    animation: blink 0.8s infinite;
+    color: var(--primary);
+    font-weight: bold;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
+}
+
 .message-content strong {
     color: var(--primary-light);
 }
