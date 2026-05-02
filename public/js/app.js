@@ -54,6 +54,7 @@ class DevAssistant {
         this.algorithmLearnBtn = document.getElementById('algorithmLearnBtn');
         this.algorithmType = document.getElementById('algorithmType');
         this.algorithmName = document.getElementById('algorithmName');
+        this.webSearchToggle = document.getElementById('webSearchToggle');
     }
 
     bindEvents() {
@@ -245,12 +246,15 @@ class DevAssistant {
             content: m.content
         }));
 
+        const webSearchEnabled = this.webSearchToggle && this.webSearchToggle.checked;
+
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 messages: apiMessages,
-                stream: false
+                stream: false,
+                webSearch: webSearchEnabled
             })
         });
 

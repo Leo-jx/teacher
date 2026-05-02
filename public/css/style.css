@@ -632,6 +632,68 @@ button, a, input, select, textarea {
     border-top: 1px solid var(--border);
 }
 
+.input-options {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.web-search-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.web-search-toggle input {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: var(--transition);
+}
+
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.web-search-toggle input:checked + .toggle-slider {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.web-search-toggle input:checked + .toggle-slider::after {
+    left: 18px;
+    background: white;
+}
+
+.web-search-toggle i {
+    font-size: 14px;
+}
+
+.web-search-toggle input:checked ~ i,
+.web-search-toggle input:checked ~ span:last-child {
+    color: var(--primary-light);
+}
+
 .input-wrapper {
     display: flex;
     align-items: flex-end;

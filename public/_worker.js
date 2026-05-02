@@ -87,11 +87,57 @@ function getConfigValue(env, key) {
     return DEFAULT_CONFIG[key];
 }
 
+async function searchWeb(query) {
+    try {
+        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1&limit=3`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('DuckDuckGo API请求失败:', response.status);
+            return null;
+        }
+        
+        const data = await response.json();
+        
+        let searchResult = '';
+        
+        if (data.AbstractText) {
+            searchResult += `【摘要】${data.AbstractText}\n`;
+            if (data.AbstractURL) {
+                searchResult += `来源: ${data.AbstractURL}\n`;
+            }
+        }
+        
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+            searchResult += '\n【相关信息】\n';
+            for (let i = 0; i < Math.min(3, data.RelatedTopics.length); i++) {
+                const topic = data.RelatedTopics[i];
+                if (topic.Text) {
+                    searchResult += `- ${topic.Text}\n`;
+                    if (topic.FirstURL) {
+                        searchResult += `  链接: ${topic.FirstURL}\n`;
+                    }
+                }
+            }
+        }
+        
+        return searchResult || null;
+    } catch (error) {
+        console.error('搜索失败:', error);
+        return null;
+    }
+}
+
 async function handleChatRequest(request, env) {
     try {
         console.log('收到API请求...');
         
-        const { messages } = await request.json();
+        const { messages, webSearch } = await request.json();
 
         if (!messages || !Array.isArray(messages)) {
             console.error('错误：messages参数无效');
@@ -121,10 +167,27 @@ async function handleChatRequest(request, env) {
             });
         }
 
-        const fullMessages = [
-            { role: 'system', content: SYSTEM_PROMPT },
-            ...messages
+        let fullMessages = [
+            { role: 'system', content: SYSTEM_PROMPT }
         ];
+
+        // 如果开启了联网搜索，先搜索
+        if (webSearch && messages.length > 0) {
+            const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+            if (lastUserMessage) {
+                console.log('联网搜索:', lastUserMessage.content);
+                const searchResult = await searchWeb(lastUserMessage.content);
+                
+                if (searchResult) {
+                    fullMessages.push({
+                        role: 'system',
+                        content: `以下是从网络搜索获取的相关信息，请结合这些信息回答用户问题：\n\n${searchResult}\n\n请基于以上搜索结果，结合你的知识，为用户提供准确、全面的回答。如果搜索结果与用户问题不相关，请忽略搜索结果，直接回答用户问题。`
+                    });
+                }
+            }
+        }
+
+        fullMessages = [...fullMessages, ...messages];
 
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
