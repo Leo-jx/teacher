@@ -3,7 +3,7 @@ const DEFAULT_CONFIG = {
     MODEL_ID: 'xop35qwen2b',
     API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
     API_SECRET: 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw',
-    JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production'
+    JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production-change-very-long-key'
 };
 
 const SYSTEM_PROMPT = `你是"程序员AI辅助助手小智"，一位全栈技术专家，专门为程序员提供编程与技术问题的专业解答。你的名字叫"小智"，在回答问题时可以自称"小智"。你的核心职责是回答以下技术领域的问题：
@@ -83,12 +83,28 @@ function getConfigValue(env, key) {
     return DEFAULT_CONFIG[key];
 }
 
-async function hashPassword(password) {
+async function generateSalt() {
+    const saltBuffer = new Uint8Array(16);
+    crypto.getRandomValues(saltBuffer);
+    return Array.from(saltBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashPassword(password, salt) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(password + getConfigValue({}, 'JWT_SECRET'));
+    const data = encoder.encode(salt + password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return salt + ':' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyPassword(password, storedHash) {
+    const [salt, hash] = storedHash.split(':');
+    const encoder = new TextEncoder();
+    const data = encoder.encode(salt + password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const computedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return computedHash === hash;
 }
 
 function base64UrlEncode(str) {
@@ -145,28 +161,56 @@ const corsHeaders = {
     'Content-Type': 'application/json'
 };
 
+function isValidUsername(username) {
+    const regex = /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/;
+    return regex.test(username);
+}
+
+function isValidEmail(email) {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+}
+
+function sanitizeInput(input) {
+    if (typeof input !== 'string') return '';
+    return input.trim().substring(0, 200);
+}
+
 async function handleRegister(request, env) {
     try {
         const { username, email, password } = await request.json();
+        
         if (!username || !email || !password) {
             return new Response(JSON.stringify({ error: '请填写所有必填字段' }), { status: 400, headers: corsHeaders });
         }
-        if (username.length < 2 || username.length > 20) {
-            return new Response(JSON.stringify({ error: '用户名长度需在2-20个字符之间' }), { status: 400, headers: corsHeaders });
+        
+        const cleanUsername = sanitizeInput(username);
+        const cleanEmail = sanitizeInput(email);
+        
+        if (!isValidUsername(cleanUsername)) {
+            return new Response(JSON.stringify({ error: '用户名长度需在2-20个字符之间，只能包含字母、数字、下划线和中文' }), { status: 400, headers: corsHeaders });
         }
-        if (password.length < 6) {
-            return new Response(JSON.stringify({ error: '密码长度不能少于6个字符' }), { status: 400, headers: corsHeaders });
+        
+        if (!isValidEmail(cleanEmail)) {
+            return new Response(JSON.stringify({ error: '请输入有效的邮箱地址' }), { status: 400, headers: corsHeaders });
         }
-        const passwordHash = await hashPassword(password);
+        
+        if (password.length < 8) {
+            return new Response(JSON.stringify({ error: '密码长度不能少于8个字符' }), { status: 400, headers: corsHeaders });
+        }
+        
+        const salt = await generateSalt();
+        const passwordHash = await hashPassword(password, salt);
+        
         if (env.DB) {
             try {
-                const result = await env.DB.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)').bind(username, email, passwordHash).run();
+                const result = await env.DB.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)').bind(cleanUsername, cleanEmail, passwordHash).run();
                 if (!result.success) {
                     return new Response(JSON.stringify({ error: '用户名或邮箱已被注册' }), { status: 400, headers: corsHeaders });
                 }
                 const userId = result.meta.last_row_id;
-                const token = await createJWT({ userId, username, exp: Math.floor(Date.now() / 1000) + 86400 * 7 }, getConfigValue(env, 'JWT_SECRET'));
-                return new Response(JSON.stringify({ success: true, token, username, userId }), { headers: corsHeaders });
+                const token = await createJWT({ userId, username: cleanUsername, exp: Math.floor(Date.now() / 1000) + 86400 * 7 }, getConfigValue(env, 'JWT_SECRET'));
+                return new Response(JSON.stringify({ success: true, token, username: cleanUsername, userId }), { headers: corsHeaders });
             } catch (dbError) {
                 if (dbError.message && dbError.message.includes('UNIQUE')) {
                     return new Response(JSON.stringify({ error: '用户名或邮箱已被注册' }), { status: 400, headers: corsHeaders });
@@ -174,8 +218,8 @@ async function handleRegister(request, env) {
                 throw dbError;
             }
         } else {
-            const token = await createJWT({ userId: 1, username, exp: Math.floor(Date.now() / 1000) + 86400 * 7 }, getConfigValue(env, 'JWT_SECRET'));
-            return new Response(JSON.stringify({ success: true, token, username, userId: 1 }), { headers: corsHeaders });
+            const token = await createJWT({ userId: 1, username: cleanUsername, exp: Math.floor(Date.now() / 1000) + 86400 * 7 }, getConfigValue(env, 'JWT_SECRET'));
+            return new Response(JSON.stringify({ success: true, token, username: cleanUsername, userId: 1 }), { headers: corsHeaders });
         }
     } catch (error) {
         console.error('注册错误:', error);
@@ -186,21 +230,31 @@ async function handleRegister(request, env) {
 async function handleLogin(request, env) {
     try {
         const { username, password } = await request.json();
+        
         if (!username || !password) {
             return new Response(JSON.stringify({ error: '请输入用户名和密码' }), { status: 400, headers: corsHeaders });
         }
-        const passwordHash = await hashPassword(password);
+        
+        const cleanUsername = sanitizeInput(username);
+        
         if (env.DB) {
-            const result = await env.DB.prepare('SELECT id, username FROM users WHERE (username = ? OR email = ?) AND password_hash = ?').bind(username, username, passwordHash).first();
+            const result = await env.DB.prepare('SELECT id, username, password_hash FROM users WHERE username = ? OR email = ?').bind(cleanUsername, cleanUsername).first();
+            
             if (!result) {
                 return new Response(JSON.stringify({ error: '用户名或密码错误' }), { status: 401, headers: corsHeaders });
             }
+            
+            const isValid = await verifyPassword(password, result.password_hash);
+            if (!isValid) {
+                return new Response(JSON.stringify({ error: '用户名或密码错误' }), { status: 401, headers: corsHeaders });
+            }
+            
             await env.DB.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').bind(result.id).run();
             const token = await createJWT({ userId: result.id, username: result.username, exp: Math.floor(Date.now() / 1000) + 86400 * 7 }, getConfigValue(env, 'JWT_SECRET'));
             return new Response(JSON.stringify({ success: true, token, username: result.username, userId: result.id }), { headers: corsHeaders });
         } else {
-            const token = await createJWT({ userId: 1, username, exp: Math.floor(Date.now() / 1000) + 86400 * 7 }, getConfigValue(env, 'JWT_SECRET'));
-            return new Response(JSON.stringify({ success: true, token, username, userId: 1 }), { headers: corsHeaders });
+            const token = await createJWT({ userId: 1, username: cleanUsername, exp: Math.floor(Date.now() / 1000) + 86400 * 7 }, getConfigValue(env, 'JWT_SECRET'));
+            return new Response(JSON.stringify({ success: true, token, username: cleanUsername, userId: 1 }), { headers: corsHeaders });
         }
     } catch (error) {
         console.error('登录错误:', error);
@@ -382,6 +436,22 @@ async function handleConfigRequest(env) {
     }), { headers: corsHeaders });
 }
 
+const securityHeaders = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net;"
+};
+
+function addSecurityHeaders(response, isStatic = false) {
+    const newResponse = new Response(response.body, response);
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        newResponse.headers.set(key, value);
+    });
+    return newResponse;
+}
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -393,54 +463,60 @@ export default {
                 headers: {
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                    ...securityHeaders
                 }
             });
         }
 
+        let response;
+
         if (path === '/api/auth/register' && request.method === 'POST') {
-            return handleRegister(request, env);
-        }
-
-        if (path === '/api/auth/login' && request.method === 'POST') {
-            return handleLogin(request, env);
-        }
-
-        if (path === '/api/auth/me' && request.method === 'GET') {
+            response = await handleRegister(request, env);
+        } else if (path === '/api/auth/login' && request.method === 'POST') {
+            response = await handleLogin(request, env);
+        } else if (path === '/api/auth/me' && request.method === 'GET') {
             const user = await authenticate(request, env);
-            if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
-            return handleGetMe(request, env, user);
-        }
-
-        if (path === '/api/conversations' && request.method === 'GET') {
+            if (!user) {
+                response = new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
+            } else {
+                response = await handleGetMe(request, env, user);
+            }
+        } else if (path === '/api/conversations' && request.method === 'GET') {
             const user = await authenticate(request, env);
-            if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
-            return handleGetConversations(request, env, user.userId);
-        }
-
-        if (path === '/api/conversations' && request.method === 'POST') {
+            if (!user) {
+                response = new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
+            } else {
+                response = await handleGetConversations(request, env, user.userId);
+            }
+        } else if (path === '/api/conversations' && request.method === 'POST') {
             const user = await authenticate(request, env);
-            if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
-            return handleCreateConversation(request, env, user.userId);
-        }
-
-        const conversationMatch = path.match(/^\/api\/conversations\/(\d+)$/);
-        if (conversationMatch) {
+            if (!user) {
+                response = new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
+            } else {
+                response = await handleCreateConversation(request, env, user.userId);
+            }
+        } else if (path.match(/^\/api\/conversations\/(\d+)$/)) {
+            const conversationMatch = path.match(/^\/api\/conversations\/(\d+)$/);
             const user = await authenticate(request, env);
-            if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
-            const conversationId = conversationMatch[1];
-            if (request.method === 'GET') return handleGetConversation(request, env, user.userId, conversationId);
-            if (request.method === 'DELETE') return handleDeleteConversation(request, env, user.userId, conversationId);
+            if (!user) {
+                response = new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers: corsHeaders });
+            } else {
+                const conversationId = conversationMatch[1];
+                if (request.method === 'GET') {
+                    response = await handleGetConversation(request, env, user.userId, conversationId);
+                } else if (request.method === 'DELETE') {
+                    response = await handleDeleteConversation(request, env, user.userId, conversationId);
+                }
+            }
+        } else if (path === '/api/chat' && request.method === 'POST') {
+            response = await handleChatRequest(request, env);
+        } else if (path === '/api/config' && request.method === 'GET') {
+            response = await handleConfigRequest(env);
+        } else {
+            response = await env.ASSETS.fetch(request);
         }
 
-        if (path === '/api/chat' && request.method === 'POST') {
-            return handleChatRequest(request, env);
-        }
-
-        if (path === '/api/config' && request.method === 'GET') {
-            return handleConfigRequest(env);
-        }
-
-        return env.ASSETS.fetch(request);
+        return addSecurityHeaders(response);
     }
 };

@@ -1,15 +1,29 @@
-﻿name = "ai-assistant"
+name = "ai-assistant"
 main = "public/_worker.js"
 compatibility_date = "2024-04-01"
 
+# Pages 部署配置
+[build]
+command = ""
+publish = "public"
+
+# D1 数据库绑定
 [[d1_databases]]
 binding = "DB"
 database_name = "ai-assistant-db"
 database_id = "请运行 wrangler d1 create ai-assistant-db 获取ID后替换"
 
+# 环境变量配置（开发环境）
 [vars]
 API_URL = "https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions"
 MODEL_ID = "xop35qwen2b"
-API_KEY = "a87ffea24723ba51b2817406aa6cdf30"
-API_SECRET = "MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw"
-JWT_SECRET = "xiao-zhi-secret-key-2024-change-in-production"
+# 注意：生产环境请在 Cloudflare Dashboard 配置这些变量
+# 不要将密钥直接提交到 Git
+API_KEY = "your-api-key-here"
+API_SECRET = "your-api-secret-here"
+JWT_SECRET = "please-change-this-in-production-to-a-very-long-random-key"
+
+# 生产环境配置
+[env.production]
+name = "ai-assistant-production"
+vars = { API_URL = "https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions", MODEL_ID = "xop35qwen2b" }
