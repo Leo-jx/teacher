@@ -7,17 +7,180 @@ class DevAssistant {
         this.isTyping = false;
         this.typingQueue = [];
         this.typingSpeed = 15;
+        this.authToken = null;
+        this.username = null;
+        this.userId = null;
+        this.dbConversationId = null;
 
         this.init();
     }
 
     init() {
+        this.checkAuth();
         this.bindElements();
+        this.bindAuthEvents();
         this.bindEvents();
-        this.loadChatHistory();
         this.setupMarked();
         this.autoResizeTextarea();
         this.updateCharCount();
+    }
+
+    checkAuth() {
+        this.authToken = localStorage.getItem('auth_token');
+        this.username = localStorage.getItem('auth_username');
+        this.userId = localStorage.getItem('auth_userId');
+        if (this.authToken) {
+            this.verifyToken();
+        } else {
+            this.showAuth();
+        }
+    }
+
+    async verifyToken() {
+        try {
+            const response = await fetch('/api/auth/me', {
+                headers: { 'Authorization': `Bearer ${this.authToken}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                this.username = data.username;
+                this.userId = data.userId;
+                localStorage.setItem('auth_username', this.username);
+                localStorage.setItem('auth_userId', this.userId);
+                this.showApp();
+            } else {
+                this.logout();
+            }
+        } catch (e) {
+            this.showApp();
+        }
+    }
+
+    showAuth() {
+        document.getElementById('authOverlay').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+    }
+
+    showApp() {
+        document.getElementById('authOverlay').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'flex';
+        if (this.username) {
+            document.getElementById('displayUsername').textContent = this.username;
+        }
+        this.loadChatHistory();
+    }
+
+    logout() {
+        this.authToken = null;
+        this.username = null;
+        this.userId = null;
+        this.dbConversationId = null;
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_username');
+        localStorage.removeItem('auth_userId');
+        this.messages = [];
+        this.chatHistory = [];
+        this.currentChatId = null;
+        this.showAuth();
+    }
+
+    bindAuthEvents() {
+        const authTabs = document.querySelectorAll('.auth-tab');
+        authTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                authTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const targetTab = tab.dataset.tab;
+                document.getElementById('loginForm').style.display = targetTab === 'login' ? 'block' : 'none';
+                document.getElementById('registerForm').style.display = targetTab === 'register' ? 'block' : 'none';
+            });
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+            const submitBtn = document.getElementById('loginSubmit');
+            errorEl.textContent = '';
+            submitBtn.disabled = true;
+            submitBtn.querySelector('span').textContent = '登录中...';
+            submitBtn.querySelector('i').style.display = 'inline';
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    this.authToken = data.token;
+                    this.username = data.username;
+                    this.userId = data.userId;
+                    localStorage.setItem('auth_token', data.token);
+                    localStorage.setItem('auth_username', data.username);
+                    localStorage.setItem('auth_userId', data.userId);
+                    this.showApp();
+                } else {
+                    errorEl.textContent = data.error || '登录失败';
+                }
+            } catch (error) {
+                errorEl.textContent = '网络错误，请稍后重试';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').textContent = '登录';
+                submitBtn.querySelector('i').style.display = 'none';
+            }
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
+            const errorEl = document.getElementById('registerError');
+            const submitBtn = document.getElementById('registerSubmit');
+            errorEl.textContent = '';
+
+            if (password !== confirmPassword) {
+                errorEl.textContent = '两次输入的密码不一致';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.querySelector('span').textContent = '注册中...';
+            submitBtn.querySelector('i').style.display = 'inline';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    this.authToken = data.token;
+                    this.username = data.username;
+                    this.userId = data.userId;
+                    localStorage.setItem('auth_token', data.token);
+                    localStorage.setItem('auth_username', data.username);
+                    localStorage.setItem('auth_userId', data.userId);
+                    this.showApp();
+                } else {
+                    errorEl.textContent = data.error || '注册失败';
+                }
+            } catch (error) {
+                errorEl.textContent = '网络错误，请稍后重试';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').textContent = '注册';
+                submitBtn.querySelector('i').style.display = 'none';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
     }
 
     bindElements() {
@@ -222,6 +385,8 @@ class DevAssistant {
 
         if (this.messages.length === 0) {
             this.createNewChat(true);
+            const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
+            await this.createDbConversation(title);
         }
 
         this.welcomeScreen.style.display = 'none';
@@ -258,14 +423,20 @@ class DevAssistant {
             content: m.content
         }));
 
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.authToken) {
+            headers['Authorization'] = `Bearer ${this.authToken}`;
+        }
+
         let response;
         try {
             response = await fetch('/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     messages: apiMessages,
-                    stream: false
+                    stream: false,
+                    conversationId: this.dbConversationId
                 })
             });
         } catch (networkError) {
@@ -600,12 +771,63 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
 
         this.messages = [];
         this.currentChatId = 'chat_' + Date.now();
+        this.dbConversationId = null;
         this.messagesDiv.innerHTML = '';
         this.messagesDiv.style.display = 'none';
         this.welcomeScreen.style.display = 'flex';
 
         if (!silent) {
             this.renderHistoryList();
+        }
+    }
+
+    async createDbConversation(title) {
+        if (!this.authToken) return;
+        try {
+            const response = await fetch('/api/conversations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: JSON.stringify({ title })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.conversation) {
+                    this.dbConversationId = data.conversation.id;
+                }
+            }
+        } catch (e) {
+            console.error('创建数据库对话失败:', e);
+        }
+    }
+
+    async loadDbConversations() {
+        if (!this.authToken) return [];
+        try {
+            const response = await fetch('/api/conversations', {
+                headers: { 'Authorization': `Bearer ${this.authToken}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                return data.conversations || [];
+            }
+        } catch (e) {
+            console.error('加载数据库对话失败:', e);
+        }
+        return [];
+    }
+
+    async deleteDbConversation(conversationId) {
+        if (!this.authToken) return;
+        try {
+            await fetch(`/api/conversations/${conversationId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${this.authToken}` }
+            });
+        } catch (e) {
+            console.error('删除数据库对话失败:', e);
         }
     }
 
@@ -667,8 +889,16 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
         }
     }
 
-    clearAllHistory() {
+    async clearAllHistory() {
         if (!confirm('确定要清除所有聊天记录吗？此操作不可恢复。')) return;
+
+        if (this.authToken) {
+            for (const chat of this.chatHistory) {
+                if (chat.dbId) {
+                    await this.deleteDbConversation(chat.dbId);
+                }
+            }
+        }
 
         this.chatHistory = [];
         this.saveChatHistory();
@@ -684,17 +914,35 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
         }
     }
 
-    loadChatHistory() {
+    async loadChatHistory() {
         try {
             const saved = localStorage.getItem('dev_assistant_history');
             if (saved) {
                 this.chatHistory = JSON.parse(saved);
-                this.renderHistoryList();
             }
         } catch (e) {
             console.error('加载聊天记录失败:', e);
             this.chatHistory = [];
         }
+
+        if (this.authToken) {
+            const dbConversations = await this.loadDbConversations();
+            const localIds = new Set(this.chatHistory.map(h => h.id));
+            for (const conv of dbConversations) {
+                if (!localIds.has('db_' + conv.id)) {
+                    this.chatHistory.unshift({
+                        id: 'db_' + conv.id,
+                        title: conv.title,
+                        messages: [],
+                        dbId: conv.id,
+                        createdAt: conv.created_at,
+                        isFromDb: true
+                    });
+                }
+            }
+        }
+
+        this.renderHistoryList();
     }
 
     renderHistoryList() {

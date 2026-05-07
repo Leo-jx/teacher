@@ -1,0 +1,15 @@
+﻿name = "ai-assistant"
+main = "public/_worker.js"
+compatibility_date = "2024-04-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ai-assistant-db"
+database_id = "请运行 wrangler d1 create ai-assistant-db 获取ID后替换"
+
+[vars]
+API_URL = "https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions"
+MODEL_ID = "xop35qwen2b"
+API_KEY = "a87ffea24723ba51b2817406aa6cdf30"
+API_SECRET = "MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw"
+JWT_SECRET = "xiao-zhi-secret-key-2024-change-in-production"
