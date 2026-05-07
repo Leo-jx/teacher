@@ -213,6 +213,56 @@
     background: rgba(252, 129, 129, 0.1);
 }
 
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0 16px;
+    gap: 12px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.auth-divider span {
+    color: var(--text-muted);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.guest-btn {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.guest-btn:hover {
+    background: rgba(0, 206, 201, 0.1);
+}
+
+.guest-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 12px;
+    line-height: 1.5;
+}
+
 @media (max-width: 768px) {
     .auth-container {
         padding: 28px 20px;

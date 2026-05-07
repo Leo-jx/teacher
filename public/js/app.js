@@ -29,7 +29,7 @@ class DevAssistant {
         this.authToken = localStorage.getItem('auth_token');
         this.username = localStorage.getItem('auth_username');
         this.userId = localStorage.getItem('auth_userId');
-        if (this.authToken) {
+        if (this.authToken && !this.isGuest) {
             this.verifyToken();
         } else {
             this.showAuth();
@@ -56,6 +56,14 @@ class DevAssistant {
         }
     }
 
+    enterAsGuest() {
+        this.authToken = null;
+        this.username = null;
+        this.userId = null;
+        this.isGuest = true;
+        this.showApp();
+    }
+
     showAuth() {
         document.getElementById('authOverlay').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
@@ -64,7 +72,11 @@ class DevAssistant {
     showApp() {
         document.getElementById('authOverlay').style.display = 'none';
         document.getElementById('appContainer').style.display = 'flex';
-        if (this.username) {
+        if (this.isGuest) {
+            document.getElementById('displayUsername').textContent = '游客';
+            document.getElementById('logoutBtn').querySelector('span').textContent = '登录账号';
+            document.getElementById('logoutBtn').querySelector('i').className = 'fas fa-sign-in-alt';
+        } else if (this.username) {
             document.getElementById('displayUsername').textContent = this.username;
         }
         this.loadChatHistory();
@@ -75,6 +87,7 @@ class DevAssistant {
         this.username = null;
         this.userId = null;
         this.dbConversationId = null;
+        this.isGuest = false;
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_username');
         localStorage.removeItem('auth_userId');
@@ -180,7 +193,14 @@ class DevAssistant {
             }
         });
 
-        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            if (this.isGuest) {
+                this.isGuest = false;
+            }
+            this.logout();
+        });
+
+        document.getElementById('guestBtn').addEventListener('click', () => this.enterAsGuest());
     }
 
     bindElements() {
@@ -385,8 +405,10 @@ class DevAssistant {
 
         if (this.messages.length === 0) {
             this.createNewChat(true);
-            const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
-            await this.createDbConversation(title);
+            if (!this.isGuest) {
+                const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
+                await this.createDbConversation(title);
+            }
         }
 
         this.welcomeScreen.style.display = 'none';
@@ -833,6 +855,7 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
 
     saveCurrentChat() {
         if (this.messages.length === 0 || !this.currentChatId) return;
+        if (this.isGuest) return;
 
         const firstUserMsg = this.messages.find(m => m.role === 'user');
         const title = firstUserMsg
@@ -892,7 +915,7 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
     async clearAllHistory() {
         if (!confirm('确定要清除所有聊天记录吗？此操作不可恢复。')) return;
 
-        if (this.authToken) {
+        if (this.authToken && !this.isGuest) {
             for (const chat of this.chatHistory) {
                 if (chat.dbId) {
                     await this.deleteDbConversation(chat.dbId);
@@ -925,7 +948,7 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
             this.chatHistory = [];
         }
 
-        if (this.authToken) {
+        if (this.authToken && !this.isGuest) {
             const dbConversations = await this.loadDbConversations();
             const localIds = new Set(this.chatHistory.map(h => h.id));
             for (const conv of dbConversations) {
