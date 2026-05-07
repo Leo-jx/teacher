@@ -23,16 +23,15 @@ class DevAssistant {
         this.setupMarked();
         this.autoResizeTextarea();
         this.updateCharCount();
+        this.showApp();
     }
 
     checkAuth() {
         this.authToken = localStorage.getItem('auth_token');
         this.username = localStorage.getItem('auth_username');
         this.userId = localStorage.getItem('auth_userId');
-        if (this.authToken && !this.isGuest) {
+        if (this.authToken) {
             this.verifyToken();
-        } else {
-            this.showAuth();
         }
     }
 
@@ -47,37 +46,34 @@ class DevAssistant {
                 this.userId = data.userId;
                 localStorage.setItem('auth_username', this.username);
                 localStorage.setItem('auth_userId', this.userId);
-                this.showApp();
             } else {
                 this.logout();
             }
         } catch (e) {
-            this.showApp();
+            console.error('Token验证失败:', e);
         }
     }
 
-    enterAsGuest() {
-        this.authToken = null;
-        this.username = null;
-        this.userId = null;
-        this.isGuest = true;
-        this.showApp();
+    openAuthModal() {
+        document.getElementById('authModal').style.display = 'flex';
     }
 
-    showAuth() {
-        document.getElementById('authOverlay').style.display = 'flex';
-        document.getElementById('appContainer').style.display = 'none';
+    closeAuthModal() {
+        document.getElementById('authModal').style.display = 'none';
+        document.getElementById('loginError').textContent = '';
+        document.getElementById('registerError').textContent = '';
     }
 
     showApp() {
-        document.getElementById('authOverlay').style.display = 'none';
-        document.getElementById('appContainer').style.display = 'flex';
-        if (this.isGuest) {
-            document.getElementById('displayUsername').textContent = '游客';
-            document.getElementById('logoutBtn').querySelector('span').textContent = '登录账号';
-            document.getElementById('logoutBtn').querySelector('i').className = 'fas fa-sign-in-alt';
-        } else if (this.username) {
+        if (this.username) {
+            document.getElementById('userInfo').style.display = 'flex';
             document.getElementById('displayUsername').textContent = this.username;
+            document.getElementById('authBtns').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'flex';
+        } else {
+            document.getElementById('userInfo').style.display = 'none';
+            document.getElementById('authBtns').style.display = 'flex';
+            document.getElementById('logoutBtn').style.display = 'none';
         }
         this.loadChatHistory();
     }
@@ -87,14 +83,10 @@ class DevAssistant {
         this.username = null;
         this.userId = null;
         this.dbConversationId = null;
-        this.isGuest = false;
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_username');
         localStorage.removeItem('auth_userId');
-        this.messages = [];
-        this.chatHistory = [];
-        this.currentChatId = null;
-        this.showAuth();
+        this.showApp();
     }
 
     bindAuthEvents() {
@@ -104,8 +96,8 @@ class DevAssistant {
                 authTabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 const targetTab = tab.dataset.tab;
-                document.getElementById('loginForm').style.display = targetTab === 'login' ? 'block' : 'none';
-                document.getElementById('registerForm').style.display = targetTab === 'register' ? 'block' : 'none';
+                document.getElementById('loginForm').style.display = targetTab === 'login' ? 'flex' : 'none';
+                document.getElementById('registerForm').style.display = targetTab === 'register' ? 'flex' : 'none';
             });
         });
 
@@ -134,6 +126,7 @@ class DevAssistant {
                     localStorage.setItem('auth_token', data.token);
                     localStorage.setItem('auth_username', data.username);
                     localStorage.setItem('auth_userId', data.userId);
+                    this.closeAuthModal();
                     this.showApp();
                 } else {
                     errorEl.textContent = data.error || '登录失败';
@@ -180,6 +173,7 @@ class DevAssistant {
                     localStorage.setItem('auth_token', data.token);
                     localStorage.setItem('auth_username', data.username);
                     localStorage.setItem('auth_userId', data.userId);
+                    this.closeAuthModal();
                     this.showApp();
                 } else {
                     errorEl.textContent = data.error || '注册失败';
@@ -194,612 +188,259 @@ class DevAssistant {
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
-            if (this.isGuest) {
-                this.isGuest = false;
-            }
             this.logout();
         });
 
-        document.getElementById('guestBtn').addEventListener('click', () => this.enterAsGuest());
+        document.getElementById('authBtns').addEventListener('click', () => {
+            this.openAuthModal();
+        });
+
+        document.getElementById('authModalClose').addEventListener('click', () => {
+            this.closeAuthModal();
+        });
+
+        document.getElementById('authModalOverlay').addEventListener('click', () => {
+            this.closeAuthModal();
+        });
     }
 
     bindElements() {
-        this.chatContainer = document.getElementById('chatContainer');
-        this.messagesDiv = document.getElementById('messages');
-        this.welcomeScreen = document.getElementById('welcomeScreen');
         this.userInput = document.getElementById('userInput');
         this.sendBtn = document.getElementById('sendBtn');
+        this.messagesContainer = document.getElementById('messages');
+        this.chatContainer = document.getElementById('chatContainer');
+        this.welcomeScreen = document.getElementById('welcomeScreen');
         this.statusIndicator = document.getElementById('statusIndicator');
         this.statusText = document.getElementById('statusText');
         this.charCount = document.getElementById('charCount');
-        this.sidebar = document.getElementById('sidebar');
-        this.sidebarOpen = document.getElementById('sidebarOpen');
-        this.sidebarClose = document.getElementById('sidebarClose');
-        this.newChatBtn = document.getElementById('newChatBtn');
         this.historyList = document.getElementById('historyList');
+        this.sidebar = document.getElementById('sidebar');
+        this.sidebarClose = document.getElementById('sidebarClose');
+        this.sidebarOpen = document.getElementById('sidebarOpen');
+        this.newChatBtn = document.getElementById('newChatBtn');
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
-        this.toolCodeFix = document.getElementById('toolCodeFix');
-        this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
         this.codeToolPanel = document.getElementById('codeToolPanel');
         this.toolPanelClose = document.getElementById('toolPanelClose');
         this.codeInput = document.getElementById('codeInput');
+        this.codeLanguage = document.getElementById('codeLanguage');
         this.codeFileInput = document.getElementById('codeFileInput');
+        this.codeCharCount = document.getElementById('codeCharCount');
+        this.fileName = document.getElementById('fileName');
         this.clearCodeBtn = document.getElementById('clearCodeBtn');
         this.analyzeBtn = document.getElementById('analyzeBtn');
+        this.analyzeBtnText = document.getElementById('analyzeBtnText');
+        this.toolPanelTitle = document.getElementById('toolPanelTitle');
+        this.toolCodeFix = document.getElementById('toolCodeFix');
+        this.toolCodeAnalysis = document.getElementById('toolCodeAnalysis');
         this.toolSyntaxLearn = document.getElementById('toolSyntaxLearn');
         this.toolAlgorithm = document.getElementById('toolAlgorithm');
         this.toolErrorDecoder = document.getElementById('toolErrorDecoder');
         this.syntaxLearnPanel = document.getElementById('syntaxLearnPanel');
-        this.algorithmPanel = document.getElementById('algorithmPanel');
-        this.errorDecoderPanel = document.getElementById('errorDecoderPanel');
         this.syntaxPanelClose = document.getElementById('syntaxPanelClose');
-        this.algorithmPanelClose = document.getElementById('algorithmPanelClose');
-        this.errorDecoderPanelClose = document.getElementById('errorDecoderPanelClose');
-        this.syntaxLearnBtn = document.getElementById('syntaxLearnBtn');
-        this.algorithmLearnBtn = document.getElementById('algorithmLearnBtn');
-        this.decodeErrorBtn = document.getElementById('decodeErrorBtn');
         this.syntaxLanguage = document.getElementById('syntaxLanguage');
         this.syntaxKeyword = document.getElementById('syntaxKeyword');
+        this.syntaxLearnBtn = document.getElementById('syntaxLearnBtn');
+        this.algorithmPanel = document.getElementById('algorithmPanel');
+        this.algorithmPanelClose = document.getElementById('algorithmPanelClose');
         this.algorithmType = document.getElementById('algorithmType');
         this.algorithmName = document.getElementById('algorithmName');
+        this.algorithmLearnBtn = document.getElementById('algorithmLearnBtn');
+        this.errorDecoderPanel = document.getElementById('errorDecoderPanel');
+        this.errorDecoderPanelClose = document.getElementById('errorDecoderPanelClose');
         this.errorInput = document.getElementById('errorInput');
         this.errorLanguage = document.getElementById('errorLanguage');
-        this.clearErrorBtn = document.getElementById('clearErrorBtn');
+        this.errorCharCount = document.getElementById('errorCharCount');
+        this.decodeErrorBtn = document.getElementById('decodeErrorBtn');
+        this.webSearchToggle = document.getElementById('webSearchToggle');
     }
 
     bindEvents() {
-        this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.userInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
             }
         });
-        this.userInput.addEventListener('input', () => {
-            this.autoResizeTextarea();
-            this.updateCharCount();
-        });
 
-        this.sidebarOpen.addEventListener('click', () => this.toggleSidebar(true));
-        this.sidebarClose.addEventListener('click', () => this.toggleSidebar(false));
+        this.sendBtn.addEventListener('click', () => this.sendMessage());
 
         this.newChatBtn.addEventListener('click', () => this.createNewChat());
+
         this.clearHistoryBtn.addEventListener('click', () => this.clearAllHistory());
 
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const topic = item.dataset.topic;
-                this.userInput.value = `请详细讲解${topic}相关的知识，并给出示例`;
-                this.sendMessage();
+        this.sidebarClose.addEventListener('click', () => this.closeSidebar());
+
+        this.sidebarOpen.addEventListener('click', () => this.openSidebar());
+
+        this.userInput.addEventListener('input', () => {
+            this.updateCharCount();
+            this.autoResizeTextarea();
+        });
+
+        this.codeInput.addEventListener('input', () => {
+            this.codeCharCount.textContent = this.codeInput.value.length + ' 字符';
+        });
+
+        this.codeFileInput.addEventListener('change', (e) => this.handleCodeFileUpload(e));
+
+        this.clearCodeBtn.addEventListener('click', () => {
+            this.codeInput.value = '';
+            this.codeCharCount.textContent = '0 字符';
+            this.fileName.textContent = '';
+        });
+
+        this.toolPanelClose.addEventListener('click', () => this.closeCodeToolPanel());
+
+        this.analyzeBtn.addEventListener('click', () => this.analyzeCode());
+
+        this.toolCodeFix.addEventListener('click', () => this.openCodeTool('fix'));
+
+        this.toolCodeAnalysis.addEventListener('click', () => this.openCodeTool('analysis'));
+
+        this.toolSyntaxLearn.addEventListener('click', () => this.openSyntaxLearnPanel());
+
+        this.toolAlgorithm.addEventListener('click', () => this.openAlgorithmPanel());
+
+        this.toolErrorDecoder.addEventListener('click', () => this.openErrorDecoderPanel());
+
+        this.syntaxPanelClose.addEventListener('click', () => this.closeSyntaxLearnPanel());
+
+        this.syntaxLearnBtn.addEventListener('click', () => this.learnSyntax());
+
+        document.querySelectorAll('.syntax-quick-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.syntaxKeyword.value = e.target.dataset.keyword;
+            });
+        });
+
+        this.algorithmPanelClose.addEventListener('click', () => this.closeAlgorithmPanel());
+
+        this.algorithmLearnBtn.addEventListener('click', () => this.learnAlgorithm());
+
+        document.querySelectorAll('.algorithm-quick-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.algorithmType.value = e.target.dataset.type;
+                this.algorithmName.value = e.target.dataset.name;
+            });
+        });
+
+        this.errorDecoderPanelClose.addEventListener('click', () => this.closeErrorDecoderPanel());
+
+        this.decodeErrorBtn.addEventListener('click', () => this.decodeError());
+
+        this.errorInput.addEventListener('input', () => {
+            this.errorCharCount.textContent = this.errorInput.value.length + ' 字符';
+        });
+
+        this.clearCodeBtn.addEventListener('click', () => {
+            this.errorInput.value = '';
+            this.errorCharCount.textContent = '0 字符';
+        });
+
+        document.querySelectorAll('.error-quick-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.errorInput.value = e.target.dataset.error;
+                this.errorCharCount.textContent = this.errorInput.value.length + ' 字符';
             });
         });
 
         document.querySelectorAll('.quick-q').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.userInput.value = btn.dataset.q;
+            btn.addEventListener('click', (e) => {
+                this.userInput.value = e.target.dataset.q;
                 this.sendMessage();
             });
         });
 
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const topic = e.currentTarget.dataset.topic;
+                this.userInput.value = topic;
+                this.sendMessage();
+                this.closeSidebar();
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768) {
+                this.sidebar.classList.remove('open');
+            }
+        });
+
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('copy-btn')) {
-                this.copyCode(e.target);
+            if (this.sidebar.classList.contains('open') && 
+                !this.sidebar.contains(e.target) && 
+                e.target !== this.sidebarOpen) {
+                this.closeSidebar();
             }
-        });
-
-        this.toolCodeFix.addEventListener('click', () => this.openCodeTool('fix'));
-        this.toolCodeAnalysis.addEventListener('click', () => this.openCodeTool('analysis'));
-        this.toolPanelClose.addEventListener('click', () => this.closeCodeTool());
-        this.codeFileInput.addEventListener('change', (e) => this.handleFileUpload(e));
-        this.clearCodeBtn.addEventListener('click', () => {
-            this.codeInput.value = '';
-            document.getElementById('fileName').textContent = '';
-            this.updateCodeCharCount();
-        });
-        this.codeInput.addEventListener('input', () => this.updateCodeCharCount());
-        this.analyzeBtn.addEventListener('click', () => this.analyzeCode());
-
-        this.toolSyntaxLearn.addEventListener('click', () => this.openSyntaxLearn());
-        this.syntaxPanelClose.addEventListener('click', () => this.closeSyntaxLearn());
-        this.syntaxLearnBtn.addEventListener('click', () => this.learnSyntax());
-        this.syntaxKeyword.addEventListener('input', () => this.updateSyntaxCharCount());
-
-        this.toolAlgorithm.addEventListener('click', () => this.openAlgorithmPanel());
-        this.algorithmPanelClose.addEventListener('click', () => this.closeAlgorithmPanel());
-        this.algorithmLearnBtn.addEventListener('click', () => this.learnAlgorithm());
-
-        this.toolErrorDecoder.addEventListener('click', () => this.openErrorDecoder());
-        this.errorDecoderPanelClose.addEventListener('click', () => this.closeErrorDecoder());
-        this.decodeErrorBtn.addEventListener('click', () => this.decodeError());
-        this.clearErrorBtn.addEventListener('click', () => {
-            this.errorInput.value = '';
-            this.updateErrorCharCount();
-        });
-        this.errorInput.addEventListener('input', () => this.updateErrorCharCount());
-
-        document.querySelectorAll('.syntax-quick-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.syntaxKeyword.value = btn.dataset.keyword;
-            });
-        });
-
-        document.querySelectorAll('.algorithm-quick-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.algorithmType.value = btn.dataset.type;
-                this.algorithmName.value = btn.dataset.name;
-            });
-        });
-
-        document.querySelectorAll('.error-quick-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const errorType = btn.dataset.error;
-                this.errorInput.value = `${errorType}\n\n请分析这个错误的原因和解决方案。`;
-                this.updateErrorCharCount();
-            });
-        });
-    }
-
-    setupMarked() {
-        const renderer = new marked.Renderer();
-        renderer.code = function (code, language) {
-            const lang = language || 'sql';
-            let highlighted;
-            try {
-                if (hljs.getLanguage(lang)) {
-                    highlighted = hljs.highlight(code, { language: lang }).value;
-                } else {
-                    highlighted = hljs.highlightAuto(code).value;
-                }
-            } catch {
-                highlighted = code;
-            }
-            return `<pre><div class="code-header"><span>${lang}</span><button class="copy-btn" onclick="app.copyCode(this)"><i class="fas fa-copy"></i> 复制</button></div><code class="hljs language-${lang}">${highlighted}</code></pre>`;
-        };
-        marked.setOptions({
-            renderer: renderer,
-            breaks: true,
-            gfm: true
         });
     }
 
     autoResizeTextarea() {
         this.userInput.style.height = 'auto';
-        this.userInput.style.height = Math.min(this.userInput.scrollHeight, 120) + 'px';
+        this.userInput.style.height = Math.min(this.userInput.scrollHeight, 200) + 'px';
     }
 
     updateCharCount() {
-        const len = this.userInput.value.length;
-        this.charCount.textContent = `${len}/2000`;
-        if (len > 2000) {
-            this.charCount.style.color = 'var(--error)';
-        } else {
-            this.charCount.style.color = 'var(--text-muted)';
+        const count = this.userInput.value.length;
+        this.charCount.textContent = count + '/2000';
+        if (count > 2000) {
+            this.userInput.value = this.userInput.value.substring(0, 2000);
+            this.charCount.textContent = '2000/2000';
         }
-    }
-
-    toggleSidebar(open) {
-        this.sidebar.classList.toggle('open', open);
-        const overlay = document.querySelector('.sidebar-overlay');
-        if (open && !overlay) {
-            const div = document.createElement('div');
-            div.className = 'sidebar-overlay active';
-            div.addEventListener('click', () => this.toggleSidebar(false));
-            document.body.appendChild(div);
-        } else if (!open && overlay) {
-            overlay.remove();
-        }
-    }
-
-    setStatus(status, text) {
-        this.statusIndicator.className = `status-indicator ${status}`;
-        this.statusText.textContent = text;
     }
 
     async sendMessage() {
         const content = this.userInput.value.trim();
         if (!content) return;
-        if (content.length > 2000) {
-            this.setStatus('error', '消息过长，请控制在2000字以内');
-            return;
-        }
+
+        this.userInput.value = '';
+        this.userInput.style.height = 'auto';
+        this.updateCharCount();
 
         if (this.messages.length === 0) {
             this.createNewChat(true);
-            if (!this.isGuest) {
+            if (this.authToken) {
                 const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
                 await this.createDbConversation(title);
             }
         }
 
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        this.messages.push({ role: 'user', content: content });
-        this.appendMessage('user', content);
-        this.userInput.value = '';
-        this.autoResizeTextarea();
-        this.updateCharCount();
-
-        this.sendBtn.disabled = true;
-        this.setStatus('loading', '思考中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
+        this.addMessage('user', content);
+        this.setStatus('typing');
 
         try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
-        } catch (error) {
-            console.error('发送消息失败:', error);
-            await this.typeWriterEffect(aiMessageEl, `抱歉，发生了错误：${error.message}。请稍后重试。`);
-            this.setStatus('error', '请求失败');
-        } finally {
-            this.sendBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
-        }
-    }
-
-    async sendViaHTTP(aiMessageEl) {
-        const apiMessages = this.messages.map(m => ({
-            role: m.role,
-            content: m.content
-        }));
-
-        const headers = { 'Content-Type': 'application/json' };
-        if (this.authToken) {
-            headers['Authorization'] = `Bearer ${this.authToken}`;
-        }
-
-        let response;
-        try {
-            response = await fetch('/api/chat', {
+            const response = await fetch('/api/chat', {
                 method: 'POST',
-                headers,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.authToken ? `Bearer ${this.authToken}` : ''
+                },
                 body: JSON.stringify({
-                    messages: apiMessages,
-                    stream: false,
+                    messages: this.messages.map(m => ({ role: m.role, content: m.content })),
                     conversationId: this.dbConversationId
                 })
             });
-        } catch (networkError) {
-            console.error('网络请求失败:', networkError);
-            const mockResponse = this.generateMockResponse(apiMessages);
-            this.messages.push({ role: 'assistant', content: mockResponse });
-            await this.typeWriterEffect(aiMessageEl, mockResponse);
-            return;
-        }
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('API请求失败:', errorData);
-            const mockResponse = this.generateMockResponse(apiMessages);
-            this.messages.push({ role: 'assistant', content: mockResponse });
-            await this.typeWriterEffect(aiMessageEl, mockResponse);
-            return;
-        }
+            const data = await response.json();
 
-        const data = await response.json();
-        let aiContent = '';
-
-        if (data.choices && data.choices.length > 0) {
-            aiContent = data.choices[0].message?.content || data.choices[0].text || '';
-        } else if (data.output) {
-            aiContent = data.output.text || data.output;
-        } else if (data.data && data.data.output) {
-            aiContent = data.data.output.text || JSON.stringify(data.data.output);
-        } else if (typeof data === 'string') {
-            aiContent = data;
-        } else {
-            aiContent = JSON.stringify(data);
-        }
-
-        this.messages.push({ role: 'assistant', content: aiContent });
-        await this.typeWriterEffect(aiMessageEl, aiContent);
-    }
-
-    generateMockResponse(messages) {
-        const lastMessage = messages[messages.length - 1]?.content || '';
-        
-        if (lastMessage.includes('MySQL') || lastMessage.includes('mysql')) {
-            return `## MySQL数据库基础介绍
-
-MySQL是一种开源的关系型数据库管理系统（RDBMS），被广泛应用于Web开发领域。
-
-### 核心特点
-- **开源免费**：采用GPL许可证，可免费使用和修改
-- **跨平台**：支持Windows、Linux、macOS等多种操作系统
-- **高性能**：优化的查询引擎，支持大规模数据处理
-- **高可用**：支持主从复制、读写分离等架构
-
-### 基本SQL语句
-
-**查询数据：**
-\`\`\`sql
-SELECT column1, column2 FROM table_name WHERE condition;
-\`\`\`
-
-**插入数据：**
-\`\`\`sql
-INSERT INTO table_name (column1, column2) VALUES (value1, value2);
-\`\`\`
-
-**更新数据：**
-\`\`\`sql
-UPDATE table_name SET column1 = value1 WHERE condition;
-\`\`\`
-
-**删除数据：**
-\`\`\`sql
-DELETE FROM table_name WHERE condition;
-\`\`\`
-
-### 索引优化建议
-1. 为经常用于WHERE条件的列创建索引
-2. 避免在索引列上使用函数
-3. 合理使用复合索引
-4. 定期分析和优化表
-
-> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
-        }
-
-        if (lastMessage.includes('Java') || lastMessage.includes('java')) {
-            return `## Java编程语言介绍
-
-Java是一种跨平台的面向对象编程语言，由Sun Microsystems于1995年发布。
-
-### 核心特性
-- **跨平台**：一次编写，处处运行（Write Once, Run Anywhere）
-- **面向对象**：支持封装、继承、多态
-- **自动内存管理**：垃圾回收机制
-- **强类型语言**：编译时类型检查
-
-### 基本语法示例
-
-**Hello World：**
-\`\`\`java
-public class HelloWorld {
-    public static void main(String[] args) {
-        System.out.println("Hello, World!");
-    }
-}
-\`\`\`
-
-**类与对象：**
-\`\`\`java
-public class Person {
-    private String name;
-    private int age;
-    
-    public Person(String name, int age) {
-        this.name = name;
-        this.age = age;
-    }
-    
-    public void sayHello() {
-        System.out.println("Hello, my name is " + name);
-    }
-}
-\`\`\`
-
-### Java生态
-- **JDK**：Java Development Kit（开发工具包）
-- **JRE**：Java Runtime Environment（运行时环境）
-- **JVM**：Java Virtual Machine（虚拟机）
-
-> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
-        }
-
-        if (lastMessage.includes('Python') || lastMessage.includes('python')) {
-            return `## Python编程语言介绍
-
-Python是一种高级通用编程语言，以简洁的语法和强大的功能著称。
-
-### 核心特点
-- **简洁优雅**：语法简洁，代码可读性强
-- **动态类型**：无需声明变量类型
-- **丰富的库**：拥有大量第三方库
-- **跨平台**：支持多种操作系统
-
-### 基本语法示例
-
-**Hello World：**
-\`\`\`python
-print("Hello, World!")
-\`\`\`
-
-**函数定义：**
-\`\`\`python
-def greet(name):
-    return f"Hello, {name}!"
-
-result = greet("Alice")
-print(result)
-\`\`\`
-
-**列表推导式：**
-\`\`\`python
-numbers = [1, 2, 3, 4, 5]
-squares = [x ** 2 for x in numbers]
-print(squares)  # 输出: [1, 4, 9, 16, 25]
-\`\`\`
-
-### 常用库
-- **NumPy**：数值计算
-- **Pandas**：数据分析
-- **Flask/Django**：Web开发
-- **TensorFlow/PyTorch**：机器学习
-
-> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
-        }
-
-        return `## 技术问题解答
-
-感谢您的提问！
-
-### 问题分析
-根据您的问题，我理解您想了解相关技术知识。
-
-### 专业建议
-由于当前服务暂时不可用，我为您提供一些通用的技术建议：
-
-1. **明确问题范围**：请确认您的问题属于以下技术领域：
-   - MySQL数据库开发与优化
-   - Java编程语言及相关框架
-   - Python编程及数据分析
-   - C/C++编程语言
-   - 微信小程序/uni-app开发
-   - Vue/Spring框架
-
-2. **提供更多上下文**：如果您能提供更多背景信息，我可以给出更精准的解答。
-
-3. **代码示例**：如果涉及代码问题，建议提供完整的代码片段。
-
-### 学习建议
-- 从官方文档入手，了解基础知识
-- 实践项目驱动学习
-- 参考优秀的开源项目
-- 加入技术社区交流
-
-> 提示：当前为离线模式，以上为模拟回答。在线模式下将提供更精确的解答。`;
-    }
-
-    appendMessage(role, content, isLoading = false) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${role}`;
-
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = role === 'user'
-            ? '<i class="fas fa-user"></i>'
-            : '<i class="fas fa-robot"></i>';
-
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-
-        if (isLoading) {
-            contentDiv.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-        } else if (role === 'user') {
-            contentDiv.textContent = content;
-        } else {
-            contentDiv.innerHTML = this.renderMarkdown(content);
-        }
-
-        messageDiv.appendChild(avatar);
-        messageDiv.appendChild(contentDiv);
-        this.messagesDiv.appendChild(messageDiv);
-        this.scrollToBottom();
-
-        return contentDiv;
-    }
-
-    updateAIMessage(contentEl, content) {
-        contentEl.innerHTML = this.renderMarkdown(content);
-        this.scrollToBottom();
-    }
-
-    async typeWriterEffect(contentEl, fullContent) {
-        this.isTyping = true;
-        let displayedContent = '';
-        let charIndex = 0;
-        
-        contentEl.classList.add('typing');
-        
-        const typeNextChunk = () => {
-            return new Promise(resolve => {
-                const typeChunk = () => {
-                    if (charIndex >= fullContent.length) {
-                        this.isTyping = false;
-                        contentEl.classList.remove('typing');
-                        resolve();
-                        return;
-                    }
-                    
-                    const chunkSize = Math.min(3, fullContent.length - charIndex);
-                    displayedContent += fullContent.substring(charIndex, charIndex + chunkSize);
-                    charIndex += chunkSize;
-                    
-                    contentEl.innerHTML = this.renderMarkdown(displayedContent);
-                    this.scrollToBottom();
-                    
-                    if (charIndex < fullContent.length) {
-                        setTimeout(typeChunk, this.typingSpeed);
-                    } else {
-                        this.isTyping = false;
-                        contentEl.classList.remove('typing');
-                        resolve();
-                    }
-                };
-                
-                typeChunk();
-            });
-        };
-        
-        await typeNextChunk();
-    }
-
-    waitForTypingComplete() {
-        return new Promise(resolve => {
-            const checkTyping = () => {
-                if (!this.isTyping) {
-                    resolve();
-                } else {
-                    setTimeout(checkTyping, 100);
+            if (data.error) {
+                this.addMessage('assistant', '抱歉，发生错误：' + data.error);
+            } else {
+                const aiContent = data.choices?.[0]?.message?.content || data.content || '抱歉，未能获取回复。';
+                this.addMessage('assistant', aiContent);
+                if (data.conversationId) {
+                    this.dbConversationId = data.conversationId;
                 }
-            };
-            checkTyping();
-        });
-    }
+            }
 
-    renderMarkdown(text) {
-        try {
-            return marked.parse(text);
-        } catch {
-            return text.replace(/\n/g, '<br>');
-        }
-    }
-
-    copyCode(btn) {
-        const codeBlock = btn.closest('pre').querySelector('code');
-        const text = codeBlock.textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            btn.innerHTML = '<i class="fas fa-check"></i> 已复制';
-            setTimeout(() => {
-                btn.innerHTML = '<i class="fas fa-copy"></i> 复制';
-            }, 2000);
-        }).catch(() => {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            btn.innerHTML = '<i class="fas fa-check"></i> 已复制';
-            setTimeout(() => {
-                btn.innerHTML = '<i class="fas fa-copy"></i> 复制';
-            }, 2000);
-        });
-    }
-
-    scrollToBottom() {
-        requestAnimationFrame(() => {
-            this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
-        });
-    }
-
-    createNewChat(silent = false) {
-        if (this.messages.length > 0 && this.currentChatId) {
+            this.setStatus('ready');
+            this.scrollToBottom();
             this.saveCurrentChat();
-        }
-
-        this.messages = [];
-        this.currentChatId = 'chat_' + Date.now();
-        this.dbConversationId = null;
-        this.messagesDiv.innerHTML = '';
-        this.messagesDiv.style.display = 'none';
-        this.welcomeScreen.style.display = 'flex';
-
-        if (!silent) {
-            this.renderHistoryList();
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            this.addMessage('assistant', '抱歉，网络错误，请稍后重试。');
+            this.setStatus('ready');
+            this.scrollToBottom();
         }
     }
 
@@ -816,9 +457,7 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
             });
             if (response.ok) {
                 const data = await response.json();
-                if (data.success && data.conversation) {
-                    this.dbConversationId = data.conversation.id;
-                }
+                this.dbConversationId = data.id;
             }
         } catch (e) {
             console.error('创建数据库对话失败:', e);
@@ -853,9 +492,107 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
         }
     }
 
+    addMessage(role, content) {
+        const message = {
+            id: Date.now().toString(),
+            role,
+            content,
+            timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+        };
+        this.messages.push(message);
+        this.renderMessages();
+    }
+
+    renderMessages() {
+        this.welcomeScreen.style.display = 'none';
+        this.messagesContainer.innerHTML = '';
+
+        this.messages.forEach(msg => {
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${msg.role}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            avatar.innerHTML = msg.role === 'user' ? 
+                '<i class="fas fa-user"></i>' : 
+                '<i class="fas fa-robot"></i>';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            if (msg.role === 'assistant') {
+                content.innerHTML = this.renderMarkdown(msg.content);
+                this.highlightCode(content);
+            } else {
+                content.textContent = msg.content;
+            }
+
+            const timestamp = document.createElement('div');
+            timestamp.className = 'message-timestamp';
+            timestamp.textContent = msg.timestamp;
+
+            messageEl.appendChild(avatar);
+            messageEl.appendChild(content);
+            messageEl.appendChild(timestamp);
+
+            this.messagesContainer.appendChild(messageEl);
+        });
+
+        this.scrollToBottom();
+    }
+
+    renderMarkdown(text) {
+        try {
+            return marked.parse(text) || text;
+        } catch {
+            return text;
+        }
+    }
+
+    highlightCode(element) {
+        element.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+    }
+
+    scrollToBottom() {
+        setTimeout(() => {
+            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        }, 100);
+    }
+
+    setStatus(status) {
+        switch (status) {
+            case 'typing':
+                this.statusText.textContent = '思考中...';
+                this.statusIndicator.classList.add('typing');
+                break;
+            case 'ready':
+                this.statusText.textContent = '就绪';
+                this.statusIndicator.classList.remove('typing');
+                break;
+            case 'error':
+                this.statusText.textContent = '错误';
+                this.statusIndicator.classList.remove('typing');
+                break;
+        }
+    }
+
+    createNewChat(withMessage = false) {
+        this.messages = [];
+        this.dbConversationId = null;
+        if (!withMessage) {
+            this.currentChatId = null;
+            this.welcomeScreen.style.display = 'flex';
+            this.messagesContainer.innerHTML = '';
+        } else {
+            this.currentChatId = 'chat_' + Date.now();
+        }
+    }
+
     saveCurrentChat() {
         if (this.messages.length === 0 || !this.currentChatId) return;
-        if (this.isGuest) return;
+        if (!this.authToken) return;
 
         const firstUserMsg = this.messages.find(m => m.role === 'user');
         const title = firstUserMsg
@@ -866,6 +603,7 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
             id: this.currentChatId,
             title: title,
             messages: [...this.messages],
+            dbId: this.dbConversationId,
             updatedAt: Date.now()
         };
 
@@ -884,51 +622,6 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
         this.renderHistoryList();
     }
 
-    loadChat(chatId) {
-        const chat = this.chatHistory.find(c => c.id === chatId);
-        if (!chat) return;
-
-        this.currentChatId = chat.id;
-        this.messages = [...chat.messages];
-
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-        this.messagesDiv.innerHTML = '';
-
-        this.messages.forEach(msg => {
-            this.appendMessage(msg.role, msg.content);
-        });
-
-        this.scrollToBottom();
-    }
-
-    deleteChat(chatId) {
-        this.chatHistory = this.chatHistory.filter(c => c.id !== chatId);
-        this.saveChatHistory();
-        this.renderHistoryList();
-
-        if (this.currentChatId === chatId) {
-            this.createNewChat();
-        }
-    }
-
-    async clearAllHistory() {
-        if (!confirm('确定要清除所有聊天记录吗？此操作不可恢复。')) return;
-
-        if (this.authToken && !this.isGuest) {
-            for (const chat of this.chatHistory) {
-                if (chat.dbId) {
-                    await this.deleteDbConversation(chat.dbId);
-                }
-            }
-        }
-
-        this.chatHistory = [];
-        this.saveChatHistory();
-        this.renderHistoryList();
-        this.createNewChat();
-    }
-
     saveChatHistory() {
         try {
             localStorage.setItem('dev_assistant_history', JSON.stringify(this.chatHistory));
@@ -944,11 +637,10 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
                 this.chatHistory = JSON.parse(saved);
             }
         } catch (e) {
-            console.error('加载聊天记录失败:', e);
             this.chatHistory = [];
         }
 
-        if (this.authToken && !this.isGuest) {
+        if (this.authToken) {
             const dbConversations = await this.loadDbConversations();
             const localIds = new Set(this.chatHistory.map(h => h.id));
             for (const conv of dbConversations) {
@@ -972,188 +664,204 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
         this.historyList.innerHTML = '';
 
         if (this.chatHistory.length === 0) {
-            this.historyList.innerHTML = '<div style="padding: 10px; text-align: center; color: var(--text-muted); font-size: 12px;">暂无历史记录</div>';
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'empty-history';
+            emptyEl.textContent = '暂无对话记录';
+            this.historyList.appendChild(emptyEl);
             return;
         }
 
         this.chatHistory.forEach(chat => {
             const item = document.createElement('div');
             item.className = 'history-item';
-            if (chat.id === this.currentChatId) {
-                item.style.background = 'var(--bg-card)';
-                item.style.color = 'var(--primary-light)';
-            }
+            item.dataset.chatId = chat.id;
 
-            item.innerHTML = `
-                <span class="history-text"><i class="fas fa-comment" style="margin-right: 6px; font-size: 11px;"></i>${this.escapeHtml(chat.title)}</span>
-                <button class="delete-chat" title="删除此对话"><i class="fas fa-times"></i></button>
-            `;
+            const title = document.createElement('span');
+            title.className = 'history-title';
+            title.textContent = chat.title;
 
-            item.querySelector('.history-text').addEventListener('click', () => this.loadChat(chat.id));
-            item.querySelector('.delete-chat').addEventListener('click', (e) => {
+            const time = document.createElement('span');
+            time.className = 'history-time';
+            time.textContent = chat.updatedAt ? 
+                new Date(chat.updatedAt).toLocaleDateString('zh-CN') : 
+                (chat.createdAt ? new Date(chat.createdAt).toLocaleDateString('zh-CN') : '');
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'history-delete';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.deleteChat(chat.id);
+                this.deleteChat(chat.id, chat.dbId);
+            });
+
+            item.appendChild(title);
+            item.appendChild(time);
+            item.appendChild(deleteBtn);
+
+            item.addEventListener('click', () => {
+                this.loadChat(chat);
             });
 
             this.historyList.appendChild(item);
         });
     }
 
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    async loadChat(chat) {
+        this.currentChatId = chat.id;
+        this.dbConversationId = chat.dbId;
 
-    openCodeTool(toolType) {
-        const panel = document.getElementById('codeToolPanel');
-        const title = document.getElementById('toolPanelTitle');
-        const btnText = document.getElementById('analyzeBtnText');
-        const codeInput = document.getElementById('codeInput');
-
-        this.closeSyntaxLearn();
-        this.closeAlgorithmPanel();
-        this.closeErrorDecoder();
-
-        document.getElementById('toolCodeFix').classList.toggle('active', toolType === 'fix');
-        document.getElementById('toolCodeAnalysis').classList.toggle('active', toolType === 'analysis');
-
-        if (toolType === 'fix') {
-            title.innerHTML = '<i class="fas fa-bug"></i> 代码纠错';
-            btnText.textContent = '开始纠错';
-            codeInput.placeholder = '在此粘贴或输入需要纠错的代码...\n\n支持直接粘贴代码或点击上传按钮导入代码文件';
+        if (chat.isFromDb && chat.dbId && this.authToken) {
+            await this.loadDbMessages(chat.dbId);
         } else {
-            title.innerHTML = '<i class="fas fa-search-plus"></i> 代码分析';
-            btnText.textContent = '开始分析';
-            codeInput.placeholder = '在此粘贴或输入需要分析的代码...\n\n支持直接粘贴代码或点击上传按钮导入代码文件';
+            this.messages = chat.messages || [];
         }
 
-        this.currentToolType = toolType;
-        panel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
+        this.renderMessages();
+        this.closeSidebar();
     }
 
-    closeCodeTool() {
-        const panel = document.getElementById('codeToolPanel');
-        panel.classList.remove('active');
-        document.getElementById('toolCodeFix').classList.remove('active');
-        document.getElementById('toolCodeAnalysis').classList.remove('active');
-        this.currentToolType = null;
+    async loadDbMessages(conversationId) {
+        if (!this.authToken) return;
+        try {
+            const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+                headers: { 'Authorization': `Bearer ${this.authToken}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                this.messages = data.messages.map(m => ({
+                    id: m.id.toString(),
+                    role: m.role,
+                    content: m.content,
+                    timestamp: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                }));
+            }
+        } catch (e) {
+            console.error('加载数据库消息失败:', e);
+        }
     }
 
-    handleFileUpload(event) {
-        const file = event.target.files[0];
+    async deleteChat(chatId, dbId) {
+        if (dbId && this.authToken) {
+            await this.deleteDbConversation(dbId);
+        }
+
+        this.chatHistory = this.chatHistory.filter(c => c.id !== chatId);
+        this.saveChatHistory();
+        this.renderHistoryList();
+
+        if (this.currentChatId === chatId) {
+            this.createNewChat();
+        }
+    }
+
+    async clearAllHistory() {
+        if (!confirm('确定要清除所有聊天记录吗？此操作不可恢复。')) return;
+
+        if (this.authToken) {
+            for (const chat of this.chatHistory) {
+                if (chat.dbId) {
+                    await this.deleteDbConversation(chat.dbId);
+                }
+            }
+        }
+
+        this.chatHistory = [];
+        this.saveChatHistory();
+        this.renderHistoryList();
+        this.createNewChat();
+    }
+
+    openSidebar() {
+        this.sidebar.classList.add('open');
+    }
+
+    closeSidebar() {
+        this.sidebar.classList.remove('open');
+    }
+
+    openCodeTool(type) {
+        this.currentToolType = type;
+        this.toolPanelTitle.innerHTML = type === 'fix' ? 
+            '<i class="fas fa-bug"></i> 代码纠错' : 
+            '<i class="fas fa-search-plus"></i> 代码分析';
+        this.analyzeBtnText.textContent = type === 'fix' ? '开始纠错' : '开始分析';
+        this.codeToolPanel.style.display = 'block';
+        this.codeInput.focus();
+    }
+
+    closeCodeToolPanel() {
+        this.codeToolPanel.style.display = 'none';
+        this.codeInput.value = '';
+        this.codeCharCount.textContent = '0 字符';
+        this.fileName.textContent = '';
+    }
+
+    handleCodeFileUpload(e) {
+        const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const content = e.target.result;
-            document.getElementById('codeInput').value = content;
-            document.getElementById('fileName').textContent = file.name;
-            this.updateCodeCharCount();
-
-            const ext = file.name.split('.').pop().toLowerCase();
-            const langMap = {
-                'js': 'javascript', 'mjs': 'javascript',
-                'py': 'python',
-                'java': 'java',
-                'cpp': 'cpp', 'cxx': 'cpp', 'cc': 'cpp', 'hpp': 'cpp',
-                'c': 'c', 'h': 'c',
-                'sql': 'sql',
-                'go': 'go',
-                'rs': 'rust',
-                'ts': 'typescript', 'tsx': 'typescript',
-                'php': 'php',
-                'html': 'html', 'htm': 'html',
-                'css': 'css',
-                'vue': 'vue',
-                'sh': 'shell', 'bash': 'shell',
-                'txt': 'javascript'
-            };
-            const detectedLang = langMap[ext] || 'javascript';
-            document.getElementById('codeLanguage').value = detectedLang;
+        reader.onload = (event) => {
+            this.codeInput.value = event.target.result;
+            this.codeCharCount.textContent = this.codeInput.value.length + ' 字符';
+            this.fileName.textContent = file.name;
         };
         reader.readAsText(file);
     }
 
-    updateCodeCharCount() {
-        const code = document.getElementById('codeInput').value;
-        document.getElementById('codeCharCount').textContent = `${code.length} 字符`;
-    }
-
     async analyzeCode() {
-        const code = document.getElementById('codeInput').value.trim();
-        const language = document.getElementById('codeLanguage').value;
+        const code = this.codeInput.value.trim();
+        if (!code) {
+            alert('请输入或上传代码');
+            return;
+        }
+
+        const language = this.codeLanguage.value;
         const toolType = this.currentToolType;
 
-        if (!code) {
-            alert('请先输入或上传代码');
-            return;
-        }
-
-        if (!toolType) {
-            alert('请先选择工具类型');
-            return;
-        }
-
-        if (this.messages.length === 0) {
-            this.createNewChat(true);
-        }
-
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        const langLabel = document.getElementById('codeLanguage').selectedOptions[0].text;
-
-        let prompt;
-        if (toolType === 'fix') {
-            prompt = `请对以下${langLabel}代码进行全面的纠错分析，找出所有问题并给出修复方案：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码纠错报告\n\n### 发现的问题\n\n对每个问题，请提供：\n1. **错误位置**：精确到行号和具体代码段\n2. **错误类型**：语法错误/逻辑错误/性能问题/最佳实践违背\n3. **错误原因**：详细解释为什么这是一个错误\n4. **修改建议**：给出具体的修改后代码\n5. **修改依据**：说明修改的技术原理\n\n### 修改后的完整代码\n\n请给出修复后的完整代码。`;
-        } else {
-            prompt = `请对以下${langLabel}代码进行深入的结构和逻辑分析：\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n请按以下格式输出分析结果：\n\n## 代码分析报告\n\n### 1. 整体功能概述\n\n简要描述代码的整体功能和用途。\n\n### 2. 主要模块/函数说明\n\n列出代码中的主要模块、类和函数，说明各自的作用。\n\n### 3. 关键执行流程\n\n逐步分解代码的关键执行流程。\n\n### 4. 数据流转路径\n\n分析数据在代码中的流转路径和变换过程。\n\n### 5. 核心算法/逻辑说明\n\n解释代码中使用的核心算法或关键逻辑。\n\n### 6. 代码质量评估\n\n评估代码的可读性、可维护性和性能表现，给出改进建议。`;
-        }
-
-        this.messages.push({ role: 'user', content: prompt });
-        this.appendMessage('user', prompt);
-
-        this.sendBtn.disabled = true;
-        document.getElementById('analyzeBtn').disabled = true;
-        this.setStatus('loading', '分析中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
+        this.analyzeBtn.disabled = true;
+        this.analyzeBtnText.textContent = '分析中...';
 
         try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.authToken ? `Bearer ${this.authToken}` : ''
+                },
+                body: JSON.stringify({
+                    code,
+                    language,
+                    type: toolType
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                alert('分析失败：' + data.error);
+            } else {
+                this.userInput.value = toolType === 'fix' ? 
+                    `请帮我纠错这段${language}代码：\n\n${code}\n\n错误分析：${data.content}` :
+                    `请帮我分析这段${language}代码：\n\n${code}\n\n分析结果：${data.content}`;
+                this.closeCodeToolPanel();
+            }
         } catch (error) {
-            console.error('代码分析失败:', error);
-            await this.typeWriterEffect(aiMessageEl, `抱歉，代码分析失败：${error.message}。请稍后重试。`);
-            this.setStatus('error', '分析失败');
+            alert('网络错误，请稍后重试');
         } finally {
-            this.sendBtn.disabled = false;
-            document.getElementById('analyzeBtn').disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
+            this.analyzeBtn.disabled = false;
+            this.analyzeBtnText.textContent = toolType === 'fix' ? '开始纠错' : '开始分析';
         }
     }
 
-    openSyntaxLearn() {
-        this.closeCodeTool();
-        this.closeAlgorithmPanel();
-        this.closeErrorDecoder();
-        document.getElementById('toolSyntaxLearn').classList.add('active');
-        this.syntaxLearnPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
+    openSyntaxLearnPanel() {
+        this.syntaxLearnPanel.style.display = 'block';
+        this.syntaxKeyword.focus();
     }
 
-    closeSyntaxLearn() {
-        this.syntaxLearnPanel.classList.remove('active');
-        document.getElementById('toolSyntaxLearn').classList.remove('active');
-    }
-
-    updateSyntaxCharCount() {
-        const count = this.syntaxKeyword.value.length;
+    closeSyntaxLearnPanel() {
+        this.syntaxLearnPanel.style.display = 'none';
+        this.syntaxKeyword.value = '';
     }
 
     async learnSyntax() {
@@ -1161,255 +869,149 @@ print(squares)  # 输出: [1, 4, 9, 16, 25]
         const keyword = this.syntaxKeyword.value.trim();
 
         if (!keyword) {
-            alert('请输入要学习的语法关键词');
+            alert('请输入语法关键词');
             return;
         }
 
-        if (this.messages.length === 0) {
-            this.createNewChat(true);
-        }
-
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        const langLabel = this.syntaxLanguage.selectedOptions[0].text;
-
-        const prompt = `请详细讲解${langLabel}编程语言中的"${keyword}"语法知识，要求包含以下内容：
-
-## ${langLabel}语法讲解：${keyword}
-
-### 1. 基本概念
-- ${keyword}的定义和作用
-- 适用场景
-
-### 2. 语法格式
-- 完整的语法格式说明
-- 参数详解（如果有）
-
-### 3. 使用示例
-请提供3-5个由浅入深的代码示例：
-- 示例1：最基础用法
-- 示例2：常见用法
-- 示例3：进阶用法
-- 示例4：实际应用场景（如果适用）
-
-### 4. 注意事项
-- 常见错误和陷阱
-- 最佳实践建议
-
-### 5. 相关语法
-- 与${keyword}相关的其他语法知识`;
-
-        this.messages.push({ role: 'user', content: prompt });
-        this.appendMessage('user', prompt);
-
-        this.sendBtn.disabled = true;
         this.syntaxLearnBtn.disabled = true;
-        this.setStatus('loading', '讲解中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
 
         try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
+            const response = await fetch('/api/learn', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.authToken ? `Bearer ${this.authToken}` : ''
+                },
+                body: JSON.stringify({
+                    language,
+                    keyword,
+                    type: 'syntax'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                alert('学习失败：' + data.error);
+            } else {
+                this.userInput.value = `请详细讲解${language}语言中的"${keyword}"语法，包括用法、示例和最佳实践。`;
+                this.closeSyntaxLearnPanel();
+            }
         } catch (error) {
-            console.error('语法讲解失败:', error);
-            await this.typeWriterEffect(aiMessageEl, `抱歉，语法讲解失败：${error.message}。请稍后重试。`);
-            this.setStatus('error', '讲解失败');
+            alert('网络错误，请稍后重试');
         } finally {
-            this.sendBtn.disabled = false;
             this.syntaxLearnBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
         }
     }
 
     openAlgorithmPanel() {
-        this.closeCodeTool();
-        this.closeSyntaxLearn();
-        this.closeErrorDecoder();
-        document.getElementById('toolAlgorithm').classList.add('active');
-        this.algorithmPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
+        this.algorithmPanel.style.display = 'block';
+        this.algorithmName.focus();
     }
 
     closeAlgorithmPanel() {
-        this.algorithmPanel.classList.remove('active');
-        document.getElementById('toolAlgorithm').classList.remove('active');
+        this.algorithmPanel.style.display = 'none';
+        this.algorithmName.value = '';
     }
 
     async learnAlgorithm() {
-        const algorithmType = this.algorithmType.value;
-        const algorithmName = this.algorithmName.value.trim();
+        const type = this.algorithmType.value;
+        const name = this.algorithmName.value.trim();
 
-        if (!algorithmName) {
-            alert('请输入要学习的算法名称');
+        if (!name) {
+            alert('请输入算法名称');
             return;
         }
 
-        if (this.messages.length === 0) {
-            this.createNewChat(true);
-        }
-
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        const typeLabels = {
-            'sorting': '排序算法',
-            'searching': '查找算法',
-            'tree': '树结构',
-            'graph': '图算法',
-            'dp': '动态规划',
-            'greedy': '贪心算法',
-            'divide': '分治算法',
-            'backtracking': '回溯算法',
-            'other': '其他算法'
-        };
-
-        const typeLabel = typeLabels[algorithmType] || '算法';
-
-        const prompt = `请详细讲解${typeLabel}中的"${algorithmName}"，要求包含以下内容：
-
-## 算法讲解：${algorithmName}
-
-### 1. 算法简介
-- 算法的基本概念和定义
-- 算法的历史背景和发明者（如果有）
-- 算法的主要应用场景
-
-### 2. 核心思想
-- 用通俗易懂的语言解释算法的核心思想
-- 算法的关键步骤和流程
-
-### 3. 分步骤可视化讲解
-请用文字描述的方式，逐步展示算法的执行过程
-
-### 4. 代码实现
-请提供Java和Python的实现，代码中要有详细的注释
-
-### 5. 复杂度分析
-- 时间复杂度：最好情况、最坏情况、平均情况
-- 空间复杂度：详细说明空间消耗
-
-### 6. 算法优化
-- 常见的优化方法
-- 变体算法介绍`;
-
-        this.messages.push({ role: 'user', content: prompt });
-        this.appendMessage('user', prompt);
-
-        this.sendBtn.disabled = true;
         this.algorithmLearnBtn.disabled = true;
-        this.setStatus('loading', '讲解中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
 
         try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
+            const response = await fetch('/api/learn', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.authToken ? `Bearer ${this.authToken}` : ''
+                },
+                body: JSON.stringify({
+                    type: 'algorithm',
+                    algorithmType: type,
+                    name
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                alert('讲解失败：' + data.error);
+            } else {
+                this.userInput.value = `请详细讲解"${name}"算法，包括原理、实现步骤、时间复杂度分析和代码示例。`;
+                this.closeAlgorithmPanel();
+            }
         } catch (error) {
-            console.error('算法讲解失败:', error);
-            await this.typeWriterEffect(aiMessageEl, `抱歉，算法讲解失败：${error.message}。请稍后重试。`);
-            this.setStatus('error', '讲解失败');
+            alert('网络错误，请稍后重试');
         } finally {
-            this.sendBtn.disabled = false;
             this.algorithmLearnBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
         }
     }
 
-    openErrorDecoder() {
-        this.closeCodeTool();
-        this.closeSyntaxLearn();
-        this.closeAlgorithmPanel();
-        document.getElementById('toolErrorDecoder').classList.add('active');
-        this.errorDecoderPanel.classList.add('active');
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
+    openErrorDecoderPanel() {
+        this.errorDecoderPanel.style.display = 'block';
+        this.errorInput.focus();
     }
 
-    closeErrorDecoder() {
-        this.errorDecoderPanel.classList.remove('active');
-        document.getElementById('toolErrorDecoder').classList.remove('active');
-    }
-
-    updateErrorCharCount() {
-        const count = this.errorInput.value.length;
-        document.getElementById('errorCharCount').textContent = `${count} 字符`;
+    closeErrorDecoderPanel() {
+        this.errorDecoderPanel.style.display = 'none';
+        this.errorInput.value = '';
+        this.errorCharCount.textContent = '0 字符';
     }
 
     async decodeError() {
-        const errorMessage = this.errorInput.value.trim();
-        const language = this.errorLanguage.value;
-
-        if (!errorMessage) {
-            alert('请粘贴错误信息');
+        const error = this.errorInput.value.trim();
+        if (!error) {
+            alert('请输入错误信息');
             return;
         }
 
-        if (this.messages.length === 0) {
-            this.createNewChat(true);
-        }
+        const language = this.errorLanguage.value;
 
-        this.welcomeScreen.style.display = 'none';
-        this.messagesDiv.style.display = 'flex';
-
-        const langLabel = this.errorLanguage.selectedOptions[0].text;
-
-        const prompt = `请帮我分析以下${langLabel !== '自动识别' ? langLabel : ''}错误信息，并提供详细的解决方案：
-
-## 错误信息
-
-\`\`\`
-${errorMessage}
-\`\`\`
-
-请按以下格式进行分析：
-
-### 1. 错误类型识别
-- 识别这是什么类型的错误
-- 错误的严重程度
-
-### 2. 错误原因分析
-- 详细解释导致这个错误的根本原因
-- 分析错误发生的上下文环境
-
-### 3. 解决方案
-- 提供具体的修复步骤
-- 给出修正后的代码示例（如果适用）
-
-### 4. 预防措施
-- 如何避免类似错误再次发生
-- 最佳实践建议`;
-
-        this.messages.push({ role: 'user', content: prompt });
-        this.appendMessage('user', prompt);
-
-        this.sendBtn.disabled = true;
         this.decodeErrorBtn.disabled = true;
-        this.setStatus('loading', '解读中...');
-
-        const aiMessageEl = this.appendMessage('assistant', '', true);
 
         try {
-            await this.sendViaHTTP(aiMessageEl);
-            await this.waitForTypingComplete();
+            const response = await fetch('/api/decode-error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.authToken ? `Bearer ${this.authToken}` : ''
+                },
+                body: JSON.stringify({
+                    error,
+                    language
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                alert('解读失败：' + data.error);
+            } else {
+                this.userInput.value = `请帮我解读这个${language}错误：\n\n${error}`;
+                this.closeErrorDecoderPanel();
+            }
         } catch (error) {
-            console.error('错误解读失败:', error);
-            await this.typeWriterEffect(aiMessageEl, `抱歉，错误解读失败：${error.message}。请稍后重试。`);
-            this.setStatus('error', '解读失败');
+            alert('网络错误，请稍后重试');
         } finally {
-            this.sendBtn.disabled = false;
             this.decodeErrorBtn.disabled = false;
-            this.setStatus('ready', '就绪');
-            this.saveCurrentChat();
         }
+    }
+
+    setupMarked() {
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
     }
 }
 
-let app;
 document.addEventListener('DOMContentLoaded', () => {
-    app = new DevAssistant();
+    new DevAssistant();
 });

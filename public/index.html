@@ -14,67 +14,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
-    <div class="auth-overlay" id="authOverlay">
-        <div class="auth-container">
-            <div class="auth-logo">
-                <i class="fas fa-laptop-code"></i>
-                <h1>程序员AI辅助助手——小智</h1>
-                <p>您的全栈编程技术伙伴</p>
-            </div>
-            <div class="auth-tabs">
-                <button class="auth-tab active" data-tab="login">登录</button>
-                <button class="auth-tab" data-tab="register">注册</button>
-            </div>
-            <form class="auth-form" id="loginForm">
-                <div class="auth-field">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="loginUsername" placeholder="用户名或邮箱" required autocomplete="username">
-                </div>
-                <div class="auth-field">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="loginPassword" placeholder="密码" required autocomplete="current-password">
-                </div>
-                <div class="auth-error" id="loginError"></div>
-                <button type="submit" class="auth-submit" id="loginSubmit">
-                    <span>登录</span>
-                    <i class="fas fa-spinner fa-spin" style="display:none"></i>
-                </button>
-            </form>
-            <form class="auth-form" id="registerForm" style="display:none">
-                <div class="auth-field">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="regUsername" placeholder="用户名 (2-20个字符)" required autocomplete="username">
-                </div>
-                <div class="auth-field">
-                    <i class="fas fa-envelope"></i>
-                    <input type="email" id="regEmail" placeholder="邮箱地址" required autocomplete="email">
-                </div>
-                <div class="auth-field">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="regPassword" placeholder="密码 (至少6个字符)" required autocomplete="new-password">
-                </div>
-                <div class="auth-field">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="regConfirmPassword" placeholder="确认密码" required autocomplete="new-password">
-                </div>
-                <div class="auth-error" id="registerError"></div>
-                <button type="submit" class="auth-submit" id="registerSubmit">
-                    <span>注册</span>
-                    <i class="fas fa-spinner fa-spin" style="display:none"></i>
-                </button>
-            </form>
-            <div class="auth-divider">
-                <span>或者</span>
-            </div>
-            <button class="guest-btn" id="guestBtn">
-                <i class="fas fa-arrow-right"></i>
-                <span>游客模式进入</span>
-            </button>
-            <p class="guest-hint">游客模式无法保存对话记录，登录后可跨设备同步</p>
-        </div>
-    </div>
-
-    <div class="app-container" id="appContainer" style="display:none">
+    <div class="app-container" id="appContainer">
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
@@ -223,17 +163,9 @@
             </div>
 
             <div class="sidebar-footer">
-                <div class="user-info" id="userInfo">
-                    <i class="fas fa-user-circle"></i>
-                    <span id="displayUsername">用户</span>
-                </div>
                 <button class="clear-history-btn" id="clearHistoryBtn">
                     <i class="fas fa-trash-alt"></i>
                     <span>清除所有记录</span>
-                </button>
-                <button class="logout-btn" id="logoutBtn">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>退出登录</span>
                 </button>
             </div>
         </aside>
@@ -244,6 +176,20 @@
                     <i class="fas fa-bars"></i>
                 </button>
                 <h1>程序员AI辅助助手小智</h1>
+                <div class="header-auth">
+                    <div class="user-info" id="userInfo" style="display:none">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="displayUsername">用户</span>
+                    </div>
+                    <button class="auth-btns" id="authBtns">
+                        <i class="fas fa-user"></i>
+                        <span>登录/注册</span>
+                    </button>
+                    <button class="logout-btn" id="logoutBtn" style="display:none">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>退出登录</span>
+                    </button>
+                </div>
             </header>
 
             <div class="chat-container" id="chatContainer">
@@ -514,6 +460,62 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div class="auth-modal" id="authModal" style="display:none">
+        <div class="auth-modal-overlay" id="authModalOverlay"></div>
+        <div class="auth-modal-container">
+            <button class="auth-modal-close" id="authModalClose">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="auth-modal-logo">
+                <i class="fas fa-laptop-code"></i>
+                <h2>程序员AI辅助助手——小智</h2>
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">登录</button>
+                <button class="auth-tab" data-tab="register">注册</button>
+            </div>
+            <form class="auth-form" id="loginForm">
+                <div class="auth-field">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="loginUsername" placeholder="用户名或邮箱" required autocomplete="username">
+                </div>
+                <div class="auth-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="loginPassword" placeholder="密码" required autocomplete="current-password">
+                </div>
+                <div class="auth-error" id="loginError"></div>
+                <button type="submit" class="auth-submit" id="loginSubmit">
+                    <span>登录</span>
+                    <i class="fas fa-spinner fa-spin" style="display:none"></i>
+                </button>
+            </form>
+            <form class="auth-form" id="registerForm" style="display:none">
+                <div class="auth-field">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="regUsername" placeholder="用户名 (2-20个字符)" required autocomplete="username">
+                </div>
+                <div class="auth-field">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="regEmail" placeholder="邮箱地址" required autocomplete="email">
+                </div>
+                <div class="auth-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="regPassword" placeholder="密码 (至少6个字符)" required autocomplete="new-password">
+                </div>
+                <div class="auth-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="regConfirmPassword" placeholder="确认密码" required autocomplete="new-password">
+                </div>
+                <div class="auth-error" id="registerError"></div>
+                <button type="submit" class="auth-submit" id="registerSubmit">
+                    <span>注册</span>
+                    <i class="fas fa-spinner fa-spin" style="display:none"></i>
+                </button>
+            </form>
+            <p class="auth-hint">登录后可保存对话记录，跨设备同步</p>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
