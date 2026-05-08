@@ -742,6 +742,7 @@ button, a, input, select, textarea {
     color: var(--text-primary);
     border-bottom-left-radius: 4px;
     border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
 }
 
 .message-content p {
@@ -859,6 +860,14 @@ button, a, input, select, textarea {
     border-radius: 4px;
     color: var(--accent);
     font-weight: 600;
+}
+
+.message-content .tech-keyword {
+    color: var(--primary-light);
+    font-weight: 600;
+    background: rgba(108, 92, 231, 0.15);
+    padding: 1px 4px;
+    border-radius: 3px;
 }
 
 .message-content .important {

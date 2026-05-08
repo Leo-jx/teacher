@@ -647,6 +647,16 @@ class DevAssistant {
         let inCodeBlock = false;
         let inList = false;
 
+        const techKeywords = [
+            'MySQL', 'Java', 'Python', 'C++', 'Spring', 'Spring Boot', 
+            'uni-app', 'Coze AI', 'SQL', 'API', 'socket', 'React', 'Vue',
+            'JavaScript', 'TypeScript', 'Node.js', 'Redis', 'MongoDB', 
+            'Docker', 'Kubernetes', 'Git', 'GitHub', 'Docker', 'Nginx',
+            'Linux', 'HTTP', 'HTTPS', 'JSON', 'XML', 'REST', 'GraphQL',
+            'JWT', 'OAuth', 'WebSocket', 'WebRTC', 'gRPC', '微服务',
+            '缓存', '数据库', '优化', '性能', '安全', '框架', '架构'
+        ];
+
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             
@@ -676,6 +686,11 @@ class DevAssistant {
             line = line.replace(/\*\*([^*]+)\*\*/g, '**$1**');
             line = line.replace(/【([^】]+)】/g, '**[$1]**');
             line = line.replace(/（([^）]+)）/g, '($1)');
+            
+            techKeywords.forEach(keyword => {
+                const regex = new RegExp(`\\b(${keyword})\\b`, 'g');
+                line = line.replace(regex, '<span class="tech-keyword">$1</span>');
+            });
             
             if (/^(一|二|三|四|五|六|七|八|九|十|[1-9]\d*)[、.．]/.test(line)) {
                 line = '### ' + line;
