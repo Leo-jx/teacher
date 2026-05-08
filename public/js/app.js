@@ -11,12 +11,16 @@ class DevAssistant {
         this.username = null;
         this.userId = null;
         this.dbConversationId = null;
+        this.deviceId = null;
+        this.lastSyncTime = null;
+        this.syncEnabled = true;
 
         this.init();
     }
 
     init() {
         this.checkAuth();
+        this.initDeviceId();
         this.bindElements();
         this.bindAuthEvents();
         this.bindEvents();
@@ -24,6 +28,21 @@ class DevAssistant {
         this.autoResizeTextarea();
         this.updateCharCount();
         this.showApp();
+    }
+
+    initDeviceId() {
+        this.deviceId = localStorage.getItem('device_id');
+        if (!this.deviceId) {
+            this.deviceId = this.generateDeviceId();
+            localStorage.setItem('device_id', this.deviceId);
+        }
+        this.lastSyncTime = localStorage.getItem('last_sync_time') || '1970-01-01 00:00:00';
+    }
+
+    generateDeviceId() {
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        return `device_${timestamp}_${randomStr}`;
     }
 
     checkAuth() {
@@ -37,21 +56,61 @@ class DevAssistant {
 
     async verifyToken() {
         try {
-            const response = await fetch('/api/auth/me', {
+            const response = await fetch('/api/auth/verify', {
                 headers: { 'Authorization': `Bearer ${this.authToken}` }
             });
             if (response.ok) {
                 const data = await response.json();
-                this.username = data.username;
-                this.userId = data.userId;
+                this.username = data.user.username;
+                this.userId = data.user.id;
                 localStorage.setItem('auth_username', this.username);
                 localStorage.setItem('auth_userId', this.userId);
+                await this.registerDevice();
+                await this.syncData();
             } else {
                 this.logout();
             }
         } catch (e) {
             console.error('Token验证失败:', e);
         }
+    }
+
+    async registerDevice() {
+        if (!this.authToken) return;
+        
+        try {
+            const deviceName = this.getDeviceName();
+            await fetch('/api/devices/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: JSON.stringify({
+                    deviceId: this.deviceId,
+                    deviceName
+                })
+            });
+        } catch (e) {
+            console.error('设备注册失败:', e);
+        }
+    }
+
+    getDeviceName() {
+        const ua = navigator.userAgent;
+        let deviceType = 'Desktop';
+        let os = 'Unknown';
+        
+        if (/Mobile|Android|iPhone/i.test(ua)) deviceType = 'Mobile';
+        else if (/Tablet|iPad/i.test(ua)) deviceType = 'Tablet';
+        
+        if (/Windows/i.test(ua)) os = 'Windows';
+        else if (/Mac/i.test(ua)) os = 'macOS';
+        else if (/Linux/i.test(ua)) os = 'Linux';
+        else if (/Android/i.test(ua)) os = 'Android';
+        else if (/iPhone|iPad/i.test(ua)) os = 'iOS';
+        
+        return `${deviceType} - ${os}`;
     }
 
     openAuthModal() {
@@ -121,12 +180,25 @@ class DevAssistant {
                 const data = await response.json();
                 if (data.success) {
                     this.authToken = data.token;
-                    this.username = data.username;
-                    this.userId = data.userId;
+                    this.username = data.user.username;
+                    this.userId = data.user.id;
                     localStorage.setItem('auth_token', data.token);
-                    localStorage.setItem('auth_username', data.username);
-                    localStorage.setItem('auth_userId', data.userId);
+                    localStorage.setItem('auth_username', this.username);
+                    localStorage.setItem('auth_userId', this.userId);
                     this.closeAuthModal();
+                    await this.registerDevice();
+                    this.showApp();
+                } else {
+                    errorEl.textContent = data.error || '注册失败';
+                }
+                    this.username = data.user.username;
+                    this.userId = data.user.id;
+                    localStorage.setItem('auth_token', data.token);
+                    localStorage.setItem('auth_username', this.username);
+                    localStorage.setItem('auth_userId', this.userId);
+                    this.closeAuthModal();
+                    await this.registerDevice();
+                    await this.syncData();
                     this.showApp();
                 } else {
                     errorEl.textContent = data.error || '登录失败';
@@ -168,12 +240,13 @@ class DevAssistant {
                 const data = await response.json();
                 if (data.success) {
                     this.authToken = data.token;
-                    this.username = data.username;
-                    this.userId = data.userId;
+                    this.username = data.user.username;
+                    this.userId = data.user.id;
                     localStorage.setItem('auth_token', data.token);
-                    localStorage.setItem('auth_username', data.username);
-                    localStorage.setItem('auth_userId', data.userId);
+                    localStorage.setItem('auth_username', this.username);
+                    localStorage.setItem('auth_userId', this.userId);
                     this.closeAuthModal();
+                    await this.registerDevice();
                     this.showApp();
                 } else {
                     errorEl.textContent = data.error || '注册失败';
@@ -252,6 +325,155 @@ class DevAssistant {
         this.errorCharCount = document.getElementById('errorCharCount');
         this.decodeErrorBtn = document.getElementById('decodeErrorBtn');
         this.webSearchToggle = document.getElementById('webSearchToggle');
+    }
+
+    async syncData() {
+        if (!this.authToken || !this.syncEnabled) return;
+        
+        try {
+            const response = await fetch('/api/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: JSON.stringify({
+                    deviceId: this.deviceId,
+                    lastSyncTime: this.lastSyncTime
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.conversations.length > 0) {
+                    this.mergeSyncedData(data.conversations);
+                    this.lastSyncTime = data.syncTime;
+                    localStorage.setItem('last_sync_time', this.lastSyncTime);
+                }
+            }
+        } catch (e) {
+            console.error('同步失败:', e);
+        }
+    }
+
+    mergeSyncedData(conversations) {
+        const localHistory = JSON.parse(localStorage.getItem('chat_history') || '[]');
+        const localMap = new Map(localHistory.map(h => [h.id, h]));
+        
+        conversations.forEach(conv => {
+            const localConv = localMap.get(conv.id);
+            if (!localConv) {
+                localMap.set(conv.id, {
+                    id: conv.id,
+                    title: conv.title,
+                    messages: conv.messages || [],
+                    timestamp: conv.updated_at || conv.created_at
+                });
+            } else {
+                const localTime = new Date(localConv.timestamp).getTime();
+                const remoteTime = new Date(conv.updated_at).getTime();
+                if (remoteTime > localTime) {
+                    localMap.set(conv.id, {
+                        id: conv.id,
+                        title: conv.title,
+                        messages: conv.messages || localConv.messages,
+                        timestamp: conv.updated_at
+                    });
+                }
+            }
+        });
+        
+        const mergedHistory = Array.from(localMap.values())
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        localStorage.setItem('chat_history', JSON.stringify(mergedHistory));
+        this.chatHistory = mergedHistory;
+        this.renderHistory();
+    }
+
+    async uploadLocalData() {
+        if (!this.authToken || !this.syncEnabled) return;
+        
+        const localHistory = JSON.parse(localStorage.getItem('chat_history') || '[]');
+        if (localHistory.length === 0) return;
+        
+        try {
+            await fetch('/api/sync/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: JSON.stringify({
+                    deviceId: this.deviceId,
+                    conversations: localHistory
+                })
+            });
+        } catch (e) {
+            console.error('上传数据失败:', e);
+        }
+    }
+
+    async saveToCloud(conversation) {
+        if (!this.authToken) return;
+        
+        try {
+            let conversationId = conversation.id;
+            
+            if (!conversationId || conversationId.startsWith('local_')) {
+                const createResponse = await fetch('/api/conversations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.authToken}`
+                    },
+                    body: JSON.stringify({ title: conversation.title })
+                });
+                
+                if (createResponse.ok) {
+                    const createData = await createResponse.json();
+                    conversationId = createData.conversationId;
+                    conversation.id = conversationId;
+                }
+            }
+            
+            if (conversation.messages && conversation.messages.length > 0) {
+                const lastMessage = conversation.messages[conversation.messages.length - 1];
+                await fetch('/api/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.authToken}`
+                    },
+                    body: JSON.stringify({
+                        conversationId,
+                        role: lastMessage.role,
+                        content: lastMessage.content
+                    })
+                });
+            }
+        } catch (e) {
+            console.error('保存到云端失败:', e);
+        }
+    }
+
+    async loadFromCloud(conversationId) {
+        if (!this.authToken) return null;
+        
+        try {
+            const response = await fetch(`/api/conversations/${conversationId}`, {
+                headers: { 'Authorization': `Bearer ${this.authToken}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                return data;
+            }
+        } catch (e) {
+            console.error('从云端加载失败:', e);
+        }
+        
+        return null;
     }
 
     bindEvents() {
