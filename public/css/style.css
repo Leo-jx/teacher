@@ -747,13 +747,7 @@ button, a, input, select, textarea {
     line-height: 1.9;
 }
 
-.message-content p {
-    margin-bottom: 10px;
-}
 
-.message-content p:last-child {
-    margin-bottom: 0;
-}
 
 .message.assistant .message-content.typing::after {
     content: '▋';

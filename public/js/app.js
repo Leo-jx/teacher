@@ -645,127 +645,80 @@ class DevAssistant {
         let lines = text.split('\n');
         let result = [];
         let inCodeBlock = false;
-        let inList = false;
-        let inParagraph = false;
-
-        const techKeywords = [
-            'MySQL', 'Java', 'Python', 'C++', 'Spring', 'Spring Boot', 'Spring Cloud',
-            'uni-app', 'Coze AI', 'SQL', 'API', 'socket', 'React', 'Vue', 'Angular',
-            'JavaScript', 'TypeScript', 'Node.js', 'Redis', 'MongoDB', 'PostgreSQL',
-            'Docker', 'Kubernetes', 'Git', 'GitHub', 'GitLab', 'Nginx', 'Apache',
-            'Linux', 'HTTP', 'HTTPS', 'JSON', 'XML', 'REST', 'GraphQL', 'SOAP',
-            'JWT', 'OAuth', 'WebSocket', 'WebRTC', 'gRPC', '微服务', '分布式',
-            '缓存', '数据库', '优化', '性能', '安全', '框架', '架构', '设计模式',
-            '算法', '数据结构', '并发', '异步', '线程', '进程', '内存', 'CPU',
-            '前端', '后端', '全栈', '移动端', '小程序', '云原生', 'DevOps', 'CI/CD',
-            'Docker Compose', 'Jenkins', 'Prometheus', 'Grafana', 'Elasticsearch',
-            'Kafka', 'RabbitMQ', 'Zookeeper', 'Consul', 'Eureka', 'Ribbon', 'Feign',
-            'MyBatis', 'Hibernate', 'JPA', 'Redis Cluster', 'Docker Swarm', 'Istio'
-        ];
+        let prevLineEmpty = false;
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
-            let prevLine = i > 0 ? lines[i - 1] : '';
-            let nextLine = i < lines.length - 1 ? lines[i + 1] : '';
             
             if (line.startsWith('```')) {
-                if (!inCodeBlock && inParagraph && prevLine.trim() !== '') {
-                    result.push('');
-                }
                 inCodeBlock = !inCodeBlock;
-                inParagraph = false;
                 result.push(line);
+                prevLineEmpty = false;
                 continue;
             }
             
             if (inCodeBlock) {
                 result.push(line);
+                prevLineEmpty = false;
                 continue;
             }
 
-            line = line.trim();
-
-            if (/^(\d+\.\s|[-*+•●○]\s)/.test(line)) {
-                if (!inList && prevLine.trim() !== '' && !/^(\d+\.\s|[-*+•●○]\s)/.test(prevLine)) {
+            const trimmed = line.trim();
+            
+            if (trimmed === '') {
+                if (!prevLineEmpty) {
                     result.push('');
+                    prevLineEmpty = true;
                 }
-                inList = true;
-                inParagraph = false;
-                line = line.replace(/^[-*+•●○]\s/, '- ');
-                result.push(line);
                 continue;
-            } else {
-                if (inList && line !== '') {
-                    result.push('');
-                    inList = false;
-                }
             }
+            
+            prevLineEmpty = false;
 
-            if (/^(一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/.test(line)) {
-                if (prevLine.trim() !== '') {
+            if (/^(一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/.test(trimmed)) {
+                if (i > 0 && lines[i-1].trim() !== '') {
                     result.push('');
                 }
-                const match = line.match(/^([一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/);
-                if (match && match[1] && parseInt(match[1]) <= 3) {
-                    line = '## ' + line;
+                const match = trimmed.match(/^([一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/);
+                if (match && match[1]) {
+                    const num = parseInt(match[1]);
+                    if (num <= 3) {
+                        result.push('## ' + trimmed);
+                    } else {
+                        result.push('### ' + trimmed);
+                    }
                 } else {
-                    line = '### ' + line;
+                    result.push('### ' + trimmed);
                 }
-                inParagraph = false;
-                result.push(line);
                 continue;
             }
-            
-            if (/^【.*】$/.test(line)) {
-                if (prevLine.trim() !== '') {
+
+            if (/^(\d+\.\s|[-*+•●○]\s)/.test(trimmed)) {
+                let processed = trimmed.replace(/^[-*+•●○]\s/, '- ');
+                result.push(processed);
+                continue;
+            }
+
+            if (/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤)/.test(trimmed)) {
+                if (i > 0 && lines[i-1].trim() !== '') {
                     result.push('');
                 }
-                line = '### ' + line.replace(/【|】/g, '');
-                inParagraph = false;
-                result.push(line);
+                result.push('**' + trimmed + '**');
                 continue;
             }
 
-            if (/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤)/.test(line)) {
-                if (prevLine.trim() !== '') {
+            if (/^【.*】$/.test(trimmed)) {
+                if (i > 0 && lines[i-1].trim() !== '') {
                     result.push('');
                 }
-                line = '**' + line + '**';
-                inParagraph = false;
-                result.push(line);
+                result.push('### ' + trimmed.replace(/【|】/g, ''));
                 continue;
             }
 
-            if (line === '') {
-                if (prevLine.trim() !== '' && !/^(\d+\.\s|[-*+•●○]\s)/.test(prevLine)) {
-                    result.push('');
-                    inParagraph = false;
-                }
-                continue;
-            }
-
-            line = line.replace(/\*\*([^*]+)\*\*/g, '**$1**');
-            line = line.replace(/【([^】]+)】/g, '**$1**');
-            line = line.replace(/（([^）]+)）/g, '($1)');
-            line = line.replace(/`([^`]+)`/g, '`$1`');
-            
-            techKeywords.forEach(keyword => {
-                const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
-                line = line.replace(regex, '<span class="tech-keyword">$1</span>');
-            });
-
-            line = line.replace(/([。！？；：])\s*([一-龥A-Za-z])/g, '$1\n\n$2');
-            line = line.replace(/(\.\s*[A-Z])/g, '.\n\n$1');
-
-            if (!/^(\d+\.\s|[-*+•●○]\s)/.test(prevLine) && prevLine.trim() !== '' && !/^#/.test(prevLine)) {
-                inParagraph = true;
-            }
-
-            result.push(line);
+            result.push(trimmed);
         }
 
-        const finalResult = result.join('\n').replace(/\n{3,}/g, '\n\n');
-        return finalResult;
+        return result.join('\n\n');
     }
 
     highlightCode(element) {
