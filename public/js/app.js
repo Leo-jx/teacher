@@ -669,9 +669,9 @@ class DevAssistant {
                 continue;
             }
 
-            const trimmed = line.trim();
+            let trimmed = line.trim();
             
-            if (trimmed === '') {
+            if (trimmed === '' || /^\*+$/.test(trimmed)) {
                 if (!prevLineEmpty) {
                     result.push('');
                     prevLineEmpty = true;
@@ -681,8 +681,12 @@ class DevAssistant {
             
             prevLineEmpty = false;
 
+            trimmed = trimmed.replace(/^\*\*\*+/g, '');
+            trimmed = trimmed.replace(/\*\*\*+$/g, '');
+            trimmed = trimmed.replace(/\*\*\*\*/g, '');
+
             if (/^(一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/.test(trimmed)) {
-                if (i > 0 && lines[i-1].trim() !== '') {
+                if (i > 0 && lines[i-1].trim() !== '' && !/^\*+$/.test(lines[i-1].trim())) {
                     result.push('');
                 }
                 const match = trimmed.match(/^([一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/);
@@ -699,14 +703,19 @@ class DevAssistant {
                 continue;
             }
 
-            if (/^(\d+\.\s|[-*+•●○]\s)/.test(trimmed)) {
-                let processed = trimmed.replace(/^[-*+•●○]\s/, '- ');
+            if (/^(\d+\.\s)/.test(trimmed)) {
+                result.push(trimmed);
+                continue;
+            }
+
+            if (/^[-•●○]\s/.test(trimmed)) {
+                let processed = trimmed.replace(/^[-•●○]\s/, '- ');
                 result.push(processed);
                 continue;
             }
 
             if (/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤)/.test(trimmed)) {
-                if (i > 0 && lines[i-1].trim() !== '') {
+                if (i > 0 && lines[i-1].trim() !== '' && !/^\*+$/.test(lines[i-1].trim())) {
                     result.push('');
                 }
                 result.push('**' + trimmed + '**');
@@ -714,7 +723,7 @@ class DevAssistant {
             }
 
             if (/^【.*】$/.test(trimmed)) {
-                if (i > 0 && lines[i-1].trim() !== '') {
+                if (i > 0 && lines[i-1].trim() !== '' && !/^\*+$/.test(lines[i-1].trim())) {
                     result.push('');
                 }
                 result.push('### ' + trimmed.replace(/【|】/g, ''));
@@ -724,7 +733,10 @@ class DevAssistant {
             result.push(trimmed);
         }
 
-        return result.join('\n\n');
+        let finalResult = result.join('\n\n');
+        finalResult = finalResult.replace(/\n{4,}/g, '\n\n');
+        
+        return finalResult;
     }
 
     highlightCode(element) {
