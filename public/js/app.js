@@ -500,7 +500,98 @@ class DevAssistant {
             timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
         };
         this.messages.push(message);
-        this.renderMessages();
+        
+        if (role === 'assistant') {
+            this.renderMessagesWithTypewriter(message);
+        } else {
+            this.renderMessages();
+        }
+    }
+
+    renderMessagesWithTypewriter(message) {
+        this.welcomeScreen.style.display = 'none';
+        
+        const messageEl = document.createElement('div');
+        messageEl.className = `message ${message.role}`;
+        messageEl.id = `msg-${message.id}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.innerHTML = '<i class="fas fa-robot"></i>';
+
+        const content = document.createElement('div');
+        content.className = 'message-content typing';
+        content.id = `content-${message.id}`;
+
+        const timestamp = document.createElement('div');
+        timestamp.className = 'message-timestamp';
+        timestamp.textContent = message.timestamp;
+
+        messageEl.appendChild(avatar);
+        messageEl.appendChild(content);
+        messageEl.appendChild(timestamp);
+
+        this.messagesContainer.appendChild(messageEl);
+        this.scrollToBottom();
+
+        this.typeWriterEffect(content, message.content, message.id);
+    }
+
+    typeWriterEffect(element, text, messageId) {
+        if (this.isTyping) {
+            this.typingQueue.push({ element, text, messageId });
+            return;
+        }
+
+        this.isTyping = true;
+        let index = 0;
+        let currentText = '';
+        const speed = this.typingSpeed;
+        
+        const type = () => {
+            if (index < text.length) {
+                const char = text.charAt(index);
+                currentText += char;
+                
+                if (char === '\n') {
+                    const lines = currentText.split('\n');
+                    const lastLine = lines[lines.length - 1];
+                    if (lastLine.trim() === '' || lastLine.startsWith('  ')) {
+                        element.innerHTML = this.renderMarkdown(currentText);
+                    } else {
+                        element.innerHTML = this.renderMarkdown(currentText);
+                    }
+                } else if (char === '`' || char === '*' || char === '#' || char === '-' || char === '|') {
+                    element.innerHTML = this.renderMarkdown(currentText);
+                } else {
+                    if (index % 3 === 0 || char === ' ' || char === '.' || char === '!' || char === '?') {
+                        element.innerHTML = this.renderMarkdown(currentText);
+                    }
+                }
+                
+                index++;
+                
+                if (index % 5 === 0) {
+                    this.highlightCode(element);
+                    this.scrollToBottom();
+                }
+                
+                setTimeout(type, speed);
+            } else {
+                element.innerHTML = this.renderMarkdown(text);
+                this.highlightCode(element);
+                element.classList.remove('typing');
+                this.isTyping = false;
+                this.scrollToBottom();
+                
+                if (this.typingQueue.length > 0) {
+                    const next = this.typingQueue.shift();
+                    this.typeWriterEffect(next.element, next.text, next.messageId);
+                }
+            }
+        };
+
+        type();
     }
 
     renderMessages() {
@@ -543,10 +634,61 @@ class DevAssistant {
 
     renderMarkdown(text) {
         try {
-            return marked.parse(text) || text;
+            const formatted = this.formatContent(text);
+            return marked.parse(formatted) || text;
         } catch {
             return text;
         }
+    }
+
+    formatContent(text) {
+        let lines = text.split('\n');
+        let result = [];
+        let inCodeBlock = false;
+        let inList = false;
+
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i];
+            
+            if (line.startsWith('```')) {
+                inCodeBlock = !inCodeBlock;
+                result.push(line);
+                continue;
+            }
+            
+            if (inCodeBlock) {
+                result.push(line);
+                continue;
+            }
+
+            if (/^(\d+\.\s|[-*+]\s)/.test(line)) {
+                if (!inList) {
+                    inList = true;
+                }
+                result.push(line);
+                continue;
+            } else {
+                if (inList && line.trim() === '') {
+                    inList = false;
+                }
+            }
+
+            line = line.replace(/\*\*([^*]+)\*\*/g, '**$1**');
+            line = line.replace(/【([^】]+)】/g, '**[$1]**');
+            line = line.replace(/（([^）]+)）/g, '($1)');
+            
+            if (/^(一|二|三|四|五|六|七|八|九|十|[1-9]\d*)[、.．]/.test(line)) {
+                line = '### ' + line;
+            }
+            
+            if (/^【.*】$/.test(line.trim())) {
+                line = '### ' + line.replace(/【|】/g, '');
+            }
+
+            result.push(line);
+        }
+
+        return result.join('\n');
     }
 
     highlightCode(element) {

@@ -771,15 +771,123 @@ button, a, input, select, textarea {
 
 .message-content strong {
     color: var(--primary-light);
+    font-weight: 700;
+    background: linear-gradient(90deg, rgba(108, 92, 231, 0.15), transparent);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.message-content em {
+    color: var(--accent);
+    font-style: italic;
+}
+
+.message-content h1, .message-content h2, .message-content h3 {
+    color: var(--primary-light);
+    margin: 16px 0 10px 0;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.message-content h1 {
+    font-size: 1.4em;
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: 8px;
+}
+
+.message-content h2 {
+    font-size: 1.25em;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+}
+
+.message-content h3 {
+    font-size: 1.1em;
+    color: var(--accent);
 }
 
 .message-content ul, .message-content ol {
-    margin: 8px 0;
-    padding-left: 20px;
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.message-content ul {
+    list-style-type: disc;
+}
+
+.message-content ol {
+    list-style-type: decimal;
 }
 
 .message-content li {
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+    line-height: 1.6;
+    position: relative;
+}
+
+.message-content li::marker {
+    color: var(--primary-light);
+    font-weight: bold;
+}
+
+.message-content li strong {
+    color: var(--accent);
+}
+
+.message-content p {
+    margin: 10px 0;
+    line-height: 1.8;
+}
+
+.message-content p:first-child {
+    margin-top: 0;
+}
+
+.message-content p:last-child {
+    margin-bottom: 0;
+}
+
+.message-content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+}
+
+.message-content .highlight {
+    background: linear-gradient(90deg, rgba(0, 206, 201, 0.2), transparent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.message-content .important {
+    color: var(--warning);
+    font-weight: 700;
+}
+
+.message-content .warning {
+    background: rgba(246, 173, 85, 0.15);
+    border-left: 3px solid var(--warning);
+    padding: 8px 12px;
+    margin: 10px 0;
+    border-radius: 0 4px 4px 0;
+}
+
+.message-content .success {
+    background: rgba(72, 187, 120, 0.15);
+    border-left: 3px solid var(--success);
+    padding: 8px 12px;
+    margin: 10px 0;
+    border-radius: 0 4px 4px 0;
+}
+
+.message-content .error-box {
+    background: rgba(252, 129, 129, 0.15);
+    border-left: 3px solid var(--error);
+    padding: 8px 12px;
+    margin: 10px 0;
+    border-radius: 0 4px 4px 0;
 }
 
 .message-content pre {
