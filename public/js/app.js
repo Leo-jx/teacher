@@ -634,9 +634,15 @@ class DevAssistant {
 
     renderMarkdown(text) {
         try {
-            const formatted = this.formatContent(text);
-            return marked.parse(formatted) || text;
-        } catch {
+            let decoded = text;
+            decoded = decoded.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+            decoded = decoded.replace(/&amp;/g, '&');
+            
+            const formatted = this.formatContent(decoded);
+            const html = marked.parse(formatted);
+            return html || text;
+        } catch (error) {
+            console.error('Markdown parsing error:', error);
             return text;
         }
     }
