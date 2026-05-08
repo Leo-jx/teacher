@@ -35,7 +35,7 @@ cp .env.example .env
 npm start
 ```
 
-访问 http://localhost:3000
+访问 <http://localhost:3000>
 
 ### Docker部署
 
@@ -51,15 +51,15 @@ docker-compose logs -f
 
 ## 环境变量
 
-| 变量名 | 说明 |
-|--------|------|
-| NODE_ENV | 运行环境 (development/production) |
-| API_URL | API地址 |
-| WS_URL | WebSocket地址 |
-| MODEL_ID | 模型ID |
-| API_KEY | API密钥 |
-| API_SECRET | API密钥 |
-| APP_ID | 应用ID |
+| 变量名         | 说明                            |
+| ----------- | ----------------------------- |
+| NODE\_ENV   | 运行环境 (development/production) |
+| API\_URL    | API地址                         |
+| WS\_URL     | WebSocket地址                   |
+| MODEL\_ID   | 模型ID                          |
+| API\_KEY    | API密钥                         |
+| API\_SECRET | API密钥                         |
+| APP\_ID     | 应用ID                          |
 
 ## 项目结构
 
@@ -89,8 +89,11 @@ docker-compose logs -f
 10. Spring后端框架及生态系统
 
 ## License
+
 <<<<<<< HEAD
 
-=======
->>>>>>> 1e67221302766622f4a61906a550db342866c932
-jiangxia
+\=======
+
+> > > > > > > 1e67221302766622f4a61906a550db342866c932
+> > > > > > > jiangxia
+

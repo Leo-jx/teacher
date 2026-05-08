@@ -187,17 +187,6 @@ class DevAssistant {
                     localStorage.setItem('auth_userId', this.userId);
                     this.closeAuthModal();
                     await this.registerDevice();
-                    this.showApp();
-                } else {
-                    errorEl.textContent = data.error || '注册失败';
-                }
-                    this.username = data.user.username;
-                    this.userId = data.user.id;
-                    localStorage.setItem('auth_token', data.token);
-                    localStorage.setItem('auth_username', this.username);
-                    localStorage.setItem('auth_userId', this.userId);
-                    this.closeAuthModal();
-                    await this.registerDevice();
                     await this.syncData();
                     this.showApp();
                 } else {
