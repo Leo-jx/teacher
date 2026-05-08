@@ -637,6 +637,8 @@ class DevAssistant {
             let decoded = text;
             decoded = decoded.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
             decoded = decoded.replace(/&amp;/g, '&');
+            decoded = decoded.replace(/&#39;/g, "'");
+            decoded = decoded.replace(/&quot;/g, '"');
             
             const formatted = this.formatContent(decoded);
             const html = marked.parse(formatted);
@@ -651,91 +653,107 @@ class DevAssistant {
         let lines = text.split('\n');
         let result = [];
         let inCodeBlock = false;
-        let prevLineEmpty = false;
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
-            
-            if (line.startsWith('```')) {
+            let prevLine = i > 0 ? lines[i - 1].trim() : '';
+            let nextLine = i < lines.length - 1 ? lines[i + 1].trim() : '';
+
+            if (line.trimStart().startsWith('```')) {
                 inCodeBlock = !inCodeBlock;
                 result.push(line);
-                prevLineEmpty = false;
                 continue;
             }
-            
+
             if (inCodeBlock) {
                 result.push(line);
-                prevLineEmpty = false;
                 continue;
             }
 
             let trimmed = line.trim();
-            
-            if (trimmed === '' || /^\*+$/.test(trimmed)) {
-                if (!prevLineEmpty) {
-                    result.push('');
-                    prevLineEmpty = true;
-                }
-                continue;
-            }
-            
-            prevLineEmpty = false;
 
-            trimmed = trimmed.replace(/^\*\*\*+/g, '');
-            trimmed = trimmed.replace(/\*\*\*+$/g, '');
-            trimmed = trimmed.replace(/\*\*\*\*/g, '');
-
-            if (/^(一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/.test(trimmed)) {
-                if (i > 0 && lines[i-1].trim() !== '' && !/^\*+$/.test(lines[i-1].trim())) {
+            if (trimmed === '' || /^\*{2,}$/.test(trimmed) || /^-{2,}$/.test(trimmed) || /^={2,}$/.test(trimmed)) {
+                if (result.length > 0 && result[result.length - 1] !== '') {
                     result.push('');
-                }
-                const match = trimmed.match(/^([一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五|[1-9]\d*)[、.．:：]/);
-                if (match && match[1]) {
-                    const num = parseInt(match[1]);
-                    if (num <= 3) {
-                        result.push('## ' + trimmed);
-                    } else {
-                        result.push('### ' + trimmed);
-                    }
-                } else {
-                    result.push('### ' + trimmed);
                 }
                 continue;
             }
 
-            if (/^(\d+\.\s)/.test(trimmed)) {
+            if (/^#{1,4}\s/.test(trimmed)) {
+                result.push('');
+                result.push(trimmed);
+                result.push('');
+                continue;
+            }
+
+            if (/^(一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五)[、.．:：]/.test(trimmed)) {
+                if (result.length > 0 && result[result.length - 1] !== '') {
+                    result.push('');
+                }
+                result.push('## ' + trimmed);
+                continue;
+            }
+
+            if (/^(\d+)[、.．:：]\s*/.test(trimmed)) {
+                if (result.length > 0 && result[result.length - 1] !== '') {
+                    result.push('');
+                }
+                let converted = trimmed.replace(/^(\d+)[、.．:：]\s*/, '$1. ');
+                result.push(converted);
+                continue;
+            }
+
+            if (/^(\d+)\.\s/.test(trimmed)) {
+                if (prevLine !== '' && !/^(\d+)\.\s/.test(prevLine) && !/^$/.test(prevLine)) {
+                    result.push('');
+                }
                 result.push(trimmed);
                 continue;
             }
 
-            if (/^[-•●○]\s/.test(trimmed)) {
-                let processed = trimmed.replace(/^[-•●○]\s/, '- ');
+            if (/^[-•●○►▸]\s/.test(trimmed)) {
+                let processed = trimmed.replace(/^[-•●○►▸]\s/, '- ');
                 result.push(processed);
                 continue;
             }
 
-            if (/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤)/.test(trimmed)) {
-                if (i > 0 && lines[i-1].trim() !== '' && !/^\*+$/.test(lines[i-1].trim())) {
+            if (/^【([^】]+)】/.test(trimmed)) {
+                if (result.length > 0 && result[result.length - 1] !== '') {
                     result.push('');
                 }
-                result.push('**' + trimmed + '**');
+                let sectionTitle = trimmed.replace(/^【([^】]+)】\s*/, '');
+                if (sectionTitle) {
+                    result.push('### ' + sectionTitle);
+                } else {
+                    result.push('### ' + trimmed.replace(/【|】/g, ''));
+                }
+                result.push('');
                 continue;
             }
 
-            if (/^【.*】$/.test(trimmed)) {
-                if (i > 0 && lines[i-1].trim() !== '' && !/^\*+$/.test(lines[i-1].trim())) {
+            if (/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤|备注|说明|关键|核心|重点)/.test(trimmed)) {
+                if (result.length > 0 && result[result.length - 1] !== '') {
                     result.push('');
                 }
-                result.push('### ' + trimmed.replace(/【|】/g, ''));
+                let keyword = trimmed.match(/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤|备注|说明|关键|核心|重点)/)[1];
+                let colorClass = 'info-tag';
+                if (/^(警告|注意)/.test(keyword)) colorClass = 'warn-tag';
+                if (/^(重要|关键|核心|重点)/.test(keyword)) colorClass = 'important-tag';
+                if (/^(总结|结论)/.test(keyword)) colorClass = 'summary-tag';
+                if (/^(提示|建议|备注|说明)/.test(keyword)) colorClass = 'tip-tag';
+                if (/^(步骤|参考)/.test(keyword)) colorClass = 'step-tag';
+                result.push(`<span class="${colorClass}">${keyword}</span>**${trimmed.substring(keyword.length)}**`);
+                result.push('');
                 continue;
             }
+
+            trimmed = trimmed.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
 
             result.push(trimmed);
         }
 
-        let finalResult = result.join('\n\n');
-        finalResult = finalResult.replace(/\n{4,}/g, '\n\n');
-        
+        let finalResult = result.join('\n');
+        finalResult = finalResult.replace(/\n{3,}/g, '\n\n');
         return finalResult;
     }
 
