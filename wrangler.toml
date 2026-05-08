@@ -5,13 +5,15 @@ compatibility_date = "2024-04-01"
 # Pages 部署配置
 [build]
 command = ""
-publish = "public"
+
+# Pages 输出目录
+pages_build_output_dir = "public"
 
 # D1 数据库绑定
 [[d1_databases]]
 binding = "DB"
 database_name = "ai-assistant-db"
-database_id = "请运行 wrangler d1 create ai-assistant-db 获取ID后替换"
+database_id = "e7c4afa5-7e12-421a-ab48-647c01c98d93"
 
 # 环境变量配置（开发环境）
 [vars]
