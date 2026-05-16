@@ -528,7 +528,7 @@ async function handleAnalyzeRequest(request, env) {
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
 
         let response;
         try {
@@ -545,11 +545,13 @@ async function handleAnalyzeRequest(request, env) {
                     temperature: 0.3,
                     max_tokens: 4096
                 }),
-                signal: controller.signal
+                signal: controller.signal,
+                keepalive: true
             });
         } catch (fetchError) {
             clearTimeout(timeout);
-            return new Response(JSON.stringify({ error: '请求超时，请稍后重试' }), { status: 504, headers: corsHeaders });
+            console.error('代码分析API请求失败:', fetchError);
+            return new Response(JSON.stringify({ error: '请求超时或网络异常，请稍后重试' }), { status: 504, headers: corsHeaders });
         }
         clearTimeout(timeout);
 
@@ -604,7 +606,7 @@ async function handleLearnRequest(request, env) {
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
 
         let response;
         try {
@@ -621,11 +623,13 @@ async function handleLearnRequest(request, env) {
                     temperature: 0.7,
                     max_tokens: 2048
                 }),
-                signal: controller.signal
+                signal: controller.signal,
+                keepalive: true
             });
         } catch (fetchError) {
             clearTimeout(timeout);
-            return new Response(JSON.stringify({ error: '请求超时，请稍后重试' }), { status: 504, headers: corsHeaders });
+            console.error('学习API请求失败:', fetchError);
+            return new Response(JSON.stringify({ error: '请求超时或网络异常，请稍后重试' }), { status: 504, headers: corsHeaders });
         }
         clearTimeout(timeout);
 
@@ -682,7 +686,7 @@ async function handleDecodeErrorRequest(request, env) {
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
 
         let response;
         try {
@@ -699,11 +703,13 @@ async function handleDecodeErrorRequest(request, env) {
                     temperature: 0.3,
                     max_tokens: 2048
                 }),
-                signal: controller.signal
+                signal: controller.signal,
+                keepalive: true
             });
         } catch (fetchError) {
             clearTimeout(timeout);
-            return new Response(JSON.stringify({ error: '请求超时，请稍后重试' }), { status: 504, headers: corsHeaders });
+            console.error('错误解码API请求失败:', fetchError);
+            return new Response(JSON.stringify({ error: '请求超时或网络异常，请稍后重试' }), { status: 504, headers: corsHeaders });
         }
         clearTimeout(timeout);
 

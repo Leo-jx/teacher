@@ -1027,6 +1027,9 @@ class DevAssistant {
         this.analyzeBtn.disabled = true;
         this.analyzeBtnText.textContent = '分析中...';
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 65000);
+
         try {
             const response = await fetch('/api/analyze', {
                 method: 'POST',
@@ -1038,9 +1041,11 @@ class DevAssistant {
                     code,
                     language,
                     type: toolType
-                })
+                }),
+                signal: controller.signal
             });
 
+            clearTimeout(timeout);
             const data = await response.json();
 
             if (data.error) {
@@ -1053,7 +1058,8 @@ class DevAssistant {
                 this.sendMessage();
             }
         } catch (error) {
-            alert('网络错误，请稍后重试');
+            clearTimeout(timeout);
+            alert('请求超时或网络错误，请稍后重试');
         } finally {
             this.analyzeBtn.disabled = false;
             this.analyzeBtnText.textContent = toolType === 'fix' ? '开始纠错' : '开始分析';
@@ -1082,6 +1088,9 @@ class DevAssistant {
 
         this.syntaxLearnBtn.disabled = true;
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 65000);
+
         try {
             const response = await fetch('/api/learn', {
                 method: 'POST',
@@ -1093,9 +1102,11 @@ class DevAssistant {
                     language,
                     keyword,
                     type: 'syntax'
-                })
+                }),
+                signal: controller.signal
             });
 
+            clearTimeout(timeout);
             const data = await response.json();
 
             if (data.error) {
@@ -1106,7 +1117,8 @@ class DevAssistant {
                 this.sendMessage();
             }
         } catch (error) {
-            alert('网络错误，请稍后重试');
+            clearTimeout(timeout);
+            alert('请求超时或网络错误，请稍后重试');
         } finally {
             this.syntaxLearnBtn.disabled = false;
         }
@@ -1134,6 +1146,9 @@ class DevAssistant {
 
         this.algorithmLearnBtn.disabled = true;
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 65000);
+
         try {
             const response = await fetch('/api/learn', {
                 method: 'POST',
@@ -1145,9 +1160,11 @@ class DevAssistant {
                     type: 'algorithm',
                     algorithmType: type,
                     name
-                })
+                }),
+                signal: controller.signal
             });
 
+            clearTimeout(timeout);
             const data = await response.json();
 
             if (data.error) {
@@ -1158,7 +1175,8 @@ class DevAssistant {
                 this.sendMessage();
             }
         } catch (error) {
-            alert('网络错误，请稍后重试');
+            clearTimeout(timeout);
+            alert('请求超时或网络错误，请稍后重试');
         } finally {
             this.algorithmLearnBtn.disabled = false;
         }
@@ -1187,6 +1205,9 @@ class DevAssistant {
 
         this.decodeErrorBtn.disabled = true;
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 65000);
+
         try {
             const response = await fetch('/api/decode-error', {
                 method: 'POST',
@@ -1197,9 +1218,11 @@ class DevAssistant {
                 body: JSON.stringify({
                     error,
                     language
-                })
+                }),
+                signal: controller.signal
             });
 
+            clearTimeout(timeout);
             const data = await response.json();
 
             if (data.error) {
@@ -1210,7 +1233,8 @@ class DevAssistant {
                 this.sendMessage();
             }
         } catch (error) {
-            alert('网络错误，请稍后重试');
+            clearTimeout(timeout);
+            alert('请求超时或网络错误，请稍后重试');
         } finally {
             this.decodeErrorBtn.disabled = false;
         }
