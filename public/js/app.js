@@ -1087,6 +1087,7 @@ class DevAssistant {
         }
 
         this.syntaxLearnBtn.disabled = true;
+        this.syntaxLearnBtn.innerHTML = '<span class="loading-spinner"></span><span>学习中...</span>';
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 65000);
@@ -1121,6 +1122,7 @@ class DevAssistant {
             alert('请求超时或网络错误，请稍后重试');
         } finally {
             this.syntaxLearnBtn.disabled = false;
+            this.syntaxLearnBtn.innerHTML = '<i class="fas fa-lightbulb"></i><span>开始学习</span>';
         }
     }
 
@@ -1145,6 +1147,7 @@ class DevAssistant {
         }
 
         this.algorithmLearnBtn.disabled = true;
+        this.algorithmLearnBtn.innerHTML = '<span class="loading-spinner"></span><span>讲解中...</span>';
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 65000);
@@ -1179,6 +1182,7 @@ class DevAssistant {
             alert('请求超时或网络错误，请稍后重试');
         } finally {
             this.algorithmLearnBtn.disabled = false;
+            this.algorithmLearnBtn.innerHTML = '<i class="fas fa-play-circle"></i><span>开始讲解</span>';
         }
     }
 
@@ -1204,6 +1208,7 @@ class DevAssistant {
         const language = this.errorLanguage.value;
 
         this.decodeErrorBtn.disabled = true;
+        this.decodeErrorBtn.innerHTML = '<span class="loading-spinner"></span><span>解读中...</span>';
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 65000);
@@ -1237,6 +1242,7 @@ class DevAssistant {
             alert('请求超时或网络错误，请稍后重试');
         } finally {
             this.decodeErrorBtn.disabled = false;
+            this.decodeErrorBtn.innerHTML = '<i class="fas fa-search"></i><span>解读错误</span>';
         }
     }
 
