@@ -527,20 +527,31 @@ async function handleAnalyzeRequest(request, env) {
 
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authHeader
-            },
-            body: JSON.stringify({
-                model: MODEL_ID,
-                messages: fullMessages,
-                stream: false,
-                temperature: 0.3,
-                max_tokens: 4096
-            })
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        let response;
+        try {
+            response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authHeader
+                },
+                body: JSON.stringify({
+                    model: MODEL_ID,
+                    messages: fullMessages,
+                    stream: false,
+                    temperature: 0.3,
+                    max_tokens: 4096
+                }),
+                signal: controller.signal
+            });
+        } catch (fetchError) {
+            clearTimeout(timeout);
+            return new Response(JSON.stringify({ error: '请求超时，请稍后重试' }), { status: 504, headers: corsHeaders });
+        }
+        clearTimeout(timeout);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -560,6 +571,13 @@ async function handleLearnRequest(request, env) {
     try {
         const { language, keyword, type, algorithmType, name } = await request.json();
 
+        if (type === 'syntax' && (!language || !keyword)) {
+            return new Response(JSON.stringify({ error: '请提供语言和关键词参数' }), { status: 400, headers: corsHeaders });
+        }
+        if (type === 'algorithm' && !name) {
+            return new Response(JSON.stringify({ error: '请提供算法名称参数' }), { status: 400, headers: corsHeaders });
+        }
+
         const API_URL = getConfigValue(env, 'API_URL');
         const MODEL_ID = getConfigValue(env, 'MODEL_ID');
         const API_KEY = getConfigValue(env, 'API_KEY');
@@ -574,6 +592,8 @@ async function handleLearnRequest(request, env) {
         } else if (type === 'algorithm') {
             prompt = `你是一位算法专家，擅长深入浅出地讲解各种算法。`;
             userContent = `请详细讲解"${name}"算法，包括原理、实现步骤、时间复杂度分析和代码示例。`;
+        } else {
+            return new Response(JSON.stringify({ error: '无效的type参数' }), { status: 400, headers: corsHeaders });
         }
 
         const fullMessages = [
@@ -583,20 +603,31 @@ async function handleLearnRequest(request, env) {
 
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authHeader
-            },
-            body: JSON.stringify({
-                model: MODEL_ID,
-                messages: fullMessages,
-                stream: false,
-                temperature: 0.7,
-                max_tokens: 2048
-            })
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        let response;
+        try {
+            response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authHeader
+                },
+                body: JSON.stringify({
+                    model: MODEL_ID,
+                    messages: fullMessages,
+                    stream: false,
+                    temperature: 0.7,
+                    max_tokens: 2048
+                }),
+                signal: controller.signal
+            });
+        } catch (fetchError) {
+            clearTimeout(timeout);
+            return new Response(JSON.stringify({ error: '请求超时，请稍后重试' }), { status: 504, headers: corsHeaders });
+        }
+        clearTimeout(timeout);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -650,20 +681,31 @@ async function handleDecodeErrorRequest(request, env) {
 
         const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authHeader
-            },
-            body: JSON.stringify({
-                model: MODEL_ID,
-                messages: fullMessages,
-                stream: false,
-                temperature: 0.3,
-                max_tokens: 2048
-            })
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        let response;
+        try {
+            response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authHeader
+                },
+                body: JSON.stringify({
+                    model: MODEL_ID,
+                    messages: fullMessages,
+                    stream: false,
+                    temperature: 0.3,
+                    max_tokens: 2048
+                }),
+                signal: controller.signal
+            });
+        } catch (fetchError) {
+            clearTimeout(timeout);
+            return new Response(JSON.stringify({ error: '请求超时，请稍后重试' }), { status: 504, headers: corsHeaders });
+        }
+        clearTimeout(timeout);
 
         if (!response.ok) {
             const errorText = await response.text();

@@ -332,11 +332,6 @@ class DevAssistant {
             this.errorCharCount.textContent = this.errorInput.value.length + ' 字符';
         });
 
-        this.clearCodeBtn.addEventListener('click', () => {
-            this.errorInput.value = '';
-            this.errorCharCount.textContent = '0 字符';
-        });
-
         document.querySelectorAll('.error-quick-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 this.errorInput.value = e.target.dataset.error;
@@ -993,7 +988,7 @@ class DevAssistant {
             '<i class="fas fa-bug"></i> 代码纠错' : 
             '<i class="fas fa-search-plus"></i> 代码分析';
         this.analyzeBtnText.textContent = type === 'fix' ? '开始纠错' : '开始分析';
-        this.codeToolPanel.style.display = 'block';
+        this.codeToolPanel.style.display = 'flex';
         this.codeInput.focus();
     }
 
@@ -1002,6 +997,8 @@ class DevAssistant {
         this.codeInput.value = '';
         this.codeCharCount.textContent = '0 字符';
         this.fileName.textContent = '';
+        this.analyzeBtn.disabled = false;
+        this.analyzeBtnText.textContent = this.currentToolType === 'fix' ? '开始纠错' : '开始分析';
     }
 
     handleCodeFileUpload(e) {
@@ -1053,6 +1050,7 @@ class DevAssistant {
                     `请帮我纠错这段${language}代码：\n\n${code}\n\n错误分析：${data.content}` :
                     `请帮我分析这段${language}代码：\n\n${code}\n\n分析结果：${data.content}`;
                 this.closeCodeToolPanel();
+                this.sendMessage();
             }
         } catch (error) {
             alert('网络错误，请稍后重试');
@@ -1063,13 +1061,14 @@ class DevAssistant {
     }
 
     openSyntaxLearnPanel() {
-        this.syntaxLearnPanel.style.display = 'block';
+        this.syntaxLearnPanel.style.display = 'flex';
         this.syntaxKeyword.focus();
     }
 
     closeSyntaxLearnPanel() {
         this.syntaxLearnPanel.style.display = 'none';
         this.syntaxKeyword.value = '';
+        this.syntaxLearnBtn.disabled = false;
     }
 
     async learnSyntax() {
@@ -1102,8 +1101,9 @@ class DevAssistant {
             if (data.error) {
                 alert('学习失败：' + data.error);
             } else {
-                this.userInput.value = `请详细讲解${language}语言中的"${keyword}"语法，包括用法、示例和最佳实践。`;
+                this.userInput.value = `请详细讲解${language}语言中的"${keyword}"语法，包括用法、示例和最佳实践。\n\n${data.content}`;
                 this.closeSyntaxLearnPanel();
+                this.sendMessage();
             }
         } catch (error) {
             alert('网络错误，请稍后重试');
@@ -1113,13 +1113,14 @@ class DevAssistant {
     }
 
     openAlgorithmPanel() {
-        this.algorithmPanel.style.display = 'block';
+        this.algorithmPanel.style.display = 'flex';
         this.algorithmName.focus();
     }
 
     closeAlgorithmPanel() {
         this.algorithmPanel.style.display = 'none';
         this.algorithmName.value = '';
+        this.algorithmLearnBtn.disabled = false;
     }
 
     async learnAlgorithm() {
@@ -1152,8 +1153,9 @@ class DevAssistant {
             if (data.error) {
                 alert('讲解失败：' + data.error);
             } else {
-                this.userInput.value = `请详细讲解"${name}"算法，包括原理、实现步骤、时间复杂度分析和代码示例。`;
+                this.userInput.value = `请详细讲解"${name}"算法，包括原理、实现步骤、时间复杂度分析和代码示例。\n\n${data.content}`;
                 this.closeAlgorithmPanel();
+                this.sendMessage();
             }
         } catch (error) {
             alert('网络错误，请稍后重试');
@@ -1163,7 +1165,7 @@ class DevAssistant {
     }
 
     openErrorDecoderPanel() {
-        this.errorDecoderPanel.style.display = 'block';
+        this.errorDecoderPanel.style.display = 'flex';
         this.errorInput.focus();
     }
 
@@ -1171,6 +1173,7 @@ class DevAssistant {
         this.errorDecoderPanel.style.display = 'none';
         this.errorInput.value = '';
         this.errorCharCount.textContent = '0 字符';
+        this.decodeErrorBtn.disabled = false;
     }
 
     async decodeError() {
@@ -1202,8 +1205,9 @@ class DevAssistant {
             if (data.error) {
                 alert('解读失败：' + data.error);
             } else {
-                this.userInput.value = `请帮我解读这个${language}错误：\n\n${error}`;
+                this.userInput.value = `请帮我解读这个${language}错误：\n\n${error}\n\n解读结果：${data.content}`;
                 this.closeErrorDecoderPanel();
+                this.sendMessage();
             }
         } catch (error) {
             alert('网络错误，请稍后重试');
