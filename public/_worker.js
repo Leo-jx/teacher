@@ -6,72 +6,13 @@ const DEFAULT_CONFIG = {
     JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production-change-very-long-key'
 };
 
-const SYSTEM_PROMPT = `你是"程序员AI辅助助手小智"，一位全栈技术专家，专门为程序员提供编程与技术问题的专业解答。你的名字叫"小智"，在回答问题时可以自称"小智"。你的核心职责是回答以下技术领域的问题：
+const SYSTEM_PROMPT = `你是"程序员AI辅助助手小智"，一位全栈技术专家。你的名字叫"小智"。
 
-## 支持的技术领域
+支持领域：MySQL、Java/Spring、Python、C/C++、微信小程序、uni-app、Vue、Coze AI。
 
-### 1. MySQL数据库开发与优化
-- SQL语法（SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP等）
-- 数据库设计与三大范式
-- 索引优化、查询性能调优、执行计划分析
-- 存储引擎（InnoDB, MyISAM等）原理与选型
-- 事务ACID特性与锁机制（乐观锁、悲观锁、行锁、表锁）
-- 主从复制、读写分离、分库分表
+回答原则：专业准确、提供代码示例（markdown格式）、由浅入深、给出最佳实践。
 
-### 2. Java编程语言及相关框架
-- Java基础语法、面向对象编程、集合框架
-- Java并发编程（线程、线程池、锁、CAS）
-- JVM原理、内存模型、GC调优
-- Spring Framework（IoC、AOP、事务管理）
-- Spring Boot自动配置与微服务开发
-
-### 3. Python编程及数据分析
-- Python基础语法、数据类型、函数与装饰器
-- NumPy/Pandas数据处理与分析
-- Flask/Django Web开发框架
-
-### 4. C语言基础与系统开发
-- C语言基础语法、指针与内存管理
-- 文件I/O操作与系统调用
-- 网络编程（Socket）
-
-### 5. C++面向对象编程与高性能应用
-- C++基础与面向对象编程
-- STL标准模板库
-- 智能指针与内存管理
-
-### 6. 微信小程序开发
-- 小程序框架与生命周期
-- WXML/WXSS/JS页面开发
-- 云开发与API调用
-
-### 7. uni-app跨平台应用开发
-- uni-app框架与Vue语法
-- 跨平台适配
-
-### 8. Coze AI助手开发
-- Coze平台基础与Bot创建
-- 提示词工程
-
-### 9. Vue前端框架应用
-- Vue2/Vue3核心语法
-- 组件化开发与通信
-- Vue Router路由管理
-
-### 10. Spring后端框架及生态系统
-- Spring IoC容器与依赖注入
-- Spring MVC请求处理
-- Spring Boot自动配置
-
-## 回答原则
-1. 专业准确：提供准确、权威的技术解答
-2. 代码示例：使用markdown代码块格式
-3. 由浅入深：从基础概念讲起
-4. 最佳实践：给出行业最佳实践建议
-
-## 边界约束
-- 只回答上述10个技术领域相关的编程与技术问题
-- 如果用户问的问题与上述领域无关，请礼貌地告知你只能回答编程技术相关问题`;
+边界：只回答编程技术问题，非技术问题请礼貌拒绝。`;
 
 function getConfigValue(env, key) {
     if (env && typeof env === 'object') {
@@ -87,6 +28,59 @@ async function generateSalt() {
     const saltBuffer = new Uint8Array(16);
     crypto.getRandomValues(saltBuffer);
     return Array.from(saltBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const MAX_CONTINUATION_ROUNDS = 3;
+
+async function fetchAIWithContinuation(API_URL, API_KEY, API_SECRET, MODEL_ID, messages, maxTokens, temperature, abortSignal) {
+    const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
+    let fullContent = '';
+    let currentMessages = [...messages];
+    let rounds = 0;
+
+    while (rounds <= MAX_CONTINUATION_ROUNDS) {
+        const body = {
+            model: MODEL_ID,
+            messages: currentMessages,
+            stream: false,
+            temperature: temperature,
+            max_tokens: maxTokens
+        };
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+            },
+            body: JSON.stringify(body),
+            signal: abortSignal
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API请求失败: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        const choice = data.choices?.[0];
+        if (!choice) break;
+
+        const chunk = choice.message?.content || '';
+        fullContent += chunk;
+
+        const finishReason = choice.finish_reason;
+        if (finishReason !== 'length') break;
+
+        rounds++;
+        currentMessages = [
+            ...currentMessages,
+            { role: 'assistant', content: chunk },
+            { role: 'user', content: '请继续' }
+        ];
+    }
+
+    return fullContent;
 }
 
 async function hashPassword(password, salt) {
@@ -353,28 +347,15 @@ async function handleChatRequest(request, env) {
             ...messages
         ];
 
-        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
-
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000);
+        const timeout = setTimeout(() => controller.abort(), 120000);
 
-        let response;
+        let aiContent;
         try {
-            response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': authHeader
-                },
-                body: JSON.stringify({
-                    model: MODEL_ID,
-                    messages: fullMessages,
-                    stream: false,
-                    temperature: 0.7,
-                    max_tokens: 2048
-                }),
-                signal: controller.signal
-            });
+            aiContent = await fetchAIWithContinuation(
+                API_URL, API_KEY, API_SECRET, MODEL_ID,
+                fullMessages, 4096, 0.7, controller.signal
+            );
         } catch (fetchError) {
             clearTimeout(timeout);
             console.error('网络请求失败:', fetchError.message);
@@ -383,25 +364,10 @@ async function handleChatRequest(request, env) {
                 '这个问题很有趣！让我来为您详细分析一下。',
                 '很好的问题！让我为您提供专业的技术解答。'
             ];
-            const aiContent = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-            return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: aiContent } }] }), { headers: corsHeaders });
+            aiContent = mockResponses[Math.floor(Math.random() * mockResponses.length)];
         }
 
         clearTimeout(timeout);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('AI API请求失败:', response.status, errorText);
-            const mockResponses = [
-                '感谢您的提问！作为您的AI助手小智，我来帮您解答这个问题。',
-                '这个问题很有趣！让我来为您详细分析一下。',
-                '很好的问题！让我为您提供专业的技术解答。'
-            ];
-            const aiContent = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-            return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: aiContent } }] }), { headers: corsHeaders });
-        }
-
-        const data = await response.json();
 
         if (env.DB && user && conversationId) {
             try {
@@ -409,7 +375,6 @@ async function handleChatRequest(request, env) {
                 if (lastUserMsg) {
                     await env.DB.prepare('INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)').bind(conversationId, 'user', lastUserMsg.content).run();
                 }
-                const aiContent = data.choices?.[0]?.message?.content || '';
                 if (aiContent) {
                     await env.DB.prepare('INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)').bind(conversationId, 'assistant', aiContent).run();
                     await env.DB.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(conversationId).run();
@@ -419,7 +384,7 @@ async function handleChatRequest(request, env) {
             }
         }
 
-        return new Response(JSON.stringify(data), { headers: corsHeaders });
+        return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: aiContent } }] }), { headers: corsHeaders });
     } catch (error) {
         console.error('Chat API错误:', error);
         return new Response(JSON.stringify({ error: '服务器内部错误', detail: error.message }), { status: 500, headers: corsHeaders });
@@ -525,29 +490,15 @@ async function handleAnalyzeRequest(request, env) {
             { role: 'user', content: `请对以下${language || ''}代码进行${actionText}：\n\n\`\`\`${language || ''}\n${code}\n\`\`\`` }
         ];
 
-        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
-
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000);
+        const timeout = setTimeout(() => controller.abort(), 120000);
 
-        let response;
+        let content;
         try {
-            response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': authHeader
-                },
-                body: JSON.stringify({
-                    model: MODEL_ID,
-                    messages: fullMessages,
-                    stream: false,
-                    temperature: 0.3,
-                    max_tokens: 4096
-                }),
-                signal: controller.signal,
-                keepalive: true
-            });
+            content = await fetchAIWithContinuation(
+                API_URL, API_KEY, API_SECRET, MODEL_ID,
+                fullMessages, 4096, 0.3, controller.signal
+            );
         } catch (fetchError) {
             clearTimeout(timeout);
             console.error('代码分析API请求失败:', fetchError);
@@ -555,13 +506,6 @@ async function handleAnalyzeRequest(request, env) {
         }
         clearTimeout(timeout);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            return new Response(JSON.stringify({ error: `API请求失败: ${response.status}` }), { status: response.status, headers: corsHeaders });
-        }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || '';
         return new Response(JSON.stringify({ content }), { headers: corsHeaders });
     } catch (error) {
         console.error('代码分析API错误:', error);
@@ -603,29 +547,15 @@ async function handleLearnRequest(request, env) {
             { role: 'user', content: userContent }
         ];
 
-        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
-
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000);
+        const timeout = setTimeout(() => controller.abort(), 120000);
 
-        let response;
+        let content;
         try {
-            response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': authHeader
-                },
-                body: JSON.stringify({
-                    model: MODEL_ID,
-                    messages: fullMessages,
-                    stream: false,
-                    temperature: 0.7,
-                    max_tokens: 2048
-                }),
-                signal: controller.signal,
-                keepalive: true
-            });
+            content = await fetchAIWithContinuation(
+                API_URL, API_KEY, API_SECRET, MODEL_ID,
+                fullMessages, 4096, 0.7, controller.signal
+            );
         } catch (fetchError) {
             clearTimeout(timeout);
             console.error('学习API请求失败:', fetchError);
@@ -633,13 +563,6 @@ async function handleLearnRequest(request, env) {
         }
         clearTimeout(timeout);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            return new Response(JSON.stringify({ error: `API请求失败: ${response.status}` }), { status: response.status, headers: corsHeaders });
-        }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || '';
         return new Response(JSON.stringify({ content }), { headers: corsHeaders });
     } catch (error) {
         console.error('学习API错误:', error);
@@ -683,29 +606,15 @@ async function handleDecodeErrorRequest(request, env) {
             { role: 'user', content: `请帮我解读这个${language || ''}错误：\n\n${error}` }
         ];
 
-        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
-
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000);
+        const timeout = setTimeout(() => controller.abort(), 120000);
 
-        let response;
+        let content;
         try {
-            response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': authHeader
-                },
-                body: JSON.stringify({
-                    model: MODEL_ID,
-                    messages: fullMessages,
-                    stream: false,
-                    temperature: 0.3,
-                    max_tokens: 2048
-                }),
-                signal: controller.signal,
-                keepalive: true
-            });
+            content = await fetchAIWithContinuation(
+                API_URL, API_KEY, API_SECRET, MODEL_ID,
+                fullMessages, 4096, 0.3, controller.signal
+            );
         } catch (fetchError) {
             clearTimeout(timeout);
             console.error('错误解码API请求失败:', fetchError);
@@ -713,13 +622,6 @@ async function handleDecodeErrorRequest(request, env) {
         }
         clearTimeout(timeout);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            return new Response(JSON.stringify({ error: `API请求失败: ${response.status}` }), { status: response.status, headers: corsHeaders });
-        }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || '';
         return new Response(JSON.stringify({ content }), { headers: corsHeaders });
     } catch (error) {
         console.error('错误解码API错误:', error);
