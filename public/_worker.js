@@ -436,6 +436,249 @@ async function handleConfigRequest(env) {
     }), { headers: corsHeaders });
 }
 
+const CODE_ANALYSIS_PROMPT = `你是一位资深代码架构师。用户会提供一段代码，你需要对其进行深入的结构和逻辑分析。
+
+请严格按照以下格式输出：
+
+## 代码分析报告
+
+### 1. 整体功能概述
+简要描述代码的整体功能和用途，用2-3句话概括。
+
+### 2. 主要模块/函数说明
+列出代码中的主要模块、类和函数：
+| 名称 | 类型 | 作用说明 |
+|------|------|----------|
+| ... | 函数/类/模块 | ... |
+
+### 3. 关键执行流程
+用步骤分解代码的关键执行流程：
+1. 步骤一：...
+2. 步骤二：...
+3. ...
+
+### 4. 数据流转路径
+分析数据在代码中的流转路径和变换过程，说明输入数据如何经过各步骤处理变为输出。
+
+### 5. 核心算法/逻辑说明
+解释代码中使用的核心算法或关键逻辑，必要时用伪代码辅助说明。
+
+### 6. 代码质量评估
+- **可读性**：评分及改进建议
+- **可维护性**：评分及改进建议
+- **性能**：评分及改进建议
+- **安全性**：评分及改进建议
+
+### 7. 改进建议
+给出具体的改进方向和优先级。`;
+
+const CODE_FIX_PROMPT = `你是一位资深代码审查专家。用户会提供一段代码，你需要对其进行全面的纠错分析。
+
+请严格按照以下格式输出：
+
+## 代码纠错报告
+
+### 发现的问题
+
+对每个问题，请提供：
+
+**问题 N：[问题简述]**
+- **错误位置**：第X行，具体代码段
+- **错误类型**：语法错误 / 逻辑错误 / 性能问题 / 最佳实践违背 / 安全隐患
+- **错误原因**：详细解释为什么这是一个错误
+- **修改建议**：
+\`\`\`[语言]
+// 修改后的代码
+\`\`\`
+- **修改依据**：说明修改的技术原理
+
+### 修改后的完整代码
+
+\`\`\`[语言]
+// 给出修复后的完整代码
+\`\`\`
+
+注意事项：
+1. 必须精确定位到行号
+2. 区分错误严重程度（致命/警告/建议）
+3. 修改建议必须是可直接运行的代码
+4. 如果代码没有问题，说明代码质量良好并给出优化建议`;
+
+async function handleAnalyzeRequest(request, env) {
+    try {
+        const { code, language, type } = await request.json();
+
+        if (!code) {
+            return new Response(JSON.stringify({ error: 'code参数无效' }), { status: 400, headers: corsHeaders });
+        }
+
+        const API_URL = getConfigValue(env, 'API_URL');
+        const MODEL_ID = getConfigValue(env, 'MODEL_ID');
+        const API_KEY = getConfigValue(env, 'API_KEY');
+        const API_SECRET = getConfigValue(env, 'API_SECRET');
+
+        const prompt = type === 'fix' ? CODE_FIX_PROMPT : CODE_ANALYSIS_PROMPT;
+        const actionText = type === 'fix' ? '纠错分析' : '深入分析';
+
+        const fullMessages = [
+            { role: 'system', content: prompt },
+            { role: 'user', content: `请对以下${language || ''}代码进行${actionText}：\n\n\`\`\`${language || ''}\n${code}\n\`\`\`` }
+        ];
+
+        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+            },
+            body: JSON.stringify({
+                model: MODEL_ID,
+                messages: fullMessages,
+                stream: false,
+                temperature: 0.3,
+                max_tokens: 4096
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return new Response(JSON.stringify({ error: `API请求失败: ${response.status}` }), { status: response.status, headers: corsHeaders });
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        return new Response(JSON.stringify({ content }), { headers: corsHeaders });
+    } catch (error) {
+        console.error('代码分析API错误:', error);
+        return new Response(JSON.stringify({ error: '服务器内部错误' }), { status: 500, headers: corsHeaders });
+    }
+}
+
+async function handleLearnRequest(request, env) {
+    try {
+        const { language, keyword, type, algorithmType, name } = await request.json();
+
+        const API_URL = getConfigValue(env, 'API_URL');
+        const MODEL_ID = getConfigValue(env, 'MODEL_ID');
+        const API_KEY = getConfigValue(env, 'API_KEY');
+        const API_SECRET = getConfigValue(env, 'API_SECRET');
+
+        let prompt = '';
+        let userContent = '';
+
+        if (type === 'syntax') {
+            prompt = `你是一位编程语言专家，擅长用通俗易懂的方式讲解编程语法。`;
+            userContent = `请详细讲解${language}语言中的"${keyword}"语法，包括用法、示例和最佳实践。`;
+        } else if (type === 'algorithm') {
+            prompt = `你是一位算法专家，擅长深入浅出地讲解各种算法。`;
+            userContent = `请详细讲解"${name}"算法，包括原理、实现步骤、时间复杂度分析和代码示例。`;
+        }
+
+        const fullMessages = [
+            { role: 'system', content: prompt },
+            { role: 'user', content: userContent }
+        ];
+
+        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+            },
+            body: JSON.stringify({
+                model: MODEL_ID,
+                messages: fullMessages,
+                stream: false,
+                temperature: 0.7,
+                max_tokens: 2048
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return new Response(JSON.stringify({ error: `API请求失败: ${response.status}` }), { status: response.status, headers: corsHeaders });
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        return new Response(JSON.stringify({ content }), { headers: corsHeaders });
+    } catch (error) {
+        console.error('学习API错误:', error);
+        return new Response(JSON.stringify({ error: '服务器内部错误' }), { status: 500, headers: corsHeaders });
+    }
+}
+
+async function handleDecodeErrorRequest(request, env) {
+    try {
+        const { error, language } = await request.json();
+
+        if (!error) {
+            return new Response(JSON.stringify({ error: 'error参数无效' }), { status: 400, headers: corsHeaders });
+        }
+
+        const API_URL = getConfigValue(env, 'API_URL');
+        const MODEL_ID = getConfigValue(env, 'MODEL_ID');
+        const API_KEY = getConfigValue(env, 'API_KEY');
+        const API_SECRET = getConfigValue(env, 'API_SECRET');
+
+        const prompt = `你是一位资深的错误诊断专家。用户会提供一段错误信息，你需要对其进行详细解读。
+
+请严格按照以下格式输出：
+
+## 错误解读报告
+
+### 1. 错误类型
+说明这是什么类型的错误（语法错误、运行时错误、逻辑错误等）
+
+### 2. 错误原因
+详细解释产生这个错误的根本原因
+
+### 3. 可能的解决方案
+列出多种可能的解决方案，并说明每种方案的适用场景
+
+### 4. 预防措施
+说明如何避免类似错误的发生`;
+
+        const fullMessages = [
+            { role: 'system', content: prompt },
+            { role: 'user', content: `请帮我解读这个${language || ''}错误：\n\n${error}` }
+        ];
+
+        const authHeader = `Bearer ${API_KEY}:${API_SECRET}`;
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+            },
+            body: JSON.stringify({
+                model: MODEL_ID,
+                messages: fullMessages,
+                stream: false,
+                temperature: 0.3,
+                max_tokens: 2048
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return new Response(JSON.stringify({ error: `API请求失败: ${response.status}` }), { status: response.status, headers: corsHeaders });
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        return new Response(JSON.stringify({ content }), { headers: corsHeaders });
+    } catch (error) {
+        console.error('错误解码API错误:', error);
+        return new Response(JSON.stringify({ error: '服务器内部错误' }), { status: 500, headers: corsHeaders });
+    }
+}
+
 const securityHeaders = {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
@@ -511,6 +754,12 @@ export default {
             }
         } else if (path === '/api/chat' && request.method === 'POST') {
             response = await handleChatRequest(request, env);
+        } else if (path === '/api/analyze' && request.method === 'POST') {
+            response = await handleAnalyzeRequest(request, env);
+        } else if (path === '/api/learn' && request.method === 'POST') {
+            response = await handleLearnRequest(request, env);
+        } else if (path === '/api/decode-error' && request.method === 'POST') {
+            response = await handleDecodeErrorRequest(request, env);
         } else if (path === '/api/config' && request.method === 'GET') {
             response = await handleConfigRequest(env);
         } else {
