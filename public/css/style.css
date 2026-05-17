@@ -1046,13 +1046,13 @@ button, a, input, select, textarea {
 }
 
 .message-content pre {
-    background: transparent;
-    border-radius: 0;
-    padding: 0;
-    margin: 8px 0;
-    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 10px 0;
+    overflow-x: auto;
     position: relative;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .code-header {
@@ -1075,10 +1075,10 @@ button, a, input, select, textarea {
 }
 
 .message-content code:not(pre code) {
-    background: transparent;
+    background: rgba(108, 92, 231, 0.1);
     color: var(--primary-light);
-    padding: 0;
-    border-radius: 0;
+    padding: 2px 6px;
+    border-radius: 4px;
     font-family: 'Fira Code', 'Consolas', monospace;
     font-size: 13px;
     border: none;
