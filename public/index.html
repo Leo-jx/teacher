@@ -132,6 +132,32 @@
                     </div>
                 </div>
 
+                <div class="code-tools">
+                    <h3><i class="fas fa-code"></i> 代码工具</h3>
+                    <div class="tool-list">
+                        <div class="tool-item" data-tool="fix">
+                            <i class="fas fa-wrench"></i>
+                            <span>代码纠错</span>
+                        </div>
+                        <div class="tool-item" data-tool="analyze">
+                            <i class="fas fa-search-plus"></i>
+                            <span>代码分析</span>
+                        </div>
+                        <div class="tool-item" data-tool="syntax">
+                            <i class="fas fa-book-open"></i>
+                            <span>语法学习</span>
+                        </div>
+                        <div class="tool-item" data-tool="algorithm">
+                            <i class="fas fa-sitemap"></i>
+                            <span>算法讲解</span>
+                        </div>
+                        <div class="tool-item" data-tool="error">
+                            <i class="fas fa-bug"></i>
+                            <span>错误解读</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="chat-history">
                     <h3><i class="fas fa-history"></i> 历史对话</h3>
                     <div class="history-list" id="historyList">
@@ -190,6 +216,189 @@
                 </div>
 
                 <div class="messages" id="messages"></div>
+            </div>
+
+            <div class="code-tool-panel" id="codeFixPanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-wrench"></i> 代码纠错</h3>
+                    <button class="tool-panel-close" data-panel="codeFixPanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="code-input-section">
+                        <div class="code-input-header">
+                            <label>输入需要纠错的代码</label>
+                            <div class="code-input-actions">
+                                <select class="code-lang-select" id="fixLangSelect">
+                                    <option value="auto">自动识别</option>
+                                    <option value="java">Java</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="cpp">C/C++</option>
+                                    <option value="sql">SQL</option>
+                                    <option value="vue">Vue</option>
+                                </select>
+                                <button class="clear-code-btn" id="clearFixCode" title="清空代码">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea class="code-textarea" id="fixCodeInput" placeholder="粘贴您的代码，AI将帮您找出错误并提供修复建议..."></textarea>
+                    </div>
+                </div>
+                <div class="tool-panel-footer">
+                    <button class="analyze-btn" id="fixCodeBtn">
+                        <i class="fas fa-magic"></i>
+                        <span>开始纠错</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="code-tool-panel" id="codeAnalyzePanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-search-plus"></i> 代码分析</h3>
+                    <button class="tool-panel-close" data-panel="codeAnalyzePanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="code-input-section">
+                        <div class="code-input-header">
+                            <label>输入需要分析的代码</label>
+                            <div class="code-input-actions">
+                                <select class="code-lang-select" id="analyzeLangSelect">
+                                    <option value="auto">自动识别</option>
+                                    <option value="java">Java</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="cpp">C/C++</option>
+                                    <option value="sql">SQL</option>
+                                    <option value="vue">Vue</option>
+                                </select>
+                                <button class="clear-code-btn" id="clearAnalyzeCode" title="清空代码">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea class="code-textarea" id="analyzeCodeInput" placeholder="粘贴您的代码，AI将帮您分析代码结构、逻辑和潜在问题..."></textarea>
+                    </div>
+                </div>
+                <div class="tool-panel-footer">
+                    <button class="analyze-btn" id="analyzeCodeBtn">
+                        <i class="fas fa-search"></i>
+                        <span>开始分析</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="code-tool-panel" id="syntaxLearnPanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-book-open"></i> 语法学习</h3>
+                    <button class="tool-panel-close" data-panel="syntaxLearnPanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="syntax-input-section">
+                        <div class="syntax-input-row">
+                            <div class="syntax-field">
+                                <label>选择语言</label>
+                                <select class="syntax-lang-select" id="syntaxLangSelect">
+                                    <option value="java">Java</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="cpp">C/C++</option>
+                                    <option value="sql">MySQL</option>
+                                    <option value="vue">Vue</option>
+                                </select>
+                            </div>
+                            <div class="syntax-field">
+                                <label>输入语法关键词</label>
+                                <input type="text" class="syntax-keyword-input" id="syntaxKeywordInput" placeholder="如：lambda、装饰器、闭包...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tool-panel-footer">
+                    <button class="analyze-btn" id="learnSyntaxBtn">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span>开始学习</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="code-tool-panel" id="algorithmPanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-sitemap"></i> 算法讲解</h3>
+                    <button class="tool-panel-close" data-panel="algorithmPanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="algorithm-input-section">
+                        <div class="algorithm-input-row">
+                            <div class="algorithm-field">
+                                <label>算法类型</label>
+                                <select class="algorithm-type-select" id="algorithmTypeSelect">
+                                    <option value="sort">排序算法</option>
+                                    <option value="search">搜索算法</option>
+                                    <option value="dp">动态规划</option>
+                                    <option value="graph">图算法</option>
+                                    <option value="tree">树算法</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                            <div class="algorithm-field">
+                                <label>算法名称</label>
+                                <input type="text" class="algorithm-name-input" id="algorithmNameInput" placeholder="如：快速排序、二分查找...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tool-panel-footer">
+                    <button class="analyze-btn" id="learnAlgorithmBtn">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>开始讲解</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="code-tool-panel" id="errorDecoderPanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-bug"></i> 错误解读</h3>
+                    <button class="tool-panel-close" data-panel="errorDecoderPanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="error-input-section">
+                        <div class="error-input-header">
+                            <label>输入错误信息</label>
+                            <div class="error-input-actions">
+                                <select class="error-lang-select" id="errorLangSelect">
+                                    <option value="auto">自动识别</option>
+                                    <option value="java">Java</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="cpp">C/C++</option>
+                                    <option value="sql">SQL</option>
+                                    <option value="vue">Vue</option>
+                                </select>
+                                <button class="clear-code-btn" id="clearError" title="清空">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea class="code-textarea" id="errorInput" placeholder="粘贴错误信息或异常堆栈，AI将帮您分析原因并提供解决方案..."></textarea>
+                    </div>
+                </div>
+                <div class="tool-panel-footer">
+                    <button class="analyze-btn" id="decodeErrorBtn">
+                        <i class="fas fa-stethoscope"></i>
+                        <span>开始解读</span>
+                    </button>
+                </div>
             </div>
 
             <div class="input-area" id="inputArea">

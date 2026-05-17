@@ -220,6 +220,10 @@ class DevAssistant {
         this.newChatBtn = document.getElementById('newChatBtn');
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.webSearchToggle = document.getElementById('webSearchToggle');
+        
+        this.codeToolItems = document.querySelectorAll('.code-tools .tool-item');
+        this.codeToolPanels = document.querySelectorAll('.code-tool-panel');
+        this.panelCloseBtns = document.querySelectorAll('.tool-panel-close');
     }
 
     bindEvents() {
@@ -274,6 +278,38 @@ class DevAssistant {
                 this.closeSidebar();
             }
         });
+
+        this.codeToolItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                const tool = e.currentTarget.dataset.tool;
+                this.openCodeTool(tool);
+            });
+        });
+
+        this.panelCloseBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const panelId = e.currentTarget.dataset.panel;
+                this.closeCodeToolPanel(panelId);
+            });
+        });
+
+        document.getElementById('clearFixCode')?.addEventListener('click', () => {
+            document.getElementById('fixCodeInput').value = '';
+        });
+
+        document.getElementById('clearAnalyzeCode')?.addEventListener('click', () => {
+            document.getElementById('analyzeCodeInput').value = '';
+        });
+
+        document.getElementById('clearError')?.addEventListener('click', () => {
+            document.getElementById('errorInput').value = '';
+        });
+
+        document.getElementById('fixCodeBtn')?.addEventListener('click', () => this.fixCode());
+        document.getElementById('analyzeCodeBtn')?.addEventListener('click', () => this.analyzeCode());
+        document.getElementById('learnSyntaxBtn')?.addEventListener('click', () => this.learnSyntax());
+        document.getElementById('learnAlgorithmBtn')?.addEventListener('click', () => this.learnAlgorithm());
+        document.getElementById('decodeErrorBtn')?.addEventListener('click', () => this.decodeError());
     }
 
     autoResizeTextarea() {
@@ -880,6 +916,138 @@ class DevAssistant {
 
     closeSidebar() {
         this.sidebar.classList.remove('open');
+    }
+
+    openCodeTool(tool) {
+        this.closeAllToolPanels();
+        this.codeToolItems.forEach(item => item.classList.remove('active'));
+        
+        const activeItem = document.querySelector(`.code-tools .tool-item[data-tool="${tool}"]`);
+        if (activeItem) activeItem.classList.add('active');
+
+        const panelMap = {
+            'fix': 'codeFixPanel',
+            'analyze': 'codeAnalyzePanel',
+            'syntax': 'syntaxLearnPanel',
+            'algorithm': 'algorithmPanel',
+            'error': 'errorDecoderPanel'
+        };
+
+        const panelId = panelMap[tool];
+        if (panelId) {
+            const panel = document.getElementById(panelId);
+            if (panel) {
+                panel.classList.add('active');
+            }
+        }
+        
+        this.closeSidebar();
+    }
+
+    closeCodeToolPanel(panelId) {
+        const panel = document.getElementById(panelId);
+        if (panel) {
+            panel.classList.remove('active');
+        }
+        this.codeToolItems.forEach(item => item.classList.remove('active'));
+    }
+
+    closeAllToolPanels() {
+        this.codeToolPanels.forEach(panel => panel.classList.remove('active'));
+    }
+
+    async fixCode() {
+        const code = document.getElementById('fixCodeInput')?.value?.trim();
+        const lang = document.getElementById('fixLangSelect')?.value || 'auto';
+        
+        if (!code) {
+            alert('请输入需要纠错的代码');
+            return;
+        }
+
+        this.closeAllToolPanels();
+        this.createNewChat(true);
+        
+        const prompt = `请帮我检查以下${lang === 'auto' ? '' : lang}代码中的错误并提供修复建议：\n\n${code}`;
+        this.userInput.value = prompt;
+        await this.sendMessage();
+    }
+
+    async analyzeCode() {
+        const code = document.getElementById('analyzeCodeInput')?.value?.trim();
+        const lang = document.getElementById('analyzeLangSelect')?.value || 'auto';
+        
+        if (!code) {
+            alert('请输入需要分析的代码');
+            return;
+        }
+
+        this.closeAllToolPanels();
+        this.createNewChat(true);
+        
+        const prompt = `请分析以下${lang === 'auto' ? '' : lang}代码的结构、逻辑和潜在问题：\n\n${code}`;
+        this.userInput.value = prompt;
+        await this.sendMessage();
+    }
+
+    async learnSyntax() {
+        const lang = document.getElementById('syntaxLangSelect')?.value || 'java';
+        const keyword = document.getElementById('syntaxKeywordInput')?.value?.trim();
+        
+        if (!keyword) {
+            alert('请输入语法关键词');
+            return;
+        }
+
+        this.closeAllToolPanels();
+        this.createNewChat(true);
+        
+        const prompt = `请讲解${lang}中"${keyword}"的语法用法`;
+        this.userInput.value = prompt;
+        await this.sendMessage();
+    }
+
+    async learnAlgorithm() {
+        const type = document.getElementById('algorithmTypeSelect')?.value || 'sort';
+        const name = document.getElementById('algorithmNameInput')?.value?.trim();
+        
+        if (!name) {
+            alert('请输入算法名称');
+            return;
+        }
+
+        this.closeAllToolPanels();
+        this.createNewChat(true);
+        
+        const typeNames = {
+            'sort': '排序',
+            'search': '搜索',
+            'dp': '动态规划',
+            'graph': '图',
+            'tree': '树',
+            'other': ''
+        };
+        
+        const prompt = `请讲解${typeNames[type]}算法"${name}"的原理和实现思路`;
+        this.userInput.value = prompt;
+        await this.sendMessage();
+    }
+
+    async decodeError() {
+        const error = document.getElementById('errorInput')?.value?.trim();
+        const lang = document.getElementById('errorLangSelect')?.value || 'auto';
+        
+        if (!error) {
+            alert('请输入错误信息');
+            return;
+        }
+
+        this.closeAllToolPanels();
+        this.createNewChat(true);
+        
+        const prompt = `请分析以下${lang === 'auto' ? '' : lang}错误信息的原因和解决方案：\n\n${error}`;
+        this.userInput.value = prompt;
+        await this.sendMessage();
     }
 
     setupMarked() {
