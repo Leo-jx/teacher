@@ -678,8 +678,6 @@ class DevAssistant {
                 continue;
             }
 
-            trimmed = trimmed.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-
             result.push(trimmed);
         }
 
