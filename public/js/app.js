@@ -11,6 +11,7 @@ class DevAssistant {
         this.username = null;
         this.userId = null;
         this.dbConversationId = null;
+        this.activeRequests = new Map();
 
         this.init();
     }
@@ -50,7 +51,7 @@ class DevAssistant {
                 this.logout();
             }
         } catch (e) {
-            console.error('Token验证失败:', e);
+            console.error('Token\u9A8C\u8BC1\u5931\u8D25:', e);
         }
     }
 
@@ -109,7 +110,7 @@ class DevAssistant {
             const submitBtn = document.getElementById('loginSubmit');
             errorEl.textContent = '';
             submitBtn.disabled = true;
-            submitBtn.querySelector('span').textContent = '登录�?..';
+            submitBtn.querySelector('span').textContent = '\u767B\u5F55\u4E2D...';
             submitBtn.querySelector('i').style.display = 'inline';
 
             try {
@@ -129,13 +130,13 @@ class DevAssistant {
                     this.closeAuthModal();
                     this.showApp();
                 } else {
-                    errorEl.textContent = data.error || '登录失败';
+                    errorEl.textContent = data.error || '\u767B\u5F55\u5931\u8D25';
                 }
             } catch (error) {
-                errorEl.textContent = '网络错误，请稍后重试';
+                errorEl.textContent = '\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.querySelector('span').textContent = '登录';
+                submitBtn.querySelector('span').textContent = '\u767B\u5F55';
                 submitBtn.querySelector('i').style.display = 'none';
             }
         });
@@ -151,12 +152,12 @@ class DevAssistant {
             errorEl.textContent = '';
 
             if (password !== confirmPassword) {
-                errorEl.textContent = '两次输入的密码不一�?;
+                errorEl.textContent = '\u4E24\u6B21\u8F93\u5165\u7684\u5BC6\u7801\u4E0D\u4E00\u81F4';
                 return;
             }
 
             submitBtn.disabled = true;
-            submitBtn.querySelector('span').textContent = '注册�?..';
+            submitBtn.querySelector('span').textContent = '\u6CE8\u518C\u4E2D...';
             submitBtn.querySelector('i').style.display = 'inline';
 
             try {
@@ -176,13 +177,13 @@ class DevAssistant {
                     this.closeAuthModal();
                     this.showApp();
                 } else {
-                    errorEl.textContent = data.error || '注册失败';
+                    errorEl.textContent = data.error || '\u6CE8\u518C\u5931\u8D25';
                 }
             } catch (error) {
-                errorEl.textContent = '网络错误，请稍后重试';
+                errorEl.textContent = '\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.querySelector('span').textContent = '注册';
+                submitBtn.querySelector('span').textContent = '\u6CE8\u518C';
                 submitBtn.querySelector('i').style.display = 'none';
             }
         });
@@ -251,6 +252,7 @@ class DevAssistant {
         this.errorLanguage = document.getElementById('errorLanguage');
         this.errorCharCount = document.getElementById('errorCharCount');
         this.decodeErrorBtn = document.getElementById('decodeErrorBtn');
+        this.clearErrorBtn = document.getElementById('clearErrorBtn');
         this.webSearchToggle = document.getElementById('webSearchToggle');
     }
 
@@ -278,14 +280,14 @@ class DevAssistant {
         });
 
         this.codeInput.addEventListener('input', () => {
-            this.codeCharCount.textContent = this.codeInput.value.length + ' 字符';
+            this.codeCharCount.textContent = this.codeInput.value.length + ' \u5B57\u7B26';
         });
 
         this.codeFileInput.addEventListener('change', (e) => this.handleCodeFileUpload(e));
 
         this.clearCodeBtn.addEventListener('click', () => {
             this.codeInput.value = '';
-            this.codeCharCount.textContent = '0 字符';
+            this.codeCharCount.textContent = '0 \u5B57\u7B26';
             this.fileName.textContent = '';
         });
 
@@ -328,14 +330,19 @@ class DevAssistant {
 
         this.decodeErrorBtn.addEventListener('click', () => this.decodeError());
 
+        this.clearErrorBtn.addEventListener('click', () => {
+            this.errorInput.value = '';
+            this.errorCharCount.textContent = '0 \u5B57\u7B26';
+        });
+
         this.errorInput.addEventListener('input', () => {
-            this.errorCharCount.textContent = this.errorInput.value.length + ' 字符';
+            this.errorCharCount.textContent = this.errorInput.value.length + ' \u5B57\u7B26';
         });
 
         document.querySelectorAll('.error-quick-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 this.errorInput.value = e.target.dataset.error;
-                this.errorCharCount.textContent = this.errorInput.value.length + ' 字符';
+                this.errorCharCount.textContent = this.errorInput.value.length + ' \u5B57\u7B26';
             });
         });
 
@@ -362,8 +369,8 @@ class DevAssistant {
         });
 
         document.addEventListener('click', (e) => {
-            if (this.sidebar.classList.contains('open') && 
-                !this.sidebar.contains(e.target) && 
+            if (this.sidebar.classList.contains('open') &&
+                !this.sidebar.contains(e.target) &&
                 e.target !== this.sidebarOpen) {
                 this.closeSidebar();
             }
@@ -419,9 +426,9 @@ class DevAssistant {
             const data = await response.json();
 
             if (data.error) {
-                this.addMessage('assistant', '抱歉，发生错误：' + data.error);
+                this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u53D1\u751F\u9519\u8BEF\uFF1A' + data.error);
             } else {
-                const aiContent = data.choices?.[0]?.message?.content || data.content || '抱歉，未能获取回复�?;
+                const aiContent = data.choices?.[0]?.message?.content || data.content || '\u62B1\u6B49\uFF0C\u672A\u80FD\u83B7\u53D6\u56DE\u590D\u3002';
                 this.addMessage('assistant', aiContent);
                 if (data.conversationId) {
                     this.dbConversationId = data.conversationId;
@@ -432,8 +439,8 @@ class DevAssistant {
             this.scrollToBottom();
             this.saveCurrentChat();
         } catch (error) {
-            console.error('发送消息失�?', error);
-            this.addMessage('assistant', '抱歉，网络错误，请稍后重试�?);
+            console.error('\u53D1\u9001\u6D88\u606F\u5931\u8D25:', error);
+            this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002');
             this.setStatus('ready');
             this.scrollToBottom();
         }
@@ -455,7 +462,7 @@ class DevAssistant {
                 this.dbConversationId = data.id;
             }
         } catch (e) {
-            console.error('创建数据库对话失�?', e);
+            console.error('\u521B\u5EFA\u6570\u636E\u5E93\u5BF9\u8BDD\u5931\u8D25:', e);
         }
     }
 
@@ -470,7 +477,7 @@ class DevAssistant {
                 return data.conversations || [];
             }
         } catch (e) {
-            console.error('加载数据库对话失�?', e);
+            console.error('\u52A0\u8F7D\u6570\u636E\u5E93\u5BF9\u8BDD\u5931\u8D25:', e);
         }
         return [];
     }
@@ -483,7 +490,7 @@ class DevAssistant {
                 headers: { 'Authorization': `Bearer ${this.authToken}` }
             });
         } catch (e) {
-            console.error('删除数据库对话失�?', e);
+            console.error('\u5220\u9664\u6570\u636E\u5E93\u5BF9\u8BDD\u5931\u8D25:', e);
         }
     }
 
@@ -495,7 +502,7 @@ class DevAssistant {
             timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
         };
         this.messages.push(message);
-        
+
         if (role === 'assistant') {
             this.renderMessagesWithTypewriter(message);
         } else {
@@ -505,7 +512,7 @@ class DevAssistant {
 
     renderMessagesWithTypewriter(message) {
         this.welcomeScreen.style.display = 'none';
-        
+
         const messageEl = document.createElement('div');
         messageEl.className = `message ${message.role}`;
         messageEl.id = `msg-${message.id}`;
@@ -542,20 +549,14 @@ class DevAssistant {
         let index = 0;
         let currentText = '';
         const speed = this.typingSpeed;
-        
+
         const type = () => {
             if (index < text.length) {
                 const char = text.charAt(index);
                 currentText += char;
-                
+
                 if (char === '\n') {
-                    const lines = currentText.split('\n');
-                    const lastLine = lines[lines.length - 1];
-                    if (lastLine.trim() === '' || lastLine.startsWith('  ')) {
-                        element.innerHTML = this.renderMarkdown(currentText);
-                    } else {
-                        element.innerHTML = this.renderMarkdown(currentText);
-                    }
+                    element.innerHTML = this.renderMarkdown(currentText);
                 } else if (char === '`' || char === '*' || char === '#' || char === '-' || char === '|') {
                     element.innerHTML = this.renderMarkdown(currentText);
                 } else {
@@ -563,14 +564,14 @@ class DevAssistant {
                         element.innerHTML = this.renderMarkdown(currentText);
                     }
                 }
-                
+
                 index++;
-                
+
                 if (index % 5 === 0) {
                     this.highlightCode(element);
                     this.scrollToBottom();
                 }
-                
+
                 setTimeout(type, speed);
             } else {
                 element.innerHTML = this.renderMarkdown(text);
@@ -578,7 +579,7 @@ class DevAssistant {
                 element.classList.remove('typing');
                 this.isTyping = false;
                 this.scrollToBottom();
-                
+
                 if (this.typingQueue.length > 0) {
                     const next = this.typingQueue.shift();
                     this.typeWriterEffect(next.element, next.text, next.messageId);
@@ -599,8 +600,8 @@ class DevAssistant {
 
             const avatar = document.createElement('div');
             avatar.className = 'avatar';
-            avatar.innerHTML = msg.role === 'user' ? 
-                '<i class="fas fa-user"></i>' : 
+            avatar.innerHTML = msg.role === 'user' ?
+                '<i class="fas fa-user"></i>' :
                 '<i class="fas fa-robot"></i>';
 
             const content = document.createElement('div');
@@ -634,7 +635,7 @@ class DevAssistant {
             decoded = decoded.replace(/&amp;/g, '&');
             decoded = decoded.replace(/&#39;/g, "'");
             decoded = decoded.replace(/&quot;/g, '"');
-            
+
             const formatted = this.formatContent(decoded);
             const html = marked.parse(formatted);
             return html || text;
@@ -681,7 +682,7 @@ class DevAssistant {
                 continue;
             }
 
-            if (/^(一|二|三|四|五|六|七|八|九|十|十一|十二|十三|十四|十五)[�?�?：]/.test(trimmed)) {
+            if (/^(\u4E00|\u4E8C|\u4E09|\u56DB|\u4E94|\u516D|\u4E03|\u516B|\u4E5D|\u5341|\u5341\u4E00|\u5341\u4E8C|\u5341\u4E09|\u5341\u56DB|\u5341\u4E94)[\u3001.\uFF0E:\uFF1A]/.test(trimmed)) {
                 if (result.length > 0 && result[result.length - 1] !== '') {
                     result.push('');
                 }
@@ -689,11 +690,11 @@ class DevAssistant {
                 continue;
             }
 
-            if (/^(\d+)[�?�?：]\s*/.test(trimmed)) {
+            if (/^(\d+)[\u3001.\uFF0E:\uFF1A]\s*/.test(trimmed)) {
                 if (result.length > 0 && result[result.length - 1] !== '') {
                     result.push('');
                 }
-                let converted = trimmed.replace(/^(\d+)[�?�?：]\s*/, '$1. ');
+                let converted = trimmed.replace(/^(\d+)[\u3001.\uFF0E:\uFF1A]\s*/, '$1. ');
                 result.push(converted);
                 continue;
             }
@@ -706,37 +707,37 @@ class DevAssistant {
                 continue;
             }
 
-            if (/^[-•●○►▸]\s/.test(trimmed)) {
-                let processed = trimmed.replace(/^[-•●○►▸]\s/, '- ');
+            if (/^[-\u2022\u25CF\u25CB\u25BA\u25B8]\s/.test(trimmed)) {
+                let processed = trimmed.replace(/^[-\u2022\u25CF\u25CB\u25BA\u25B8]\s/, '- ');
                 result.push(processed);
                 continue;
             }
 
-            if (/^�?[^】]+)�?.test(trimmed)) {
+            if (/^\u3010([^\u3011]+)\u3011/.test(trimmed)) {
                 if (result.length > 0 && result[result.length - 1] !== '') {
                     result.push('');
                 }
-                let sectionTitle = trimmed.replace(/^�?[^】]+)】\s*/, '');
+                let sectionTitle = trimmed.replace(/^\u3010([^\u3011]+)\u3011\s*/, '');
                 if (sectionTitle) {
                     result.push('### ' + sectionTitle);
                 } else {
-                    result.push('### ' + trimmed.replace(/【|�?g, ''));
+                    result.push('### ' + trimmed.replace(/\u3010|\u3011/g, ''));
                 }
                 result.push('');
                 continue;
             }
 
-            if (/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤|备注|说明|关键|核心|重点)/.test(trimmed)) {
+            if (/^(\u6CE8\u610F|\u63D0\u793A|\u8B66\u544A|\u91CD\u8981|\u603B\u7ED3|\u7ED3\u8BBA|\u53C2\u8003|\u5EFA\u8BAE|\u6B65\u9AA4|\u5907\u6CE8|\u8BF4\u660E|\u5173\u952E|\u6838\u5FC3|\u91CD\u70B9)/.test(trimmed)) {
                 if (result.length > 0 && result[result.length - 1] !== '') {
                     result.push('');
                 }
-                let keyword = trimmed.match(/^(注意|提示|警告|重要|总结|结论|参考|建议|步骤|备注|说明|关键|核心|重点)/)[1];
+                let keyword = trimmed.match(/^(\u6CE8\u610F|\u63D0\u793A|\u8B66\u544A|\u91CD\u8981|\u603B\u7ED3|\u7ED3\u8BBA|\u53C2\u8003|\u5EFA\u8BAE|\u6B65\u9AA4|\u5907\u6CE8|\u8BF4\u660E|\u5173\u952E|\u6838\u5FC3|\u91CD\u70B9)/)[1];
                 let colorClass = 'info-tag';
-                if (/^(警告|注意)/.test(keyword)) colorClass = 'warn-tag';
-                if (/^(重要|关键|核心|重点)/.test(keyword)) colorClass = 'important-tag';
-                if (/^(总结|结论)/.test(keyword)) colorClass = 'summary-tag';
-                if (/^(提示|建议|备注|说明)/.test(keyword)) colorClass = 'tip-tag';
-                if (/^(步骤|参�?/.test(keyword)) colorClass = 'step-tag';
+                if (/^(\u8B66\u544A|\u6CE8\u610F)/.test(keyword)) colorClass = 'warn-tag';
+                if (/^(\u91CD\u8981|\u5173\u952E|\u6838\u5FC3|\u91CD\u70B9)/.test(keyword)) colorClass = 'important-tag';
+                if (/^(\u603B\u7ED3|\u7ED3\u8BBA)/.test(keyword)) colorClass = 'summary-tag';
+                if (/^(\u63D0\u793A|\u5EFA\u8BAE|\u5907\u6CE8|\u8BF4\u660E)/.test(keyword)) colorClass = 'tip-tag';
+                if (/^(\u6B65\u9AA4|\u53C2\u8003)/.test(keyword)) colorClass = 'step-tag';
                 result.push(`<span class="${colorClass}">${keyword}</span>**${trimmed.substring(keyword.length)}**`);
                 result.push('');
                 continue;
@@ -767,15 +768,15 @@ class DevAssistant {
     setStatus(status) {
         switch (status) {
             case 'typing':
-                this.statusText.textContent = '思考中...';
+                this.statusText.textContent = '\u601D\u8003\u4E2D...';
                 this.statusIndicator.classList.add('typing');
                 break;
             case 'ready':
-                this.statusText.textContent = '就绪';
+                this.statusText.textContent = '\u5C31\u7EEA';
                 this.statusIndicator.classList.remove('typing');
                 break;
             case 'error':
-                this.statusText.textContent = '错误';
+                this.statusText.textContent = '\u9519\u8BEF';
                 this.statusIndicator.classList.remove('typing');
                 break;
         }
@@ -800,7 +801,7 @@ class DevAssistant {
         const firstUserMsg = this.messages.find(m => m.role === 'user');
         const title = firstUserMsg
             ? firstUserMsg.content.substring(0, 30) + (firstUserMsg.content.length > 30 ? '...' : '')
-            : '新对�?;
+            : '\u65B0\u5BF9\u8BDD';
 
         const chatData = {
             id: this.currentChatId,
@@ -829,7 +830,7 @@ class DevAssistant {
         try {
             localStorage.setItem('dev_assistant_history', JSON.stringify(this.chatHistory));
         } catch (e) {
-            console.error('保存聊天记录失败:', e);
+            console.error('\u4FDD\u5B58\u804A\u5929\u8BB0\u5F55\u5931\u8D25:', e);
         }
     }
 
@@ -869,7 +870,7 @@ class DevAssistant {
         if (this.chatHistory.length === 0) {
             const emptyEl = document.createElement('div');
             emptyEl.className = 'empty-history';
-            emptyEl.textContent = '暂无对话记录';
+            emptyEl.textContent = '\u6682\u65E0\u5BF9\u8BDD\u8BB0\u5F55';
             this.historyList.appendChild(emptyEl);
             return;
         }
@@ -885,8 +886,8 @@ class DevAssistant {
 
             const time = document.createElement('span');
             time.className = 'history-time';
-            time.textContent = chat.updatedAt ? 
-                new Date(chat.updatedAt).toLocaleDateString('zh-CN') : 
+            time.textContent = chat.updatedAt ?
+                new Date(chat.updatedAt).toLocaleDateString('zh-CN') :
                 (chat.createdAt ? new Date(chat.createdAt).toLocaleDateString('zh-CN') : '');
 
             const deleteBtn = document.createElement('button');
@@ -939,7 +940,7 @@ class DevAssistant {
                 }));
             }
         } catch (e) {
-            console.error('加载数据库消息失�?', e);
+            console.error('\u52A0\u8F7D\u6570\u636E\u5E93\u6D88\u606F\u5931\u8D25:', e);
         }
     }
 
@@ -958,7 +959,7 @@ class DevAssistant {
     }
 
     async clearAllHistory() {
-        if (!confirm('确定要清除所有聊天记录吗？此操作不可恢复�?)) return;
+        if (!confirm('\u786E\u5B9A\u8981\u6E05\u9664\u6240\u6709\u804A\u5929\u8BB0\u5F55\u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u6062\u590D\u3002')) return;
 
         if (this.authToken) {
             for (const chat of this.chatHistory) {
@@ -982,12 +983,21 @@ class DevAssistant {
         this.sidebar.classList.remove('open');
     }
 
+    closeAllToolPanels() {
+        this.codeToolPanel.style.display = 'none';
+        this.syntaxLearnPanel.style.display = 'none';
+        this.algorithmPanel.style.display = 'none';
+        this.errorDecoderPanel.style.display = 'none';
+    }
+
     openCodeTool(type) {
+        this.closeAllToolPanels();
         this.currentToolType = type;
-        this.toolPanelTitle.innerHTML = type === 'fix' ? 
-            '<i class="fas fa-bug"></i> 代码纠错' : 
-            '<i class="fas fa-search-plus"></i> 代码分析';
-        this.analyzeBtnText.textContent = type === 'fix' ? '开始纠�? : '开始分�?;
+        this.toolPanelTitle.innerHTML = type === 'fix' ?
+            '<i class="fas fa-bug"></i> \u4EE3\u7801\u7EA0\u9519' :
+            '<i class="fas fa-search-plus"></i> \u4EE3\u7801\u5206\u6790';
+        this.analyzeBtnText.textContent = type === 'fix' ? '\u5F00\u59CB\u7EA0\u9519' : '\u5F00\u59CB\u5206\u6790';
+        this.analyzeBtn.disabled = false;
         this.codeToolPanel.style.display = 'flex';
         this.codeInput.focus();
     }
@@ -995,40 +1005,86 @@ class DevAssistant {
     closeCodeToolPanel() {
         this.codeToolPanel.style.display = 'none';
         this.codeInput.value = '';
-        this.codeCharCount.textContent = '0 字符';
+        this.codeCharCount.textContent = '0 \u5B57\u7B26';
         this.fileName.textContent = '';
         this.analyzeBtn.disabled = false;
-        this.analyzeBtnText.textContent = this.currentToolType === 'fix' ? '开始纠�? : '开始分�?;
+        this.analyzeBtnText.textContent = this.currentToolType === 'fix' ? '\u5F00\u59CB\u7EA0\u9519' : '\u5F00\u59CB\u5206\u6790';
+        this.cancelActiveRequest('analyze');
     }
 
     handleCodeFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
 
+        const maxSize = 500 * 1024;
+        if (file.size > maxSize) {
+            alert('\u6587\u4EF6\u5927\u5C0F\u4E0D\u80FD\u8D85\u8FC7500KB');
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (event) => {
             this.codeInput.value = event.target.result;
-            this.codeCharCount.textContent = this.codeInput.value.length + ' 字符';
+            this.codeCharCount.textContent = this.codeInput.value.length + ' \u5B57\u7B26';
             this.fileName.textContent = file.name;
         };
         reader.readAsText(file);
     }
 
+    cancelActiveRequest(key) {
+        const controller = this.activeRequests.get(key);
+        if (controller) {
+            controller.abort();
+            this.activeRequests.delete(key);
+        }
+    }
+
+    setButtonLoading(btn, loadingText) {
+        btn.disabled = true;
+        const icon = btn.querySelector('i');
+        const span = btn.querySelector('span');
+        if (icon) icon.style.display = 'none';
+        if (span) span.textContent = loadingText;
+        const spinner = document.createElement('span');
+        spinner.className = 'loading-spinner';
+        btn.insertBefore(spinner, btn.firstChild);
+    }
+
+    resetButton(btn, iconClass, text) {
+        btn.disabled = false;
+        const spinner = btn.querySelector('.loading-spinner');
+        if (spinner) spinner.remove();
+        const icon = btn.querySelector('i');
+        if (icon) {
+            icon.className = iconClass;
+            icon.style.display = '';
+        }
+        const span = btn.querySelector('span');
+        if (span) span.textContent = text;
+    }
+
     async analyzeCode() {
         const code = this.codeInput.value.trim();
         if (!code) {
-            alert('请输入或上传代码');
+            alert('\u8BF7\u8F93\u5165\u6216\u4E0A\u4F20\u4EE3\u7801');
+            return;
+        }
+
+        if (code.length > 10000) {
+            alert('\u4EE3\u7801\u957F\u5EA6\u4E0D\u80FD\u8D85\u8FC710000\u5B57\u7B26');
             return;
         }
 
         const language = this.codeLanguage.value;
         const toolType = this.currentToolType;
 
-        this.analyzeBtn.disabled = true;
-        this.analyzeBtnText.textContent = '分析�?..';
-
+        this.cancelActiveRequest('analyze');
         const controller = new AbortController();
+        this.activeRequests.set('analyze', controller);
         const timeout = setTimeout(() => controller.abort(), 125000);
+
+        const loadingText = toolType === 'fix' ? '\u7EA0\u9519\u4E2D...' : '\u5206\u6790\u4E2D...';
+        this.setButtonLoading(this.analyzeBtn, loadingText);
 
         try {
             const response = await fetch('/api/analyze', {
@@ -1049,24 +1105,31 @@ class DevAssistant {
             const data = await response.json();
 
             if (data.error) {
-                alert('分析失败�? + data.error);
+                alert('\u5206\u6790\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = toolType === 'fix' ? 
-                    `请帮我纠错这�?{language}代码：\n\n${code}\n\n错误分析�?{data.content}` :
-                    `请帮我分析这�?{language}代码：\n\n${code}\n\n分析结果�?{data.content}`;
+                this.userInput.value = toolType === 'fix' ?
+                    `\u8BF7\u5E2E\u6211\u7EA0\u9519\u8FD9\u6BB5${language}\u4EE3\u7801\uFF1A\n\n${code}\n\n\u9519\u8BEF\u5206\u6790\uFF1A${data.content}` :
+                    `\u8BF7\u5E2E\u6211\u5206\u6790\u8FD9\u6BB5${language}\u4EE3\u7801\uFF1A\n\n${code}\n\n\u5206\u6790\u7ED3\u679C\uFF1A${data.content}`;
                 this.closeCodeToolPanel();
                 this.sendMessage();
             }
         } catch (error) {
             clearTimeout(timeout);
-            alert('请求超时或网络错误，请稍后重�?);
+            if (error.name === 'AbortError') {
+                alert('\u8BF7\u6C42\u5DF2\u53D6\u6D88\u6216\u8D85\u65F6\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            } else {
+                alert('\u8BF7\u6C42\u8D85\u65F6\u6216\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            }
         } finally {
-            this.analyzeBtn.disabled = false;
-            this.analyzeBtnText.textContent = toolType === 'fix' ? '开始纠�? : '开始分�?;
+            this.activeRequests.delete('analyze');
+            const iconClass = toolType === 'fix' ? 'fas fa-bug' : 'fas fa-search-plus';
+            const text = toolType === 'fix' ? '\u5F00\u59CB\u7EA0\u9519' : '\u5F00\u59CB\u5206\u6790';
+            this.resetButton(this.analyzeBtn, iconClass, text);
         }
     }
 
     openSyntaxLearnPanel() {
+        this.closeAllToolPanels();
         this.syntaxLearnPanel.style.display = 'flex';
         this.syntaxKeyword.focus();
     }
@@ -1075,6 +1138,7 @@ class DevAssistant {
         this.syntaxLearnPanel.style.display = 'none';
         this.syntaxKeyword.value = '';
         this.syntaxLearnBtn.disabled = false;
+        this.cancelActiveRequest('learn');
     }
 
     async learnSyntax() {
@@ -1082,15 +1146,16 @@ class DevAssistant {
         const keyword = this.syntaxKeyword.value.trim();
 
         if (!keyword) {
-            alert('请输入语法关键词');
+            alert('\u8BF7\u8F93\u5165\u8BED\u6CD5\u5173\u952E\u8BCD');
             return;
         }
 
-        this.syntaxLearnBtn.disabled = true;
-        this.syntaxLearnBtn.innerHTML = '<span class="loading-spinner"></span><span>学习�?..</span>';
-
+        this.cancelActiveRequest('learn');
         const controller = new AbortController();
+        this.activeRequests.set('learn', controller);
         const timeout = setTimeout(() => controller.abort(), 125000);
+
+        this.setButtonLoading(this.syntaxLearnBtn, '\u5B66\u4E60\u4E2D...');
 
         try {
             const response = await fetch('/api/learn', {
@@ -1111,22 +1176,27 @@ class DevAssistant {
             const data = await response.json();
 
             if (data.error) {
-                alert('学习失败�? + data.error);
+                alert('\u5B66\u4E60\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = `请详细讲�?{language}语言中的"${keyword}"语法，包括用法、示例和最佳实践。\n\n${data.content}`;
+                this.userInput.value = `\u8BF7\u8BE6\u7EC6\u8BB2\u89E3${language}\u8BED\u8A00\u4E2D\u7684"${keyword}"\u8BED\u6CD5\uFF0C\u5305\u62EC\u7528\u6CD5\u3001\u793A\u4F8B\u548C\u6700\u4F73\u5B9E\u8DF5\u3002\n\n${data.content}`;
                 this.closeSyntaxLearnPanel();
                 this.sendMessage();
             }
         } catch (error) {
             clearTimeout(timeout);
-            alert('请求超时或网络错误，请稍后重�?);
+            if (error.name === 'AbortError') {
+                alert('\u8BF7\u6C42\u5DF2\u53D6\u6D88\u6216\u8D85\u65F6\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            } else {
+                alert('\u8BF7\u6C42\u8D85\u65F6\u6216\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            }
         } finally {
-            this.syntaxLearnBtn.disabled = false;
-            this.syntaxLearnBtn.innerHTML = '<i class="fas fa-lightbulb"></i><span>开始学�?/span>';
+            this.activeRequests.delete('learn');
+            this.resetButton(this.syntaxLearnBtn, 'fas fa-lightbulb', '\u5F00\u59CB\u5B66\u4E60');
         }
     }
 
     openAlgorithmPanel() {
+        this.closeAllToolPanels();
         this.algorithmPanel.style.display = 'flex';
         this.algorithmName.focus();
     }
@@ -1135,6 +1205,7 @@ class DevAssistant {
         this.algorithmPanel.style.display = 'none';
         this.algorithmName.value = '';
         this.algorithmLearnBtn.disabled = false;
+        this.cancelActiveRequest('algorithm');
     }
 
     async learnAlgorithm() {
@@ -1142,15 +1213,16 @@ class DevAssistant {
         const name = this.algorithmName.value.trim();
 
         if (!name) {
-            alert('请输入算法名�?);
+            alert('\u8BF7\u8F93\u5165\u7B97\u6CD5\u540D\u79F0');
             return;
         }
 
-        this.algorithmLearnBtn.disabled = true;
-        this.algorithmLearnBtn.innerHTML = '<span class="loading-spinner"></span><span>讲解�?..</span>';
-
+        this.cancelActiveRequest('algorithm');
         const controller = new AbortController();
+        this.activeRequests.set('algorithm', controller);
         const timeout = setTimeout(() => controller.abort(), 125000);
+
+        this.setButtonLoading(this.algorithmLearnBtn, '\u8BB2\u89E3\u4E2D...');
 
         try {
             const response = await fetch('/api/learn', {
@@ -1171,22 +1243,27 @@ class DevAssistant {
             const data = await response.json();
 
             if (data.error) {
-                alert('讲解失败�? + data.error);
+                alert('\u8BB2\u89E3\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = `请详细讲�?${name}"算法，包括原理、实现步骤、时间复杂度分析和代码示例。\n\n${data.content}`;
+                this.userInput.value = `\u8BF7\u8BE6\u7EC6\u8BB2\u89E3"${name}"\u7B97\u6CD5\uFF0C\u5305\u62EC\u539F\u7406\u3001\u5B9E\u73B0\u6B65\u9AA4\u3001\u65F6\u95F4\u590D\u6742\u5EA6\u5206\u6790\u548C\u4EE3\u7801\u793A\u4F8B\u3002\n\n${data.content}`;
                 this.closeAlgorithmPanel();
                 this.sendMessage();
             }
         } catch (error) {
             clearTimeout(timeout);
-            alert('请求超时或网络错误，请稍后重�?);
+            if (error.name === 'AbortError') {
+                alert('\u8BF7\u6C42\u5DF2\u53D6\u6D88\u6216\u8D85\u65F6\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            } else {
+                alert('\u8BF7\u6C42\u8D85\u65F6\u6216\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            }
         } finally {
-            this.algorithmLearnBtn.disabled = false;
-            this.algorithmLearnBtn.innerHTML = '<i class="fas fa-play-circle"></i><span>开始讲�?/span>';
+            this.activeRequests.delete('algorithm');
+            this.resetButton(this.algorithmLearnBtn, 'fas fa-play-circle', '\u5F00\u59CB\u8BB2\u89E3');
         }
     }
 
     openErrorDecoderPanel() {
+        this.closeAllToolPanels();
         this.errorDecoderPanel.style.display = 'flex';
         this.errorInput.focus();
     }
@@ -1194,24 +1271,31 @@ class DevAssistant {
     closeErrorDecoderPanel() {
         this.errorDecoderPanel.style.display = 'none';
         this.errorInput.value = '';
-        this.errorCharCount.textContent = '0 字符';
+        this.errorCharCount.textContent = '0 \u5B57\u7B26';
         this.decodeErrorBtn.disabled = false;
+        this.cancelActiveRequest('decode');
     }
 
     async decodeError() {
         const error = this.errorInput.value.trim();
         if (!error) {
-            alert('请输入错误信�?);
+            alert('\u8BF7\u8F93\u5165\u9519\u8BEF\u4FE1\u606F');
+            return;
+        }
+
+        if (error.length > 5000) {
+            alert('\u9519\u8BEF\u4FE1\u606F\u4E0D\u80FD\u8D85\u8FC75000\u5B57\u7B26');
             return;
         }
 
         const language = this.errorLanguage.value;
 
-        this.decodeErrorBtn.disabled = true;
-        this.decodeErrorBtn.innerHTML = '<span class="loading-spinner"></span><span>解读�?..</span>';
-
+        this.cancelActiveRequest('decode');
         const controller = new AbortController();
+        this.activeRequests.set('decode', controller);
         const timeout = setTimeout(() => controller.abort(), 125000);
+
+        this.setButtonLoading(this.decodeErrorBtn, '\u89E3\u8BFB\u4E2D...');
 
         try {
             const response = await fetch('/api/decode-error', {
@@ -1231,18 +1315,22 @@ class DevAssistant {
             const data = await response.json();
 
             if (data.error) {
-                alert('解读失败�? + data.error);
+                alert('\u89E3\u8BFB\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = `请帮我解读这�?{language}错误：\n\n${error}\n\n解读结果�?{data.content}`;
+                this.userInput.value = `\u8BF7\u5E2E\u6211\u89E3\u8BFB\u8FD9\u4E2A${language}\u9519\u8BEF\uFF1A\n\n${error}\n\n\u89E3\u8BFB\u7ED3\u679C\uFF1A${data.content}`;
                 this.closeErrorDecoderPanel();
                 this.sendMessage();
             }
         } catch (error) {
             clearTimeout(timeout);
-            alert('请求超时或网络错误，请稍后重�?);
+            if (error.name === 'AbortError') {
+                alert('\u8BF7\u6C42\u5DF2\u53D6\u6D88\u6216\u8D85\u65F6\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            } else {
+                alert('\u8BF7\u6C42\u8D85\u65F6\u6216\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5');
+            }
         } finally {
-            this.decodeErrorBtn.disabled = false;
-            this.decodeErrorBtn.innerHTML = '<i class="fas fa-search"></i><span>解读错误</span>';
+            this.activeRequests.delete('decode');
+            this.resetButton(this.decodeErrorBtn, 'fas fa-search', '\u89E3\u8BFB\u9519\u8BEF');
         }
     }
 
