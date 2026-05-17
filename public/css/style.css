@@ -897,14 +897,13 @@ button, a, input, select, textarea {
     margin: 20px 0;
 }
 
-.message-content code:not(pre code) {
-    background: rgba(108, 92, 231, 0.15);
-    color: #a8a2e8;
+.message-content .inline-code {
+    background: rgba(108, 92, 231, 0.2);
+    color: #f07178;
     padding: 2px 6px;
     border-radius: 4px;
     font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 13px;
-    border: none;
+    font-size: 0.9em;
 }
 
 .message-content .highlight {

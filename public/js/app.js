@@ -573,7 +573,7 @@ class DevAssistant {
 
             const formatted = this.formatContent(decoded);
             const html = marked.parse(formatted);
-            return html || text;
+            return html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>') || text;
         } catch (error) {
             console.error('Markdown parsing error:', error);
             return text;
