@@ -1086,6 +1086,10 @@ class DevAssistant {
         const loadingText = toolType === 'fix' ? '\u7EA0\u9519\u4E2D...' : '\u5206\u6790\u4E2D...';
         this.setButtonLoading(this.analyzeBtn, loadingText);
 
+        const userDisplayText = toolType === 'fix'
+            ? `\u8BF7\u5E2E\u6211\u7EA0\u9519\u8FD9\u6BB5${language}\u4EE3\u7801`
+            : `\u8BF7\u5E2E\u6211\u5206\u6790\u8FD9\u6BB5${language}\u4EE3\u7801`;
+
         try {
             const response = await fetch('/api/analyze', {
                 method: 'POST',
@@ -1107,11 +1111,13 @@ class DevAssistant {
             if (data.error) {
                 alert('\u5206\u6790\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = toolType === 'fix' ?
-                    `\u8BF7\u5E2E\u6211\u7EA0\u9519\u8FD9\u6BB5${language}\u4EE3\u7801\uFF1A\n\n${code}\n\n\u9519\u8BEF\u5206\u6790\uFF1A${data.content}` :
-                    `\u8BF7\u5E2E\u6211\u5206\u6790\u8FD9\u6BB5${language}\u4EE3\u7801\uFF1A\n\n${code}\n\n\u5206\u6790\u7ED3\u679C\uFF1A${data.content}`;
                 this.closeCodeToolPanel();
-                this.sendMessage();
+                if (this.messages.length === 0) {
+                    this.createNewChat(true);
+                }
+                this.addMessage('user', userDisplayText + '\n\n```' + (language || '') + '\n' + code + '\n```');
+                this.addMessage('assistant', data.content);
+                this.saveCurrentChat();
             }
         } catch (error) {
             clearTimeout(timeout);
@@ -1157,6 +1163,8 @@ class DevAssistant {
 
         this.setButtonLoading(this.syntaxLearnBtn, '\u5B66\u4E60\u4E2D...');
 
+        const userDisplayText = `\u8BF7\u8BE6\u7EC6\u8BB2\u89E3${language}\u8BED\u8A00\u4E2D\u7684"${keyword}"\u8BED\u6CD5`;
+
         try {
             const response = await fetch('/api/learn', {
                 method: 'POST',
@@ -1178,9 +1186,13 @@ class DevAssistant {
             if (data.error) {
                 alert('\u5B66\u4E60\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = `\u8BF7\u8BE6\u7EC6\u8BB2\u89E3${language}\u8BED\u8A00\u4E2D\u7684"${keyword}"\u8BED\u6CD5\uFF0C\u5305\u62EC\u7528\u6CD5\u3001\u793A\u4F8B\u548C\u6700\u4F73\u5B9E\u8DF5\u3002\n\n${data.content}`;
                 this.closeSyntaxLearnPanel();
-                this.sendMessage();
+                if (this.messages.length === 0) {
+                    this.createNewChat(true);
+                }
+                this.addMessage('user', userDisplayText);
+                this.addMessage('assistant', data.content);
+                this.saveCurrentChat();
             }
         } catch (error) {
             clearTimeout(timeout);
@@ -1224,6 +1236,8 @@ class DevAssistant {
 
         this.setButtonLoading(this.algorithmLearnBtn, '\u8BB2\u89E3\u4E2D...');
 
+        const userDisplayText = `\u8BF7\u8BE6\u7EC6\u8BB2\u89E3"${name}"\u7B97\u6CD5`;
+
         try {
             const response = await fetch('/api/learn', {
                 method: 'POST',
@@ -1245,9 +1259,13 @@ class DevAssistant {
             if (data.error) {
                 alert('\u8BB2\u89E3\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = `\u8BF7\u8BE6\u7EC6\u8BB2\u89E3"${name}"\u7B97\u6CD5\uFF0C\u5305\u62EC\u539F\u7406\u3001\u5B9E\u73B0\u6B65\u9AA4\u3001\u65F6\u95F4\u590D\u6742\u5EA6\u5206\u6790\u548C\u4EE3\u7801\u793A\u4F8B\u3002\n\n${data.content}`;
                 this.closeAlgorithmPanel();
-                this.sendMessage();
+                if (this.messages.length === 0) {
+                    this.createNewChat(true);
+                }
+                this.addMessage('user', userDisplayText);
+                this.addMessage('assistant', data.content);
+                this.saveCurrentChat();
             }
         } catch (error) {
             clearTimeout(timeout);
@@ -1297,6 +1315,8 @@ class DevAssistant {
 
         this.setButtonLoading(this.decodeErrorBtn, '\u89E3\u8BFB\u4E2D...');
 
+        const userDisplayText = `\u8BF7\u5E2E\u6211\u89E3\u8BFB\u8FD9\u4E2A${language}\u9519\u8BEF`;
+
         try {
             const response = await fetch('/api/decode-error', {
                 method: 'POST',
@@ -1317,9 +1337,13 @@ class DevAssistant {
             if (data.error) {
                 alert('\u89E3\u8BFB\u5931\u8D25\uFF1A' + data.error);
             } else {
-                this.userInput.value = `\u8BF7\u5E2E\u6211\u89E3\u8BFB\u8FD9\u4E2A${language}\u9519\u8BEF\uFF1A\n\n${error}\n\n\u89E3\u8BFB\u7ED3\u679C\uFF1A${data.content}`;
                 this.closeErrorDecoderPanel();
-                this.sendMessage();
+                if (this.messages.length === 0) {
+                    this.createNewChat(true);
+                }
+                this.addMessage('user', userDisplayText + '\n\n```\n' + error + '\n```');
+                this.addMessage('assistant', data.content);
+                this.saveCurrentChat();
             }
         } catch (error) {
             clearTimeout(timeout);
