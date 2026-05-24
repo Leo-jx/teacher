@@ -1046,21 +1046,13 @@ button, a, input, select, textarea {
 }
 
 .message-content pre {
-    background: rgba(255, 255, 255, 0.03);
+    background: #1e1e38;
     border-radius: 8px;
-    padding: 12px;
-    margin: 10px 0;
+    padding: 16px;
+    margin: 12px 0;
     overflow-x: auto;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.code-header {
-    display: none;
-}
-
-.copy-btn {
-    display: none;
+    border: 1px solid #3a3a5c;
 }
 
 .message-content pre code {
@@ -1071,16 +1063,16 @@ button, a, input, select, textarea {
     font-size: 13px;
     line-height: 1.6;
     background: transparent;
-    color: var(--text-primary);
+    color: #e8e8e8;
 }
 
 .message-content code:not(pre code) {
-    background: rgba(108, 92, 231, 0.1);
-    color: var(--primary-light);
+    background: rgba(108, 92, 231, 0.2);
+    color: #c4b5fd;
     padding: 2px 6px;
     border-radius: 4px;
     font-family: 'Fira Code', 'Consolas', monospace;
-    font-size: 13px;
+    font-size: 0.9em;
     border: none;
 }
 
