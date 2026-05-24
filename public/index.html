@@ -57,6 +57,10 @@
                             <i class="fas fa-bug"></i>
                             <span>错误解读</span>
                         </div>
+                        <div class="tool-item" data-tool="practice">
+                            <i class="fas fa-pen-to-square"></i>
+                            <span>题目练习</span>
+                        </div>
                     </div>
                 </div>
 
@@ -396,6 +400,75 @@
                     <button class="analyze-btn" id="decodeErrorBtn">
                         <i class="fas fa-stethoscope"></i>
                         <span>开始解读</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="code-tool-panel" id="practicePanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-pen-to-square"></i> 题目练习</h3>
+                    <button class="tool-panel-close" data-panel="practicePanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="practice-input-section">
+                        <div class="practice-input-row">
+                            <div class="practice-field">
+                                <label>题目分类</label>
+                                <select class="practice-category-select" id="practiceCategorySelect">
+                                    <option value="basic">基础语法</option>
+                                    <option value="datastructure">数据结构</option>
+                                    <option value="algorithm">算法思维</option>
+                                    <option value="database">数据库</option>
+                                    <option value="framework">框架应用</option>
+                                    <option value="comprehensive">综合实战</option>
+                                </select>
+                            </div>
+                            <div class="practice-field">
+                                <label>难度级别</label>
+                                <select class="practice-difficulty-select" id="practiceDifficultySelect">
+                                    <option value="easy">入门</option>
+                                    <option value="medium">进阶</option>
+                                    <option value="hard">挑战</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="practice-input-row">
+                            <div class="practice-field">
+                                <label>编程语言</label>
+                                <select class="practice-lang-select" id="practiceLangSelect">
+                                    <option value="java">Java</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="cpp">C/C++</option>
+                                    <option value="sql">SQL</option>
+                                    <option value="vue">Vue</option>
+                                </select>
+                            </div>
+                            <div class="practice-field">
+                                <label>题目数量</label>
+                                <select class="practice-count-select" id="practiceCountSelect">
+                                    <option value="1">1题</option>
+                                    <option value="3" selected>3题</option>
+                                    <option value="5">5题</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="practice-progress" id="practiceProgress">
+                            <div class="practice-progress-bar">
+                                <div class="practice-progress-fill" id="practiceProgressFill" style="width: 0%"></div>
+                            </div>
+                            <div class="practice-progress-text">
+                                <span id="practiceCompleted">0</span> / <span id="practiceTotal">0</span> 已完成
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tool-panel-footer">
+                    <button class="analyze-btn" id="practiceBtn">
+                        <i class="fas fa-play"></i>
+                        <span>开始练习</span>
                     </button>
                 </div>
             </div>

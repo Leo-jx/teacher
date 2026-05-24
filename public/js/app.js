@@ -23,6 +23,7 @@ class DevAssistant {
         this.setupMarked();
         this.autoResizeTextarea();
         this.updateCharCount();
+        this.loadPracticeProgress();
         this.showApp();
     }
 
@@ -310,6 +311,7 @@ class DevAssistant {
         document.getElementById('learnSyntaxBtn')?.addEventListener('click', () => this.learnSyntax());
         document.getElementById('learnAlgorithmBtn')?.addEventListener('click', () => this.learnAlgorithm());
         document.getElementById('decodeErrorBtn')?.addEventListener('click', () => this.decodeError());
+        document.getElementById('practiceBtn')?.addEventListener('click', () => this.startPractice());
     }
 
     autoResizeTextarea() {
@@ -921,7 +923,8 @@ class DevAssistant {
             'analyze': 'codeAnalyzePanel',
             'syntax': 'syntaxLearnPanel',
             'algorithm': 'algorithmPanel',
-            'error': 'errorDecoderPanel'
+            'error': 'errorDecoderPanel',
+            'practice': 'practicePanel'
         };
 
         const panelId = panelMap[tool];
@@ -1039,6 +1042,72 @@ class DevAssistant {
         const prompt = `请分析以下${lang === 'auto' ? '' : lang}错误信息的原因和解决方案：\n\n${error}`;
         this.userInput.value = prompt;
         await this.sendMessage();
+    }
+
+    async startPractice() {
+        const category = document.getElementById('practiceCategorySelect')?.value || 'basic';
+        const difficulty = document.getElementById('practiceDifficultySelect')?.value || 'easy';
+        const lang = document.getElementById('practiceLangSelect')?.value || 'java';
+        const count = document.getElementById('practiceCountSelect')?.value || '3';
+
+        const categoryNames = {
+            'basic': '基础语法',
+            'datastructure': '数据结构',
+            'algorithm': '算法思维',
+            'database': '数据库',
+            'framework': '框架应用',
+            'comprehensive': '综合实战'
+        };
+
+        const difficultyNames = {
+            'easy': '入门',
+            'medium': '进阶',
+            'hard': '挑战'
+        };
+
+        this.closeAllToolPanels();
+        this.createNewChat(true);
+
+        const prompt = `请给我出${count}道${lang}的${categoryNames[category]}练习题，难度为${difficultyNames[difficulty]}级。
+
+要求：
+1. 每道题包含：题目描述、输入输出要求、示例
+2. 题目由浅入深排列
+3. 在所有题目之后，给出每道题的详细解题思路分析
+4. 提供参考代码实现
+5. 给出常见错误提示和代码优化建议
+6. 标注每道题考察的核心知识点`;
+
+        this.userInput.value = prompt;
+        await this.sendMessage();
+
+        this.updatePracticeProgress(parseInt(count));
+    }
+
+    updatePracticeProgress(newCount) {
+        let progress = JSON.parse(localStorage.getItem('practice_progress') || '{"completed":0,"total":0}');
+        progress.total += newCount;
+        progress.completed += newCount;
+        localStorage.setItem('practice_progress', JSON.stringify(progress));
+
+        const completedEl = document.getElementById('practiceCompleted');
+        const totalEl = document.getElementById('practiceTotal');
+        const fillEl = document.getElementById('practiceProgressFill');
+
+        if (completedEl) completedEl.textContent = progress.completed;
+        if (totalEl) totalEl.textContent = progress.total;
+        if (fillEl) fillEl.style.width = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) + '%' : '0%';
+    }
+
+    loadPracticeProgress() {
+        const progress = JSON.parse(localStorage.getItem('practice_progress') || '{"completed":0,"total":0}');
+        const completedEl = document.getElementById('practiceCompleted');
+        const totalEl = document.getElementById('practiceTotal');
+        const fillEl = document.getElementById('practiceProgressFill');
+
+        if (completedEl) completedEl.textContent = progress.completed;
+        if (totalEl) totalEl.textContent = progress.total;
+        if (fillEl) fillEl.style.width = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) + '%' : '0%';
     }
 
     setupMarked() {
