@@ -1076,6 +1076,41 @@ button, a, input, select, textarea {
     border: none;
 }
 
+.message-content pre code.hljs {
+    background: transparent;
+    color: #e8e8e8;
+    padding: 0;
+}
+
+.message-content .hljs-keyword,
+.message-content .hljs-selector-tag,
+.message-content .hljs-literal,
+.message-content .hljs-section,
+.message-content .hljs-link,
+.message-content .hljs-function,
+.message-content .hljs-string,
+.message-content .hljs-title,
+.message-content .hljs-name,
+.message-content .hljs-type,
+.message-content .hljs-attribute,
+.message-content .hljs-symbol,
+.message-content .hljs-bullet,
+.message-content .hljs-built_in,
+.message-content .hljs-addition,
+.message-content .hljs-variable,
+.message-content .hljs-template-tag,
+.message-content .hljs-template-variable,
+.message-content .hljs-comment,
+.message-content .hljs-quote,
+.message-content .hljs-deletion,
+.message-content .hljs-meta,
+.message-content .hljs-number,
+.message-content .hljs-params,
+.message-content .hljs-regexp,
+.message-content .hljs-subst {
+    color: #e8e8e8;
+}
+
 .message-content table {
     width: 100%;
     border-collapse: collapse;

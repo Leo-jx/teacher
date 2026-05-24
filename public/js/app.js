@@ -503,14 +503,12 @@ class DevAssistant {
                 index++;
 
                 if (index % 5 === 0) {
-                    this.highlightCode(element);
                     this.scrollToBottom();
                 }
 
                 setTimeout(type, speed);
             } else {
                 element.innerHTML = this.renderMarkdown(text);
-                this.highlightCode(element);
                 element.classList.remove('typing');
                 this.isTyping = false;
                 this.scrollToBottom();
@@ -544,7 +542,6 @@ class DevAssistant {
 
             if (msg.role === 'assistant') {
                 content.innerHTML = this.renderMarkdown(msg.content);
-                this.highlightCode(content);
             } else {
                 content.textContent = msg.content;
             }
@@ -686,12 +683,6 @@ class DevAssistant {
         let finalResult = result.join('\n');
         finalResult = finalResult.replace(/\n{3,}/g, '\n\n');
         return finalResult;
-    }
-
-    highlightCode(element) {
-        element.querySelectorAll('pre code').forEach((block) => {
-            hljs.highlightElement(block);
-        });
     }
 
     scrollToBottom() {
