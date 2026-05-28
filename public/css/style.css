@@ -2456,4 +2456,554 @@ button, a, input, select, textarea {
     }
 }
 
+.learning-path-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+}
+
+.learning-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+}
+
+.learning-tab {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition);
+}
+
+.learning-tab:hover {
+    color: var(--text-primary);
+}
+
+.learning-tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+.learning-content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.learning-filter-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.learning-filter-field {
+    flex: 1;
+}
+
+.learning-filter-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.learning-tech-select,
+.learning-level-select {
+    width: 100%;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+    transition: var(--transition);
+}
+
+.learning-tech-select:hover,
+.learning-tech-select:focus,
+.learning-level-select:hover,
+.learning-level-select:focus {
+    border-color: var(--primary);
+}
+
+.learning-paths-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.learning-path-card {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.learning-path-card:hover {
+    border-color: var(--primary);
+    background: rgba(108, 92, 231, 0.08);
+}
+
+.learning-path-card.selected {
+    border-color: var(--primary);
+    background: rgba(108, 92, 231, 0.15);
+}
+
+.path-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.path-icon i {
+    font-size: 20px;
+    color: white;
+}
+
+.path-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.path-info h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.path-info p {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+
+.path-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.path-level {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.path-level.beginner {
+    background: rgba(72, 187, 120, 0.2);
+    color: var(--success);
+}
+
+.path-level.intermediate {
+    background: rgba(246, 173, 85, 0.2);
+    color: var(--warning);
+}
+
+.path-level.advanced {
+    background: rgba(252, 129, 129, 0.2);
+    color: var(--error);
+}
+
+.path-duration {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.path-duration i {
+    font-size: 10px;
+}
+
+.plan-form {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.plan-form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.plan-form-row:last-child {
+    margin-bottom: 0;
+}
+
+.plan-form-field {
+    flex: 1;
+}
+
+.plan-form-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.plan-path-select,
+.plan-time-select {
+    width: 100%;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+    transition: var(--transition);
+}
+
+.plan-path-select:hover,
+.plan-path-select:focus,
+.plan-time-select:hover,
+.plan-time-select:focus {
+    border-color: var(--primary);
+}
+
+.plan-date-input,
+.plan-goal-input {
+    width: 100%;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 12px;
+    outline: none;
+    transition: var(--transition);
+}
+
+.plan-date-input:focus,
+.plan-goal-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+.plan-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+}
+
+.my-plans-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.empty-plans,
+.empty-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.empty-plans i,
+.empty-progress i {
+    font-size: 32px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+}
+
+.empty-plans p,
+.empty-progress p {
+    font-size: 12px;
+}
+
+.plan-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.plan-item-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.plan-item-icon i {
+    font-size: 16px;
+    color: white;
+}
+
+.plan-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.plan-item-info h5 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.plan-item-info p {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.plan-item-progress {
+    width: 60px;
+    text-align: right;
+}
+
+.plan-item-progress span {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-light);
+}
+
+.progress-overview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.progress-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.progress-stat-card .stat-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(108, 92, 231, 0.15);
+    border-radius: 6px;
+}
+
+.progress-stat-card .stat-icon i {
+    font-size: 14px;
+    color: var(--primary-light);
+}
+
+.progress-stat-card .stat-info {
+    flex: 1;
+}
+
+.progress-stat-card .stat-value {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.progress-stat-card .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.progress-details {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+}
+
+.progress-path-item {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.progress-path-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.progress-path-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.progress-path-header h5 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.progress-path-header h5 i {
+    color: var(--primary-light);
+}
+
+.progress-path-header span {
+    font-size: 11px;
+    color: var(--primary-light);
+    font-weight: 600;
+}
+
+.progress-modules-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.progress-modules-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.progress-modules-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.progress-module-dot {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.progress-module-dot.completed {
+    background: rgba(72, 187, 120, 0.2);
+    color: var(--success);
+}
+
+.progress-module-dot.current {
+    background: rgba(108, 92, 231, 0.2);
+    color: var(--primary-light);
+}
+
+.progress-module-dot.pending {
+    background: var(--bg-input);
+    color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+    .learning-paths-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .learning-filter-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .progress-overview {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .plan-form-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .learning-tab {
+        padding: 10px 8px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .learning-path-card {
+        padding: 10px;
+    }
+
+    .path-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .path-icon i {
+        font-size: 18px;
+    }
+
+    .path-info h4 {
+        font-size: 12px;
+    }
+
+    .path-info p {
+        font-size: 10px;
+    }
+
+    .progress-overview {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    .progress-stat-card {
+        padding: 8px;
+    }
+
+    .progress-stat-card .stat-icon {
+        width: 28px;
+        height: 28px;
+    }
+
+    .progress-stat-card .stat-value {
+        font-size: 14px;
+    }
+}
+
 

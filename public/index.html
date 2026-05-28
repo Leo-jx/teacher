@@ -61,6 +61,10 @@
                             <i class="fas fa-pen-to-square"></i>
                             <span>题目练习</span>
                         </div>
+                        <div class="tool-item" data-tool="learning">
+                            <i class="fas fa-road"></i>
+                            <span>学习路径</span>
+                        </div>
                     </div>
                 </div>
 
@@ -469,6 +473,211 @@
                     <button class="analyze-btn" id="practiceBtn">
                         <i class="fas fa-play"></i>
                         <span>开始练习</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="code-tool-panel" id="learningPathPanel">
+                <div class="tool-panel-header">
+                    <h3><i class="fas fa-road"></i> 学习路径</h3>
+                    <button class="tool-panel-close" data-panel="learningPathPanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tool-panel-body">
+                    <div class="learning-path-section">
+                        <div class="learning-tabs">
+                            <button class="learning-tab active" data-tab="paths">学习路径</button>
+                            <button class="learning-tab" data-tab="plan">我的计划</button>
+                            <button class="learning-tab" data-tab="progress">学习进度</button>
+                        </div>
+                        
+                        <div class="learning-content" id="learningPathsContent">
+                            <div class="learning-filter-row">
+                                <div class="learning-filter-field">
+                                    <label>技术方向</label>
+                                    <select class="learning-tech-select" id="learningTechSelect">
+                                        <option value="all">全部</option>
+                                        <option value="backend">后端开发</option>
+                                        <option value="frontend">前端开发</option>
+                                        <option value="mobile">移动开发</option>
+                                        <option value="database">数据库</option>
+                                        <option value="devops">运维部署</option>
+                                        <option value="ai">人工智能</option>
+                                    </select>
+                                </div>
+                                <div class="learning-filter-field">
+                                    <label>学习阶段</label>
+                                    <select class="learning-level-select" id="learningLevelSelect">
+                                        <option value="beginner">入门阶段</option>
+                                        <option value="intermediate">进阶阶段</option>
+                                        <option value="advanced">高级阶段</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="learning-paths-grid" id="learningPathsGrid">
+                                <div class="learning-path-card" data-path="java">
+                                    <div class="path-icon"><i class="fab fa-java"></i></div>
+                                    <div class="path-info">
+                                        <h4>Java全栈开发</h4>
+                                        <p>从基础语法到Spring Boot微服务架构</p>
+                                        <div class="path-meta">
+                                            <span class="path-level beginner">入门</span>
+                                            <span class="path-duration"><i class="fas fa-clock"></i> 12周</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="learning-path-card" data-path="python">
+                                    <div class="path-icon"><i class="fab fa-python"></i></div>
+                                    <div class="path-info">
+                                        <h4>Python数据分析</h4>
+                                        <p>从Python基础到数据分析与机器学习</p>
+                                        <div class="path-meta">
+                                            <span class="path-level intermediate">进阶</span>
+                                            <span class="path-duration"><i class="fas fa-clock"></i> 10周</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="learning-path-card" data-path="javascript">
+                                    <div class="path-icon"><i class="fab fa-js-square"></i></div>
+                                    <div class="path-info">
+                                        <h4>JavaScript前端开发</h4>
+                                        <p>ES6+语法、Vue/React框架、工程化实践</p>
+                                        <div class="path-meta">
+                                            <span class="path-level beginner">入门</span>
+                                            <span class="path-duration"><i class="fas fa-clock"></i> 8周</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="learning-path-card" data-path="cpp">
+                                    <div class="path-icon"><i class="fas fa-microchip"></i></div>
+                                    <div class="path-info">
+                                        <h4>C++系统编程</h4>
+                                        <p>指针内存管理、STL、高性能服务器开发</p>
+                                        <div class="path-meta">
+                                            <span class="path-level advanced">高级</span>
+                                            <span class="path-duration"><i class="fas fa-clock"></i> 16周</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="learning-path-card" data-path="mysql">
+                                    <div class="path-icon"><i class="fas fa-database"></i></div>
+                                    <div class="path-info">
+                                        <h4>MySQL数据库</h4>
+                                        <p>SQL语法、索引优化、主从复制与分库分表</p>
+                                        <div class="path-meta">
+                                            <span class="path-level intermediate">进阶</span>
+                                            <span class="path-duration"><i class="fas fa-clock"></i> 6周</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="learning-path-card" data-path="vue">
+                                    <div class="path-icon"><i class="fab fa-vuejs"></i></div>
+                                    <div class="path-info">
+                                        <h4>Vue3全家桶</h4>
+                                        <p>Composition API、Pinia、Vue Router实战</p>
+                                        <div class="path-meta">
+                                            <span class="path-level intermediate">进阶</span>
+                                            <span class="path-duration"><i class="fas fa-clock"></i> 6周</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="learning-content" id="learningPlanContent" style="display:none">
+                            <div class="plan-form">
+                                <div class="plan-form-row">
+                                    <div class="plan-form-field">
+                                        <label>选择学习路径</label>
+                                        <select class="plan-path-select" id="planPathSelect">
+                                            <option value="">请选择学习路径</option>
+                                            <option value="java">Java全栈开发</option>
+                                            <option value="python">Python数据分析</option>
+                                            <option value="javascript">JavaScript前端开发</option>
+                                            <option value="cpp">C++系统编程</option>
+                                            <option value="mysql">MySQL数据库</option>
+                                            <option value="vue">Vue3全家桶</option>
+                                        </select>
+                                    </div>
+                                    <div class="plan-form-field">
+                                        <label>每日学习时长</label>
+                                        <select class="plan-time-select" id="planTimeSelect">
+                                            <option value="30">30分钟</option>
+                                            <option value="60" selected>1小时</option>
+                                            <option value="120">2小时</option>
+                                            <option value="180">3小时</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="plan-form-row">
+                                    <div class="plan-form-field">
+                                        <label>开始日期</label>
+                                        <input type="date" class="plan-date-input" id="planStartDate">
+                                    </div>
+                                    <div class="plan-form-field">
+                                        <label>学习目标</label>
+                                        <input type="text" class="plan-goal-input" id="planGoalInput" placeholder="如：掌握Spring Boot开发">
+                                    </div>
+                                </div>
+                                <button class="analyze-btn" id="createPlanBtn" style="margin-top: 10px;">
+                                    <i class="fas fa-plus"></i>
+                                    <span>创建学习计划</span>
+                                </button>
+                            </div>
+                            <div class="my-plans-list" id="myPlansList">
+                                <div class="empty-plans">
+                                    <i class="fas fa-clipboard-list"></i>
+                                    <p>暂无学习计划，快创建一个吧！</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="learning-content" id="learningProgressContent" style="display:none">
+                            <div class="progress-overview">
+                                <div class="progress-stat-card">
+                                    <div class="stat-icon"><i class="fas fa-book-reader"></i></div>
+                                    <div class="stat-info">
+                                        <span class="stat-value" id="totalPathsEnrolled">0</span>
+                                        <span class="stat-label">已加入路径</span>
+                                    </div>
+                                </div>
+                                <div class="progress-stat-card">
+                                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                                    <div class="stat-info">
+                                        <span class="stat-value" id="completedModules">0</span>
+                                        <span class="stat-label">已完成模块</span>
+                                    </div>
+                                </div>
+                                <div class="progress-stat-card">
+                                    <div class="stat-icon"><i class="fas fa-fire"></i></div>
+                                    <div class="stat-info">
+                                        <span class="stat-value" id="studyStreak">0</span>
+                                        <span class="stat-label">连续学习天数</span>
+                                    </div>
+                                </div>
+                                <div class="progress-stat-card">
+                                    <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+                                    <div class="stat-info">
+                                        <span class="stat-value" id="totalStudyTime">0h</span>
+                                        <span class="stat-label">累计学习时长</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="progress-details" id="progressDetails">
+                                <div class="empty-progress">
+                                    <i class="fas fa-chart-line"></i>
+                                    <p>开始学习后，这里将显示您的学习进度</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tool-panel-footer">
+                    <button class="analyze-btn" id="startLearningBtn">
+                        <i class="fas fa-play"></i>
+                        <span>开始学习</span>
                     </button>
                 </div>
             </div>

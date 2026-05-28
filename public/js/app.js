@@ -24,7 +24,18 @@ class DevAssistant {
         this.autoResizeTextarea();
         this.updateCharCount();
         this.loadPracticeProgress();
+        this.initLearningPath();
         this.showApp();
+    }
+
+    initLearningPath() {
+        this.selectedLearningPath = null;
+        const dateInput = document.getElementById('planStartDate');
+        if (dateInput) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+        this.loadLearningProgress();
     }
 
     checkAuth() {
@@ -312,6 +323,17 @@ class DevAssistant {
         document.getElementById('learnAlgorithmBtn')?.addEventListener('click', () => this.learnAlgorithm());
         document.getElementById('decodeErrorBtn')?.addEventListener('click', () => this.decodeError());
         document.getElementById('practiceBtn')?.addEventListener('click', () => this.startPractice());
+
+        document.querySelectorAll('.learning-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => this.switchLearningTab(e.target.dataset.tab));
+        });
+
+        document.querySelectorAll('.learning-path-card').forEach(card => {
+            card.addEventListener('click', (e) => this.selectLearningPath(e.currentTarget.dataset.path));
+        });
+
+        document.getElementById('startLearningBtn')?.addEventListener('click', () => this.startLearning());
+        document.getElementById('createPlanBtn')?.addEventListener('click', () => this.createLearningPlan());
     }
 
     autoResizeTextarea() {
@@ -924,7 +946,8 @@ class DevAssistant {
             'syntax': 'syntaxLearnPanel',
             'algorithm': 'algorithmPanel',
             'error': 'errorDecoderPanel',
-            'practice': 'practicePanel'
+            'practice': 'practicePanel',
+            'learning': 'learningPathPanel'
         };
 
         const panelId = panelMap[tool];
@@ -1108,6 +1131,321 @@ class DevAssistant {
         if (completedEl) completedEl.textContent = progress.completed;
         if (totalEl) totalEl.textContent = progress.total;
         if (fillEl) fillEl.style.width = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) + '%' : '0%';
+    }
+
+    switchLearningTab(tab) {
+        document.querySelectorAll('.learning-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.learning-tab[data-tab="${tab}"]`)?.classList.add('active');
+
+        document.getElementById('learningPathsContent').style.display = tab === 'paths' ? 'block' : 'none';
+        document.getElementById('learningPlanContent').style.display = tab === 'plan' ? 'block' : 'none';
+        document.getElementById('learningProgressContent').style.display = tab === 'progress' ? 'block' : 'none';
+
+        if (tab === 'plan') {
+            this.loadLearningPlans();
+        } else if (tab === 'progress') {
+            this.loadLearningProgress();
+        }
+    }
+
+    selectLearningPath(path) {
+        document.querySelectorAll('.learning-path-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        document.querySelector(`.learning-path-card[data-path="${path}"]`)?.classList.add('selected');
+        this.selectedLearningPath = path;
+    }
+
+    getLearningPathData(path) {
+        const paths = {
+            'java': {
+                name: 'Java全栈开发',
+                icon: 'fab fa-java',
+                description: '从基础语法到Spring Boot微服务架构',
+                modules: [
+                    'Java基础语法', '面向对象编程', '集合框架', '异常处理',
+                    'IO与NIO', '多线程编程', 'JVM原理', '设计模式',
+                    'Spring框架', 'Spring Boot', 'MyBatis/JPA', '微服务架构'
+                ],
+                resources: [
+                    '《Java核心技术》', '《Effective Java》', '《Spring实战》',
+                    '官方文档', 'LeetCode练习', '实战项目'
+                ]
+            },
+            'python': {
+                name: 'Python数据分析',
+                icon: 'fab fa-python',
+                description: '从Python基础到数据分析与机器学习',
+                modules: [
+                    'Python基础语法', '数据结构', '函数与模块', '面向对象',
+                    '文件操作', 'NumPy基础', 'Pandas数据分析', 'Matplotlib可视化',
+                    'Scikit-learn入门', '机器学习基础', '深度学习入门', '项目实战'
+                ],
+                resources: [
+                    '《Python编程：从入门到实践》', '《利用Python进行数据分析》',
+                    'Kaggle竞赛', '官方文档', 'Jupyter Notebook'
+                ]
+            },
+            'javascript': {
+                name: 'JavaScript前端开发',
+                icon: 'fab fa-js-square',
+                description: 'ES6+语法、Vue/React框架、工程化实践',
+                modules: [
+                    'JavaScript基础', 'ES6+新特性', 'DOM操作', '异步编程',
+                    '模块化开发', 'TypeScript基础', 'Vue3框架', 'React框架',
+                    '状态管理', '工程化工具', '性能优化', '项目实战'
+                ],
+                resources: [
+                    '《JavaScript高级程序设计》', '《ES6标准入门》',
+                    'MDN文档', 'Vue官方文档', 'React官方文档'
+                ]
+            },
+            'cpp': {
+                name: 'C++系统编程',
+                icon: 'fas fa-microchip',
+                description: '指针内存管理、STL、高性能服务器开发',
+                modules: [
+                    'C++基础语法', '指针与引用', '内存管理', '面向对象',
+                    'STL容器', 'STL算法', '智能指针', '多线程编程',
+                    '网络编程', '设计模式', '性能优化', '服务器开发'
+                ],
+                resources: [
+                    '《C++ Primer》', '《Effective C++》', '《STL源码剖析》',
+                    'LeetCode练习', '开源项目学习'
+                ]
+            },
+            'mysql': {
+                name: 'MySQL数据库',
+                icon: 'fas fa-database',
+                description: 'SQL语法、索引优化、主从复制与分库分表',
+                modules: [
+                    'SQL基础语法', '数据类型', '表设计', '索引原理',
+                    '查询优化', '事务与锁', '存储过程', '触发器',
+                    '主从复制', '分库分表', '性能调优', '高可用架构'
+                ],
+                resources: [
+                    '《高性能MySQL》', '《MySQL技术内幕》',
+                    '官方文档', '实战案例', '性能分析工具'
+                ]
+            },
+            'vue': {
+                name: 'Vue3全家桶',
+                icon: 'fab fa-vuejs',
+                description: 'Composition API、Pinia、Vue Router实战',
+                modules: [
+                    'Vue3基础', 'Composition API', '响应式原理', '组件设计',
+                    'Vue Router', 'Pinia状态管理', '表单处理', 'HTTP请求',
+                    '组件库使用', '自定义指令', '性能优化', '项目实战'
+                ],
+                resources: [
+                    '《Vue.js设计与实现》', 'Vue官方文档',
+                    'Vue Router文档', 'Pinia文档', 'Element Plus'
+                ]
+            }
+        };
+        return paths[path] || null;
+    }
+
+    loadLearningPlans() {
+        const plans = JSON.parse(localStorage.getItem('learning_plans') || '[]');
+        const listEl = document.getElementById('myPlansList');
+        if (!listEl) return;
+
+        if (plans.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-plans">
+                    <i class="fas fa-clipboard-list"></i>
+                    <p>暂无学习计划，快创建一个吧！</p>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = plans.map(plan => {
+            const pathData = this.getLearningPathData(plan.path);
+            return `
+                <div class="plan-item" data-plan-id="${plan.id}">
+                    <div class="plan-item-icon"><i class="${pathData?.icon || 'fas fa-book'}"></i></div>
+                    <div class="plan-item-info">
+                        <h5>${pathData?.name || plan.path}</h5>
+                        <p>目标: ${plan.goal || '未设置'} | 每日${plan.dailyTime}分钟</p>
+                    </div>
+                    <div class="plan-item-progress">
+                        <span>${plan.progress || 0}%</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    loadLearningProgress() {
+        const progress = JSON.parse(localStorage.getItem('learning_progress') || '{}');
+        const plans = JSON.parse(localStorage.getItem('learning_plans') || '[]');
+
+        document.getElementById('totalPathsEnrolled').textContent = plans.length;
+        document.getElementById('completedModules').textContent = progress.completedModules || 0;
+        document.getElementById('studyStreak').textContent = progress.studyStreak || 0;
+        document.getElementById('totalStudyTime').textContent = (progress.totalStudyTime || 0) + 'h';
+
+        const detailsEl = document.getElementById('progressDetails');
+        if (!detailsEl) return;
+
+        if (plans.length === 0) {
+            detailsEl.innerHTML = `
+                <div class="empty-progress">
+                    <i class="fas fa-chart-line"></i>
+                    <p>开始学习后，这里将显示您的学习进度</p>
+                </div>
+            `;
+            return;
+        }
+
+        detailsEl.innerHTML = plans.map(plan => {
+            const pathData = this.getLearningPathData(plan.path);
+            const totalModules = pathData?.modules?.length || 12;
+            const completedModules = plan.completedModules || 0;
+            const currentModule = plan.currentModule || 0;
+            const progressPercent = Math.round((completedModules / totalModules) * 100);
+
+            const modulesHtml = pathData?.modules?.map((mod, idx) => {
+                let status = 'pending';
+                if (idx < completedModules) status = 'completed';
+                else if (idx === currentModule) status = 'current';
+                return `<div class="progress-module-dot ${status}">${idx + 1}</div>`;
+            }).join('') || '';
+
+            return `
+                <div class="progress-path-item">
+                    <div class="progress-path-header">
+                        <h5><i class="${pathData?.icon || 'fas fa-book'}"></i> ${pathData?.name || plan.path}</h5>
+                        <span>${progressPercent}%</span>
+                    </div>
+                    <div class="progress-modules-bar">
+                        <div class="progress-modules-fill" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <div class="progress-modules-list">${modulesHtml}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async startLearning() {
+        const selectedPath = this.selectedLearningPath;
+        if (!selectedPath) {
+            alert('请先选择一个学习路径');
+            return;
+        }
+
+        const pathData = this.getLearningPathData(selectedPath);
+        if (!pathData) return;
+
+        const levelSelect = document.getElementById('learningLevelSelect');
+        const level = levelSelect?.value || 'beginner';
+        const levelNames = {
+            'beginner': '入门阶段',
+            'intermediate': '进阶阶段',
+            'advanced': '高级阶段'
+        };
+
+        this.closeAllToolPanels();
+        this.createNewChat(true);
+
+        const prompt = `我正在学习【${pathData.name}】学习路径，当前处于${levelNames[level]}。
+
+请为我制定详细的学习计划，包括：
+
+1. **学习目标**：明确本阶段需要掌握的核心技能
+2. **学习模块**：列出需要学习的模块清单
+3. **学习资源推荐**：
+${pathData.resources.map(r => `   - ${r}`).join('\n')}
+4. **学习建议**：针对${levelNames[level]}的学习方法和注意事项
+5. **实践项目**：推荐适合当前水平的练习项目
+6. **时间规划**：建议的学习时间安排
+
+学习路径包含以下模块：
+${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
+
+请给出详细的学习指导。`;
+
+        this.userInput.value = prompt;
+        await this.sendMessage();
+
+        this.updateLearningProgress(selectedPath);
+    }
+
+    updateLearningProgress(path) {
+        let progress = JSON.parse(localStorage.getItem('learning_progress') || '{}');
+        progress.lastStudyDate = new Date().toISOString().split('T')[0];
+        progress.totalStudyTime = (progress.totalStudyTime || 0) + 1;
+
+        const lastDate = progress.lastStudyDate;
+        const today = new Date().toISOString().split('T')[0];
+        if (lastDate === today) {
+            progress.studyStreak = (progress.studyStreak || 0) + 1;
+        } else {
+            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            if (lastDate === yesterday) {
+                progress.studyStreak = (progress.studyStreak || 0) + 1;
+            } else {
+                progress.studyStreak = 1;
+            }
+        }
+
+        localStorage.setItem('learning_progress', JSON.stringify(progress));
+    }
+
+    createLearningPlan() {
+        const pathSelect = document.getElementById('planPathSelect');
+        const timeSelect = document.getElementById('planTimeSelect');
+        const dateInput = document.getElementById('planStartDate');
+        const goalInput = document.getElementById('planGoalInput');
+
+        const path = pathSelect?.value;
+        const dailyTime = parseInt(timeSelect?.value || '60');
+        const startDate = dateInput?.value;
+        const goal = goalInput?.value?.trim();
+
+        if (!path) {
+            alert('请选择学习路径');
+            return;
+        }
+
+        const pathData = this.getLearningPathData(path);
+        const plans = JSON.parse(localStorage.getItem('learning_plans') || '[]');
+
+        const newPlan = {
+            id: 'plan_' + Date.now(),
+            path: path,
+            dailyTime: dailyTime,
+            startDate: startDate,
+            goal: goal || `掌握${pathData?.name || path}`,
+            progress: 0,
+            completedModules: 0,
+            currentModule: 0,
+            createdAt: new Date().toISOString()
+        };
+
+        plans.push(newPlan);
+        localStorage.setItem('learning_plans', JSON.stringify(plans));
+
+        pathSelect.value = '';
+        goalInput.value = '';
+
+        this.loadLearningPlans();
+        this.loadLearningProgress();
+
+        alert(`学习计划创建成功！\n路径: ${pathData?.name}\n每日学习: ${dailyTime}分钟\n目标: ${newPlan.goal}`);
+    }
+
+    deleteLearningPlan(planId) {
+        if (!confirm('确定要删除这个学习计划吗？')) return;
+
+        let plans = JSON.parse(localStorage.getItem('learning_plans') || '[]');
+        plans = plans.filter(p => p.id !== planId);
+        localStorage.setItem('learning_plans', JSON.stringify(plans));
+
+        this.loadLearningPlans();
+        this.loadLearningProgress();
     }
 
     setupMarked() {
