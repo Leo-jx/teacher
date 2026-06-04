@@ -2,7 +2,7 @@
 
 ## 概述
 
-程序员AI辅助助手是一个可选认证的全栈应用，使用Cloudflare Pages + Workers + D1构建，提供专业的编程技术问答服务。
+程序员AI辅助学习助手是一个可选认证的全栈应用，使用Cloudflare Pages + Workers + D1构建，提供专业的编程技术问答服务。
 
 ## 核心原则
 

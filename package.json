@@ -1,7 +1,7 @@
 {
   "name": "dev-assistant",
   "version": "1.0.0",
-  "description": "程序员AI辅助助手 - 支持10大技术领域的智能问答系统",
+  "description": "程序员AI辅助学习助手 - 支持10大技术领域的智能问答系统",
   "scripts": {
     "start": "node server.js"
   },
