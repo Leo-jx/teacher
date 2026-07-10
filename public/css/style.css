@@ -1967,6 +1967,10 @@ button, a, input, select, textarea {
     overflow: hidden;
 }
 
+#learningPathPanel {
+    height: 380px;
+}
+
 .code-tool-panel.active {
     display: flex;
 }
@@ -2501,8 +2505,8 @@ button, a, input, select, textarea {
 
 .learning-filter-row {
     display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
 .learning-filter-field {
@@ -2511,10 +2515,10 @@ button, a, input, select, textarea {
 
 .learning-filter-field label {
     display: block;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .learning-tech-select,
@@ -2524,8 +2528,8 @@ button, a, input, select, textarea {
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
     cursor: pointer;
     outline: none;
     transition: var(--transition);
@@ -2541,16 +2545,16 @@ button, a, input, select, textarea {
 .learning-paths-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 14px;
 }
 
 .learning-path-card {
     display: flex;
-    gap: 10px;
-    padding: 12px;
+    gap: 14px;
+    padding: 16px;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: var(--transition);
 }
@@ -2558,26 +2562,28 @@ button, a, input, select, textarea {
 .learning-path-card:hover {
     border-color: var(--primary);
     background: rgba(108, 92, 231, 0.08);
+    transform: translateY(-2px);
 }
 
 .learning-path-card.selected {
     border-color: var(--primary);
     background: rgba(108, 92, 231, 0.15);
+    box-shadow: 0 4px 12px rgba(108, 92, 231, 0.15);
 }
 
 .path-icon {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, var(--primary), var(--accent));
-    border-radius: 8px;
+    border-radius: 10px;
     flex-shrink: 0;
 }
 
 .path-icon i {
-    font-size: 20px;
+    font-size: 24px;
     color: white;
 }
 
@@ -2587,31 +2593,31 @@ button, a, input, select, textarea {
 }
 
 .path-info h4 {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .path-info p {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-muted);
-    line-height: 1.4;
-    margin-bottom: 6px;
+    line-height: 1.5;
+    margin-bottom: 8px;
 }
 
 .path-meta {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
 .path-level {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 10px;
+    padding: 3px 10px;
+    border-radius: 12px;
 }
 
 .path-level.beginner {
@@ -2630,29 +2636,29 @@ button, a, input, select, textarea {
 }
 
 .path-duration {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--text-muted);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
 }
 
 .path-duration i {
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .plan-form {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    margin-bottom: 12px;
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 16px;
 }
 
 .plan-form-row {
     display: flex;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 16px;
+    margin-bottom: 12px;
 }
 
 .plan-form-row:last-child {
@@ -2665,10 +2671,10 @@ button, a, input, select, textarea {
 
 .plan-form-field label {
     display: block;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .plan-path-select,
@@ -2678,8 +2684,8 @@ button, a, input, select, textarea {
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
     cursor: pointer;
     outline: none;
     transition: var(--transition);
@@ -2699,8 +2705,8 @@ button, a, input, select, textarea {
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
     outline: none;
     transition: var(--transition);
 }
@@ -2728,46 +2734,46 @@ button, a, input, select, textarea {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 32px;
     color: var(--text-muted);
     text-align: center;
 }
 
 .empty-plans i,
 .empty-progress i {
-    font-size: 32px;
-    margin-bottom: 8px;
+    font-size: 40px;
+    margin-bottom: 12px;
     opacity: 0.5;
 }
 
 .empty-plans p,
 .empty-progress p {
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .plan-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: 14px;
+    padding: 14px 16px;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
 }
 
 .plan-item-icon {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, var(--primary), var(--accent));
-    border-radius: 6px;
+    border-radius: 8px;
     flex-shrink: 0;
 }
 
 .plan-item-icon i {
-    font-size: 16px;
+    font-size: 20px;
     color: white;
 }
 
@@ -2777,24 +2783,24 @@ button, a, input, select, textarea {
 }
 
 .plan-item-info h5 {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
 
 .plan-item-info p {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--text-muted);
 }
 
 .plan-item-progress {
-    width: 60px;
+    width: 70px;
     text-align: right;
 }
 
 .plan-item-progress span {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--primary-light);
 }
@@ -2802,32 +2808,32 @@ button, a, input, select, textarea {
 .progress-overview {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
 .progress-stat-card {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px;
+    gap: 10px;
+    padding: 14px;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
 }
 
 .progress-stat-card .stat-icon {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: rgba(108, 92, 231, 0.15);
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
 .progress-stat-card .stat-icon i {
-    font-size: 14px;
+    font-size: 18px;
     color: var(--primary-light);
 }
 
@@ -2837,26 +2843,26 @@ button, a, input, select, textarea {
 
 .progress-stat-card .stat-value {
     display: block;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .progress-stat-card .stat-label {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--text-muted);
 }
 
 .progress-details {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px;
+    border-radius: var(--radius-md);
+    padding: 16px;
 }
 
 .progress-path-item {
-    margin-bottom: 12px;
-    padding-bottom: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
     border-bottom: 1px solid var(--border);
 }
 
@@ -2870,16 +2876,16 @@ button, a, input, select, textarea {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .progress-path-header h5 {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .progress-path-header h5 i {
@@ -2887,7 +2893,7 @@ button, a, input, select, textarea {
 }
 
 .progress-path-header span {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--primary-light);
     font-weight: 600;
 }
