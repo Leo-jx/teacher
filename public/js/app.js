@@ -11,6 +11,7 @@ class DevAssistant {
         this.userId = null;
         this.dbConversationId = null;
         this.activeRequests = new Map();
+        this.pendingLearningPathMindmap = false;
 
         this.init();
     }
@@ -541,6 +542,11 @@ class DevAssistant {
                 element.classList.remove('typing');
                 this.isTyping = false;
                 this.scrollToBottom();
+
+                if (this.pendingLearningPathMindmap) {
+                    this.pendingLearningPathMindmap = false;
+                    setTimeout(() => this.generateLearningPathMindmap(text, element), 200);
+                }
 
                 if (this.typingQueue.length > 0) {
                     const next = this.typingQueue.shift();
@@ -1557,9 +1563,128 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 请给出详细的学习指导。`;
 
         this.userInput.value = prompt;
+        this.pendingLearningPathMindmap = true;
         await this.sendMessage();
 
         this.updateLearningProgress(selectedPath);
+    }
+
+    parseLearningPathText(text) {
+        const root = { title: '学习路径', children: [] };
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+        const mainTitleMatch = text.match(/【([^】]+)】/);
+        if (mainTitleMatch) {
+            root.title = mainTitleMatch[1];
+        }
+
+        const sectionPatterns = [
+            { regex: /^#{1,3}\s*(.+)$|^[\d一二三四五六七八九十]+[.、\)]\s*\*{0,2}(.+?)\*{0,2}$/, type: 'section' },
+        ];
+
+        let currentSection = null;
+        let lastSectionNode = null;
+
+        lines.forEach(line => {
+            const cleanLine = line.replace(/^#{1,6}\s*/, '').replace(/\*+/g, '').replace(/^[一二三四五六七八九十\d]+[.、\)]\s*/, '').trim();
+            if (!cleanLine || cleanLine.length < 2) return;
+
+            const isSection = /^#{1,3}\s/.test(line) || /^[\d一二三四五六七八九十]+[.、\)]\s*\*{0,2}[^*]+\*{0,2}$/.test(line);
+            const isSubItem = /^[-•\*]\s/.test(line) || /^\d+\.\d+\s/.test(line);
+
+            if (isSection && cleanLine.length < 20) {
+                lastSectionNode = { title: cleanLine, children: [] };
+                root.children.push(lastSectionNode);
+                currentSection = lastSectionNode;
+            } else if (isSubItem && currentSection) {
+                const subContent = cleanLine.replace(/^[-•\*]\s*/, '').replace(/^\d+\.\d+\s*/, '').trim();
+                if (subContent.length > 0) {
+                    currentSection.children.push({
+                        title: subContent.substring(0, 30),
+                        children: []
+                    });
+                }
+            } else if (lastSectionNode && cleanLine.length > 5) {
+                lastSectionNode.children.push({
+                    title: cleanLine.substring(0, 30),
+                    children: []
+                });
+            } else if (cleanLine.length > 5) {
+                root.children.push({
+                    title: cleanLine.substring(0, 30),
+                    children: []
+                });
+            }
+        });
+
+        if (root.children.length === 0) {
+            const fallback = this.analyzeMindmapText(text);
+            return fallback;
+        }
+
+        return root;
+    }
+
+    generateLearningPathMindmap(text, messageElement) {
+        const data = this.parseLearningPathText(text);
+        const svgContent = this.renderMindmapSVG(data);
+
+        const existingMindmap = messageElement.parentElement.querySelector('.learning-path-mindmap');
+        if (existingMindmap) existingMindmap.remove();
+
+        const mindmapWrapper = document.createElement('div');
+        mindmapWrapper.className = 'learning-path-mindmap';
+        mindmapWrapper.innerHTML = `
+            <div class="mindmap-divider">
+                <span><i class="fas fa-project-diagram"></i> 学习路径思维导图（自动生成）</span>
+            </div>
+            <div class="mindmap-canvas-wrapper">${svgContent}</div>
+            <div class="mindmap-actions-bar">
+                <button class="mindmap-action-btn" data-action="view-code">
+                    <i class="fas fa-code"></i> 查看代码
+                </button>
+                <button class="mindmap-action-btn" data-action="export-svg">
+                    <i class="fas fa-download"></i> 导出SVG
+                </button>
+                <button class="mindmap-action-btn" data-action="copy">
+                    <i class="fas fa-copy"></i> 复制代码
+                </button>
+            </div>
+            <pre class="mindmap-code-display" style="display:none"><code></code></pre>
+        `;
+
+        messageElement.parentElement.insertBefore(mindmapWrapper, messageElement.nextSibling);
+
+        const codeDisplay = mindmapWrapper.querySelector('.mindmap-code-display code');
+        if (codeDisplay) codeDisplay.textContent = svgContent;
+
+        mindmapWrapper.querySelectorAll('.mindmap-action-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                if (action === 'view-code') {
+                    const display = mindmapWrapper.querySelector('.mindmap-code-display');
+                    if (display) display.style.display = display.style.display === 'none' ? 'block' : 'none';
+                } else if (action === 'export-svg') {
+                    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `learning_path_mindmap_${Date.now()}.svg`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } else if (action === 'copy') {
+                    navigator.clipboard.writeText(svgContent).then(() => {
+                        const original = btn.innerHTML;
+                        btn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                        setTimeout(() => { btn.innerHTML = original; }, 1500);
+                    });
+                }
+            });
+        });
+
+        this.scrollToBottom();
     }
 
     updateLearningProgress(path) {

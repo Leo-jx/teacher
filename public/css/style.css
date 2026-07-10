@@ -2931,6 +2931,95 @@ button, a, input, select, textarea {
     }
 }
 
+.learning-path-mindmap {
+    margin-top: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.mindmap-divider {
+    padding: 10px 16px;
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.15), rgba(0, 206, 201, 0.1));
+    border-bottom: 1px solid var(--border);
+    color: var(--primary-light);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mindmap-canvas-wrapper {
+    padding: 16px;
+    overflow: auto;
+    max-height: 420px;
+    display: flex;
+    justify-content: center;
+    background: #0f0f1a;
+}
+
+.mindmap-actions-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-input);
+    flex-wrap: wrap;
+}
+
+.mindmap-action-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 7px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: var(--transition);
+}
+
+.mindmap-action-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary-light);
+    background: rgba(108, 92, 231, 0.08);
+}
+
+.mindmap-code-display {
+    margin: 0;
+    padding: 14px 16px;
+    max-height: 240px;
+    overflow: auto;
+    background: #1a1a2e;
+    color: #e8e8e8;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+    .mindmap-actions-bar {
+        flex-direction: column;
+    }
+    .mindmap-action-btn {
+        width: 100%;
+    }
+    .mindmap-canvas-wrapper {
+        max-height: 320px;
+    }
+}
+
 .plan-item {
     display: flex;
     align-items: center;
