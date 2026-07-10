@@ -1161,176 +1161,194 @@ class DevAssistant {
     }
 
     analyzeMindmapText(text) {
-        const MAX_BRANCHES = 5;
-        const MAX_SUB_NODES = 5;
-
         const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
         const root = { title: '核心主题', children: [] };
-        const stopWords = new Set(['的', '了', '和', '与', '或', '在', '是', '为', '及', '等', '可', '以', '需', '要', '应', '该', '将', '被', '把', '让', '使', '由', '从', '到', '向', '对', '于', '并', '且', '而', '但', '则', '即', '也', '都', '已', '已经', '能够', '可以', '应该', '需要', '进行', '通过', '关于', '对于', '本', '这个', '这些', '那些', '什么', '怎么', '如何', '为什么', '一些', '这种', '那种']);
-
-        const cleanText = (s) => (s || '').replace(/[，。；：、！？""''（）()【】《》\[\]{}.,;:!?'"`~\-_+=|\\/<>@#$%^&*]/g, ' ').replace(/\s+/g, ' ').trim();
-
-        const extractKeywords = (sentence) => {
-            const cleaned = cleanText(sentence);
-            const words = cleaned.split(/\s+/).filter(w => w.length >= 2 && w.length <= 8 && !stopWords.has(w));
-            return words;
-        };
-
-        const buildPhrase = (sentence, maxKeywords) => {
-            const keywords = extractKeywords(sentence);
-            if (keywords.length === 0) return '';
-            const phrase = keywords.slice(0, maxKeywords).join('');
-            return phrase;
-        };
 
         if (paragraphs.length === 0) return root;
 
-        const firstLineKeywords = extractKeywords(paragraphs[0]);
-        root.title = firstLineKeywords.slice(0, 3).join('') || paragraphs[0];
+        root.title = paragraphs[0];
 
-        const seenBranchTitles = new Set();
         paragraphs.forEach((para) => {
-            if (root.children.length >= MAX_BRANCHES) return;
-
-            const sentences = para.split(/[。！？.!?；;]/).map(s => s.trim()).filter(s => s.length > 4);
+            const sentences = para.split(/[。！？.!?；;]/).map(s => s.trim()).filter(s => s.length > 0);
             if (sentences.length === 0) return;
 
-            const topicTitle = buildPhrase(sentences[0], 2);
-            if (!topicTitle || seenBranchTitles.has(topicTitle)) return;
-            seenBranchTitles.add(topicTitle);
+            const branch = {
+                title: sentences[0],
+                children: []
+            };
 
-            const branch = { title: topicTitle, children: [] };
-            const seenSubTitles = new Set();
-
-            sentences.slice(1, 6).forEach(sentence => {
-                if (branch.children.length >= MAX_SUB_NODES) return;
-                const suggestion = buildPhrase(sentence, 2);
-                if (!suggestion || seenSubTitles.has(suggestion)) return;
-                seenSubTitles.add(suggestion);
-                branch.children.push({ title: suggestion, children: [] });
+            sentences.forEach(sentence => {
+                branch.children.push({
+                    title: sentence,
+                    children: []
+                });
             });
 
-            if (branch.children.length === 0 && sentences.length > 1) {
-                const fallback = buildPhrase(sentences[1], 2);
-                if (fallback) branch.children.push({ title: fallback, children: [] });
-            }
-
-            if (branch.children.length > 0) {
-                root.children.push(branch);
-            }
+            root.children.push(branch);
         });
 
         if (root.children.length === 0) {
-            root.children.push({ title: '要点', children: [{ title: '详见原文', children: [] }] });
+            root.children.push({ title: '主要观点', children: [{ title: text, children: [] }] });
         }
 
         return root;
     }
 
     renderMindmapSVG(data) {
-        const palette = ['#6c5ce7', '#00cec9', '#fdcb6e', '#ff7675', '#a29bfe', '#55efc4'];
-        const levelHeight = 60;
-        const nodeHeight = 36;
-        const charWidth = 14;
-        const nodePadding = 24;
-        const hGap = 40;
+        const palette = ['#6c5ce7', '#00cec9', '#fdcb6e', '#ff7675', '#a29bfe', '#55efc4', '#ffeaa7', '#fab1a0'];
+        const hGap = 80;
         const vGap = 40;
-        const escapeXml = (s) => (s || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+        const padding = 50;
+        const lineHeight = 22;
 
-        const getNodeWidth = (title) => {
-            const len = (title || '').length;
-            return Math.max(80, len * charWidth + nodePadding);
+        const estimateTextWidth = (text, fontSize) => {
+            let width = 0;
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                width += (/[\u4e00-\u9fa5]/.test(char) ? fontSize * 1.1 : fontSize * 0.6);
+            }
+            return width;
         };
 
-        const getDepth1Width = () => getNodeWidth(data.title || '核心主题');
-        const getDepth2Width = () => {
-            if (!data.children || data.children.length === 0) return 80;
-            return Math.max(...data.children.map(c => getNodeWidth(c.title)));
-        };
-        const getDepth3Width = () => {
-            if (!data.children || data.children.length === 0) return 80;
-            let max = 80;
-            data.children.forEach(b => {
-                if (b.children && b.children.length > 0) {
-                    max = Math.max(max, ...b.children.map(c => getNodeWidth(c.title)));
+        const wrapText = (text, maxWidth, fontSize) => {
+            const lines = [];
+            if (!text) return [];
+            const chars = text.split('');
+            let currentLine = '';
+            let currentWidth = 0;
+            const targetWidth = maxWidth - 20;
+
+            for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
+                const charWidth = /[\u4e00-\u9fa5]/.test(char) ? fontSize * 1.1 : fontSize * 0.6;
+
+                if (currentWidth + charWidth > targetWidth && currentLine.length > 0) {
+                    lines.push(currentLine);
+                    currentLine = char;
+                    currentWidth = charWidth;
+                } else {
+                    currentLine += char;
+                    currentWidth += charWidth;
                 }
-            });
-            return max;
+            }
+            if (currentLine.length > 0) lines.push(currentLine);
+            return lines;
         };
 
-        const depth1Width = getDepth1Width();
-        const depth2Width = getDepth2Width();
-        const depth3Width = getDepth3Width();
+        const calculateNodeSize = (node, depth) => {
+            const fontSize = depth === 0 ? 18 : (depth === 1 ? 15 : 13);
+            const title = node.title || '';
+            const textWidth = estimateTextWidth(title, fontSize);
+            const maxWidth = Math.max(120, Math.min(textWidth + 30, depth === 0 ? 350 : 320));
+            const lines = wrapText(title, maxWidth, fontSize);
+            const height = Math.max(40, lines.length * lineHeight + 16);
+            return { width: maxWidth, height, fontSize, lines };
+        };
 
-        const hasDepth3 = data.children && data.children.some(b => b.children && b.children.length > 0);
-        const maxDepth = hasDepth3 ? 2 : 1;
+        const countLeaves = (node) => {
+            if (!node.children || node.children.length === 0) return 1;
+            return node.children.reduce((sum, c) => sum + countLeaves(c), 0);
+        };
 
-        const countLeaves = (node, depth = 0) => {
-            if (depth >= maxDepth || !node.children || node.children.length === 0) return 1;
-            return node.children.slice(0, 5).reduce((sum, c) => sum + countLeaves(c, depth + 1), 0);
+        const treeDepth = (node, depth = 0) => {
+            if (!node.children || node.children.length === 0) return depth;
+            return Math.max(...node.children.map(c => treeDepth(c, depth + 1)));
         };
 
         const totalLeaves = countLeaves(data);
-        const getNodeWidthAtDepth = (depth) => {
-            if (depth === 0) return depth1Width;
-            if (depth === 1) return depth2Width;
-            return depth3Width;
-        };
+        const maxDepth = treeDepth(data);
 
-        const computeXPositions = () => {
-            const positions = [0];
-            let acc = 0;
-            for (let d = 0; d <= maxDepth; d++) {
-                acc += getNodeWidthAtDepth(d);
-                if (d < maxDepth) acc += hGap;
-                positions.push(acc);
+        let totalWidth = padding * 2;
+        let totalHeight = padding * 2 + totalLeaves * (vGap + 60);
+
+        const nodeLayouts = [];
+
+        const computeLayout = (node, x, depth, color) => {
+            const nodeSize = calculateNodeSize(node, depth);
+            const leaves = countLeaves(node);
+            const nodeHeight = nodeSize.height;
+            const nodeWidth = nodeSize.width;
+
+            let y = padding + (totalHeight - nodeHeight) / 2;
+            if (depth > 0) {
+                y = padding + totalHeight / 2 - nodeHeight / 2;
             }
-            return positions;
-        };
-        const xPositions = computeXPositions();
-        const totalWidth = xPositions[xPositions.length - 1];
-        const padding = 30;
-        const width = padding * 2 + totalWidth;
-        const height = padding * 2 + totalLeaves * levelHeight + vGap;
 
-        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" class="mindmap-svg">`;
-        svg += `<rect width="${width}" height="${height}" fill="#0f0f1a"/>`;
+            if (x + nodeWidth > totalWidth) {
+                totalWidth = x + nodeWidth + padding;
+            }
 
-        const layoutNode = (node, depth, yCenter, color) => {
-            if (depth > maxDepth) return;
-            const x = padding + xPositions[depth];
-            const nodeWidth = getNodeWidthAtDepth(depth);
-            const leaves = countLeaves(node, depth);
-            const nodeY = yCenter;
+            const layout = { x, y, width: nodeWidth, height: nodeHeight, node, depth, color, nodeSize };
+            nodeLayouts.push(layout);
 
-            if (depth < maxDepth && node.children && node.children.length > 0) {
-                let currentY = yCenter - (leaves * levelHeight) / 2 + levelHeight / 2;
-                node.children.slice(0, 5).forEach((child, i) => {
-                    const childLeaves = countLeaves(child, depth + 1);
-                    const childYCenter = currentY + (childLeaves * levelHeight) / 2;
+            if (node.children && node.children.length > 0) {
+                let childY = y + nodeHeight / 2 - (leaves * (vGap + nodeSize.height)) / 2;
+                const childX = x + nodeWidth + hGap;
+
+                node.children.forEach((child, i) => {
+                    const childLeaves = countLeaves(child);
+                    const childSize = calculateNodeSize(child, depth + 1);
                     const childColor = depth === 0 ? palette[i % palette.length] : color;
-                    const childX = padding + xPositions[depth + 1];
-                    const childNodeWidth = getNodeWidthAtDepth(depth + 1);
+                    const childCenterY = childY + (childLeaves * (vGap + childSize.height)) / 2;
 
-                    svg += `<path d="M ${x + nodeWidth} ${nodeY + nodeHeight / 2} C ${(x + nodeWidth + childX) / 2} ${nodeY + nodeHeight / 2}, ${(x + nodeWidth + childX) / 2} ${childYCenter + nodeHeight / 2}, ${childX} ${childYCenter + nodeHeight / 2}" stroke="${childColor}" stroke-width="1.8" fill="none" opacity="0.7"/>`;
-
-                    layoutNode(child, depth + 1, childYCenter, childColor);
-                    currentY += childLeaves * levelHeight;
+                    computeLayout(child, childX, depth + 1, childColor);
+                    childY += childLeaves * (vGap + childSize.height);
                 });
             }
 
-            const fillColor = depth === 0 ? '#6c5ce7' : color;
-            const textColor = '#ffffff';
-            const fontSize = depth === 0 ? 15 : (depth === 1 ? 13 : 12);
-            const fontWeight = depth <= 1 ? 600 : 400;
-            const title = escapeXml(node.title || '');
-
-            svg += `<rect x="${x}" y="${nodeY}" width="${nodeWidth}" height="${nodeHeight}" rx="6" fill="${fillColor}" opacity="${depth === 0 ? 1 : 0.88}"/>`;
-            svg += `<text x="${x + nodeWidth / 2}" y="${nodeY + nodeHeight / 2 + 5}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="${fontWeight}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${title}</text>`;
+            return layout;
         };
 
-        const rootYCenter = height / 2 - nodeHeight / 2;
-        layoutNode(data, 0, rootYCenter, palette[0]);
+        computeLayout(data, padding, 0, palette[0]);
+
+        const containerWidth = totalWidth + 20;
+        const containerHeight = totalHeight + 20;
+
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${containerWidth}" height="${containerHeight}" viewBox="0 0 ${containerWidth} ${containerHeight}" class="mindmap-svg">`;
+        svg += `<rect x="0" y="0" width="${containerWidth}" height="${containerHeight}" fill="#0f0f1a" rx="16"/>`;
+        svg += `<rect x="10" y="10" width="${containerWidth - 20}" height="${containerHeight - 20}" fill="none" stroke="#6c5ce7" stroke-width="2" stroke-opacity="0.3" rx="12"/>`;
+
+        nodeLayouts.forEach(layout => {
+            const { x, y, width, height, node, depth, color, nodeSize } = layout;
+            const fillColor = depth === 0 ? '#6c5ce7' : color;
+            const textColor = '#ffffff';
+            const fontWeight = depth <= 1 ? 600 : 400;
+
+            svg += `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="10" fill="${fillColor}" opacity="${depth === 0 ? 1 : 0.85}" stroke="#ffffff" stroke-width="1" stroke-opacity="0.15"/>`;
+
+            const textX = x + width / 2;
+            let textY = y + (height - (nodeSize.lines.length - 1) * lineHeight) / 2 + nodeSize.fontSize * 0.6;
+
+            nodeSize.lines.forEach((line, idx) => {
+                svg += `<text x="${textX}" y="${textY + idx * lineHeight}" text-anchor="middle" fill="${textColor}" font-size="${nodeSize.fontSize}" font-weight="${fontWeight}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${line}</text>`;
+            });
+        });
+
+        const drawConnections = (node, layout, depth) => {
+            const { x, y, width, height, color } = layout;
+
+            if (node.children && node.children.length > 0) {
+                let childY = y + height / 2;
+                const childX = x + width + hGap;
+
+                node.children.forEach((child, i) => {
+                    const childLayout = nodeLayouts.find(l => l.node === child);
+                    if (childLayout) {
+                        const childCenterY = childLayout.y + childLayout.height / 2;
+                        const childColor = depth === 0 ? palette[i % palette.length] : color;
+
+                        svg += `<path d="M ${x + width} ${y + height / 2} C ${(x + width + childX) / 2} ${y + height / 2}, ${(x + width + childX) / 2} ${childCenterY}, ${childLayout.x} ${childCenterY}" stroke="${childColor}" stroke-width="2" fill="none" opacity="0.7"/>`;
+
+                        drawConnections(child, childLayout, depth + 1);
+                    }
+                });
+            }
+        };
+
+        const rootLayout = nodeLayouts.find(l => l.depth === 0);
+        if (rootLayout) {
+            drawConnections(data, rootLayout, 0);
+        }
 
         svg += '</svg>';
         return svg;
@@ -1637,9 +1655,6 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
     }
 
     parseLearningPathText(text) {
-        const MAX_BRANCHES = 5;
-        const MAX_SUB_NODES = 5;
-
         const root = { title: '学习路径', children: [] };
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
@@ -1648,41 +1663,44 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
             root.title = mainTitleMatch[1];
         }
 
-        const cleanLineText = (s) => (s || '').replace(/^#{1,6}\s*/, '').replace(/\*+/g, '').replace(/^[一二三四五六七八九十\d]+[.、\)]\s*/, '').replace(/^[-•\*]\s*/, '').replace(/^\d+\.\d+\s*/, '').trim();
-
+        let currentSection = null;
         let lastSectionNode = null;
-        const seenSections = new Set();
-        const seenSubItems = new Set();
 
         lines.forEach(line => {
-            const cleanLine = cleanLineText(line);
-            if (!cleanLine || cleanLine.length < 2) return;
+            const cleanLine = line.replace(/^#{1,6}\s*/, '').replace(/\*+/g, '').replace(/^[一二三四五六七八九十\d]+[.、\)]\s*/, '').trim();
+            if (!cleanLine) return;
 
             const isSection = /^#{1,3}\s/.test(line) || /^[\d一二三四五六七八九十]+[.、\)]\s*\*{0,2}[^*]+\*{0,2}$/.test(line);
             const isSubItem = /^[-•\*]\s/.test(line) || /^\d+\.\d+\s/.test(line);
 
             if (isSection) {
-                if (root.children.length >= MAX_BRANCHES) return;
-                if (seenSections.has(cleanLine)) return;
-                seenSections.add(cleanLine);
                 lastSectionNode = { title: cleanLine, children: [] };
                 root.children.push(lastSectionNode);
-            } else if (isSubItem && lastSectionNode) {
-                if (lastSectionNode.children.length >= MAX_SUB_NODES) return;
-                if (seenSubItems.has(cleanLine)) return;
-                seenSubItems.add(cleanLine);
-                lastSectionNode.children.push({ title: cleanLine, children: [] });
-            } else if (lastSectionNode && lastSectionNode.children.length < MAX_SUB_NODES) {
-                if (seenSubItems.has(cleanLine)) return;
-                seenSubItems.add(cleanLine);
-                lastSectionNode.children.push({ title: cleanLine, children: [] });
+                currentSection = lastSectionNode;
+            } else if (isSubItem && currentSection) {
+                const subContent = cleanLine.replace(/^[-•\*]\s*/, '').replace(/^\d+\.\d+\s*/, '').trim();
+                if (subContent.length > 0) {
+                    currentSection.children.push({
+                        title: subContent,
+                        children: []
+                    });
+                }
+            } else if (lastSectionNode) {
+                lastSectionNode.children.push({
+                    title: cleanLine,
+                    children: []
+                });
+            } else {
+                root.children.push({
+                    title: cleanLine,
+                    children: []
+                });
             }
         });
 
-        root.children = root.children.filter(b => b.children.length > 0);
-
         if (root.children.length === 0) {
-            return this.analyzeMindmapText(text);
+            const fallback = this.analyzeMindmapText(text);
+            return fallback;
         }
 
         return root;
