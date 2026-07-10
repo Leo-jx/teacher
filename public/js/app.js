@@ -1382,18 +1382,9 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
     }
 
     async generateMindmapFromText(topic, mindmapText) {
-        const imagePrompt = `生成一张专业的学习路径思维导图，主题为"${topic}"。
+        const cleanText = mindmapText.replace(/[#*`]/g, '').replace(/\n{3,}/g, '\n\n').substring(0, 600);
 
-思维导图内容结构：
-${mindmapText.substring(0, 800)}
-
-设计要求：
-- 现代科技风格，深色背景，蓝色紫色渐变配色
-- 清晰的层级树形结构，节点之间有连接线
-- 核心主题位于中央，子主题向外辐射展开
-- 文字清晰可读，使用中文
-- 布局合理美观，节点间距适中
-- 专业视觉效果，适合学习参考`;
+        const imagePrompt = `专业的学习路径思维导图，主题：${topic}。要求：科技风格，蓝色紫色渐变，树形结构，节点连接清晰，文字使用中文，布局美观。内容结构：${cleanText}`;
 
         try {
             const response = await fetch('/api/generate-image', {
@@ -1405,14 +1396,16 @@ ${mindmapText.substring(0, 800)}
             const data = await response.json();
 
             if (data.success && data.imageUrl) {
-                const imageHtml = `\n\n**学习路径思维导图已生成：**\n\n![思维导图](${data.imageUrl})\n\n如需下载，请右键点击图片选择"图片另存为"。`;
+                const imageHtml = `\n\n**学习路径思维导图已生成：**\n\n![${topic}思维导图](${data.imageUrl})\n\n> 提示：右键点击图片可选择"图片另存为"进行下载。`;
                 this.addMessage('assistant', imageHtml);
             } else {
-                this.addMessage('assistant', `\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\uFF1A${data.error || '\u672A\u77E5\u9519\u8BEF'}`);
+                console.error('思维导图生成失败详情:', data);
+                const errorMsg = data.detail || data.error || data.message || '未知错误';
+                this.addMessage('assistant', `\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\u3002\n\n**错误详情**：${errorMsg}\n\n**排查建议**：\n1. 检查讯飞MaaS平台服务状态\n2. 确认APIKey、APISecret、APPID配置正确\n3. 查看浏览器控制台获取详细错误日志`);
             }
         } catch (error) {
-            console.error('\u751F\u6210\u601D\u7EF4\u5BFC\u56FE\u5931\u8D25:', error);
-            this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002');
+            console.error('生成思维导图网络错误:', error);
+            this.addMessage('assistant', `\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\uFF1A${error.message}\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002`);
         }
     }
 
