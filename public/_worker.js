@@ -4,7 +4,8 @@ const DEFAULT_CONFIG = {
     API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
     API_SECRET: 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw',
     JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production-change-very-long-key',
-    IMAGE_API_URL: 'https://maas-api.cn-huabei-1.xf-yun.com/v2.1/tti',
+    IMAGE_API_HOST: 'maas-api.cn-huabei-1.xf-yun.com',
+    IMAGE_API_PATH: '/v2.1/tti',
     IMAGE_MODEL_ID: 'xopqwentti20b',
     IMAGE_APP_ID: 'f3f40af8',
     IMAGE_API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
@@ -399,6 +400,29 @@ async function handleChatRequest(request, env) {
     }
 }
 
+async function generateXfyunAuthorization(apiKey, apiSecret, host, path, date) {
+    const signatureOrigin = `date: ${date}\nhost: ${host}\nPOST ${path} HTTP/1.1`;
+    const encoder = new TextEncoder();
+    const keyData = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(apiSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    const signatureBuffer = await crypto.subtle.sign(
+        'HMAC',
+        keyData,
+        encoder.encode(signatureOrigin)
+    );
+    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+    const signature = btoa(String.fromCharCode(...signatureArray));
+
+    const authorization = `api_key="${apiKey}", algorithm="hmac-sha256", headers="date host request-line", signature="${signature}"`;
+
+    return authorization;
+}
+
 async function handleGenerateImage(request, env) {
     try {
         const { prompt } = await request.json();
@@ -407,16 +431,27 @@ async function handleGenerateImage(request, env) {
             return new Response(JSON.stringify({ error: '\u8BF7\u8F93\u5165\u751F\u6210\u63D0\u793A' }), { status: 400, headers: corsHeaders });
         }
 
-        const IMAGE_API_URL = getConfigValue(env, 'IMAGE_API_URL');
+        const IMAGE_API_HOST = getConfigValue(env, 'IMAGE_API_HOST');
+        const IMAGE_API_PATH = getConfigValue(env, 'IMAGE_API_PATH');
         const IMAGE_MODEL_ID = getConfigValue(env, 'IMAGE_MODEL_ID');
         const IMAGE_API_KEY = getConfigValue(env, 'IMAGE_API_KEY');
+        const IMAGE_API_SECRET = getConfigValue(env, 'IMAGE_API_SECRET');
 
-        if (!IMAGE_API_KEY || !IMAGE_MODEL_ID || !IMAGE_API_URL) {
+        if (!IMAGE_API_KEY || !IMAGE_API_SECRET || !IMAGE_MODEL_ID || !IMAGE_API_HOST || !IMAGE_API_PATH) {
             return new Response(JSON.stringify({
                 error: '\u6587\u751F\u56FEAPI\u914D\u7F6E\u672A\u5B8C\u6210',
-                message: '\u8BF7\u68C0\u67E5IMAGE_API_URL\u3001IMAGE_API_KEY\u3001IMAGE_MODEL_ID'
+                message: '\u8BF7\u68C0\u67E5IMAGE_API_HOST\u3001IMAGE_API_PATH\u3001IMAGE_API_KEY\u3001IMAGE_API_SECRET\u3001IMAGE_MODEL_ID'
             }), { status: 400, headers: corsHeaders });
         }
+
+        const date = new Date().toUTCString();
+        const authorization = await generateXfyunAuthorization(
+            IMAGE_API_KEY,
+            IMAGE_API_SECRET,
+            IMAGE_API_HOST,
+            IMAGE_API_PATH,
+            date
+        );
 
         const truncatedPrompt = prompt.substring(0, 1024);
 
@@ -428,11 +463,15 @@ async function handleGenerateImage(request, env) {
             response_format: 'b64_json'
         };
 
-        const response = await fetch(IMAGE_API_URL, {
+        const requestUrl = `https://${IMAGE_API_HOST}${IMAGE_API_PATH}`;
+
+        const response = await fetch(requestUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${IMAGE_API_KEY}`
+                'Authorization': authorization,
+                'Date': date,
+                'Host': IMAGE_API_HOST
             },
             body: JSON.stringify(requestBody)
         });
@@ -446,6 +485,10 @@ async function handleGenerateImage(request, env) {
 
         let imageUrl = data.data?.[0]?.url || data.url || data.images?.[0]?.url;
         let base64Content = data.data?.[0]?.b64_json || data.b64_json;
+
+        if (!imageUrl && !base64Content && data.payload?.choices?.text?.[0]?.content) {
+            base64Content = data.payload.choices.text[0].content;
+        }
 
         if (base64Content && !imageUrl) {
             imageUrl = `data:image/png;base64,${base64Content}`;
@@ -479,8 +522,8 @@ async function handleConfigRequest(env) {
             websocket: { available: false, message: '\u5F53\u524D\u5E73\u53F0\u4E0D\u652F\u6301WebSocket\uFF0C\u8BF7\u4F7F\u7528HTTP\u6A21\u5F0F' },
             database: { available: !!env.DB },
             imageGeneration: {
-                available: !!(getConfigValue(env, 'IMAGE_API_KEY') && getConfigValue(env, 'IMAGE_MODEL_ID') && getConfigValue(env, 'IMAGE_API_URL')),
-                endpoint: getConfigValue(env, 'IMAGE_API_URL')
+                available: !!(getConfigValue(env, 'IMAGE_API_KEY') && getConfigValue(env, 'IMAGE_API_SECRET') && getConfigValue(env, 'IMAGE_MODEL_ID') && getConfigValue(env, 'IMAGE_API_HOST') && getConfigValue(env, 'IMAGE_API_PATH')),
+                endpoint: `https://${getConfigValue(env, 'IMAGE_API_HOST')}${getConfigValue(env, 'IMAGE_API_PATH')}`
             }
         }
     }), { headers: corsHeaders });
