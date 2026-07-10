@@ -58,8 +58,8 @@
                             <span>错误解读</span>
                         </div>
                         <div class="tool-item" data-tool="practice">
-                            <i class="fas fa-pen-to-square"></i>
-                            <span>题目练习</span>
+                            <i class="fas fa-trophy"></i>
+                            <span>趣味闯关</span>
                         </div>
                         <div class="tool-item" data-tool="learning">
                             <i class="fas fa-road"></i>
@@ -410,70 +410,99 @@
 
             <div class="code-tool-panel" id="practicePanel">
                 <div class="tool-panel-header">
-                    <h3><i class="fas fa-pen-to-square"></i> 题目练习</h3>
+                    <h3><i class="fas fa-trophy"></i> 趣味闯关</h3>
                     <button class="tool-panel-close" data-panel="practicePanel">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <div class="tool-panel-body">
-                    <div class="practice-input-section">
-                        <div class="practice-input-row">
-                            <div class="practice-field">
-                                <label>题目分类</label>
-                                <select class="practice-category-select" id="practiceCategorySelect">
-                                    <option value="basic">基础语法</option>
-                                    <option value="datastructure">数据结构</option>
-                                    <option value="algorithm">算法思维</option>
-                                    <option value="database">数据库</option>
-                                    <option value="framework">框架应用</option>
-                                    <option value="comprehensive">综合实战</option>
-                                </select>
+                    <!-- 闯关模式视图 -->
+                    <div class="quest-view quest-view--map" id="questMapView">
+                        <div class="quest-stats-bar">
+                            <div class="quest-stat">
+                                <i class="fas fa-medal"></i>
+                                <span class="quest-stat-label">已通关</span>
+                                <span class="quest-stat-value" id="questClearedCount">0/6</span>
                             </div>
-                            <div class="practice-field">
-                                <label>难度级别</label>
-                                <select class="practice-difficulty-select" id="practiceDifficultySelect">
-                                    <option value="easy">入门</option>
-                                    <option value="medium">进阶</option>
-                                    <option value="hard">挑战</option>
-                                </select>
+                            <div class="quest-stat">
+                                <i class="fas fa-star"></i>
+                                <span class="quest-stat-label">总星数</span>
+                                <span class="quest-stat-value" id="questTotalStars">0</span>
+                            </div>
+                            <div class="quest-stat">
+                                <i class="fas fa-bolt"></i>
+                                <span class="quest-stat-label">总分</span>
+                                <span class="quest-stat-value" id="questTotalScore">0</span>
+                            </div>
+                            <button class="quest-leaderboard-btn" id="questLeaderboardBtn">
+                                <i class="fas fa-ranking-star"></i>
+                                <span>排行榜</span>
+                            </button>
+                        </div>
+                        <div class="quest-map" id="questMap">
+                            <!-- 关卡卡片动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 关卡详情视图 -->
+                    <div class="quest-view quest-view--detail" id="questDetailView" style="display:none">
+                        <button class="quest-back-btn" id="questBackBtn">
+                            <i class="fas fa-arrow-left"></i> 返回关卡列表
+                        </button>
+                        <div class="quest-detail-card" id="questDetailCard">
+                            <!-- 关卡详情动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 答题视图 -->
+                    <div class="quest-view quest-view--quiz" id="questQuizView" style="display:none">
+                        <div class="quest-quiz-header">
+                            <button class="quest-back-btn" id="quizQuitBtn">
+                                <i class="fas fa-times"></i> 退出闯关
+                            </button>
+                            <div class="quest-quiz-info">
+                                <span id="quizLevelName">关卡名</span>
+                                <span class="quest-quiz-timer">
+                                    <i class="fas fa-clock"></i>
+                                    <span id="quizTimer">00:00</span>
+                                </span>
                             </div>
                         </div>
-                        <div class="practice-input-row">
-                            <div class="practice-field">
-                                <label>编程语言</label>
-                                <select class="practice-lang-select" id="practiceLangSelect">
-                                    <option value="java">Java</option>
-                                    <option value="python">Python</option>
-                                    <option value="javascript">JavaScript</option>
-                                    <option value="cpp">C/C++</option>
-                                    <option value="sql">SQL</option>
-                                    <option value="vue">Vue</option>
-                                </select>
-                            </div>
-                            <div class="practice-field">
-                                <label>题目数量</label>
-                                <select class="practice-count-select" id="practiceCountSelect">
-                                    <option value="1">1题</option>
-                                    <option value="3" selected>3题</option>
-                                    <option value="5">5题</option>
-                                </select>
+                        <div class="quest-quiz-progress">
+                            <span id="quizProgressText">第 1 / 5 题</span>
+                            <div class="quest-quiz-progress-bar">
+                                <div class="quest-quiz-progress-fill" id="quizProgressFill" style="width: 20%"></div>
                             </div>
                         </div>
-                        <div class="practice-progress" id="practiceProgress">
-                            <div class="practice-progress-bar">
-                                <div class="practice-progress-fill" id="practiceProgressFill" style="width: 0%"></div>
-                            </div>
-                            <div class="practice-progress-text">
-                                <span id="practiceCompleted">0</span> / <span id="practiceTotal">0</span> 已完成
+                        <div class="quest-quiz-body" id="quizBody">
+                            <!-- 题目内容动态生成 -->
+                        </div>
+                        <div class="quest-quiz-footer">
+                            <button class="quest-btn quest-btn--primary" id="quizSubmitBtn">
+                                <i class="fas fa-paper-plane"></i> 提交答案
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 结果视图 -->
+                    <div class="quest-view quest-view--result" id="questResultView" style="display:none">
+                        <div class="quest-result-card" id="questResultCard">
+                            <!-- 结果内容动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 排行榜视图 -->
+                    <div class="quest-view quest-view--leaderboard" id="questLeaderboardView" style="display:none">
+                        <button class="quest-back-btn" id="leaderboardBackBtn">
+                            <i class="fas fa-arrow-left"></i> 返回关卡列表
+                        </button>
+                        <div class="quest-leaderboard-card">
+                            <h4><i class="fas fa-crown"></i> 闯关排行榜</h4>
+                            <div class="quest-leaderboard-list" id="questLeaderboardList">
+                                <!-- 排行榜动态生成 -->
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="tool-panel-footer">
-                    <button class="analyze-btn" id="practiceBtn">
-                        <i class="fas fa-play"></i>
-                        <span>开始练习</span>
-                    </button>
                 </div>
             </div>
 

@@ -23,7 +23,7 @@ class DevAssistant {
         this.setupMarked();
         this.autoResizeTextarea();
         this.updateCharCount();
-        this.loadPracticeProgress();
+        this.initQuestSystem();
         this.initLearningPath();
         this.showApp();
     }
@@ -322,7 +322,12 @@ class DevAssistant {
         document.getElementById('learnSyntaxBtn')?.addEventListener('click', () => this.learnSyntax());
         document.getElementById('learnAlgorithmBtn')?.addEventListener('click', () => this.learnAlgorithm());
         document.getElementById('decodeErrorBtn')?.addEventListener('click', () => this.decodeError());
-        document.getElementById('practiceBtn')?.addEventListener('click', () => this.startPractice());
+        document.getElementById('practiceBtn')?.addEventListener('click', () => this.openCodeTool('practice'));
+        document.getElementById('questLeaderboardBtn')?.addEventListener('click', () => this.showQuestLeaderboard());
+        document.getElementById('questBackBtn')?.addEventListener('click', () => this.showQuestMap());
+        document.getElementById('leaderboardBackBtn')?.addEventListener('click', () => this.showQuestMap());
+        document.getElementById('quizSubmitBtn')?.addEventListener('click', () => this.submitQuestAnswer());
+        document.getElementById('quizQuitBtn')?.addEventListener('click', () => this.quitQuest());
 
         document.querySelectorAll('.learning-tab').forEach(tab => {
             tab.addEventListener('click', (e) => this.switchLearningTab(e.target.dataset.tab));
@@ -1067,70 +1072,675 @@ class DevAssistant {
         await this.sendMessage();
     }
 
-    async startPractice() {
-        const category = document.getElementById('practiceCategorySelect')?.value || 'basic';
-        const difficulty = document.getElementById('practiceDifficultySelect')?.value || 'easy';
-        const lang = document.getElementById('practiceLangSelect')?.value || 'java';
-        const count = document.getElementById('practiceCountSelect')?.value || '3';
+    initQuestSystem() {
+        this.questLevels = [
+            {
+                id: 1, name: '编程基础入门', subtitle: '变量与控制流', icon: 'fa-seedling',
+                theme: 'forest', difficulty: '入门', category: '基础语法',
+                knowledgePoints: ['变量声明', '数据类型', '条件语句', '循环结构', '函数定义'],
+                passThreshold: 80, totalQuestions: 5, lang: 'java',
+                gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                description: '从零开始，掌握编程的基本要素：变量、条件、循环与函数。'
+            },
+            {
+                id: 2, name: '数据结构探险', subtitle: '数组·链表·栈·队列', icon: 'fa-cubes',
+                theme: 'ocean', difficulty: '进阶', category: '数据结构',
+                knowledgePoints: ['数组操作', '链表遍历', '栈与队列', '哈希表', '树结构基础'],
+                passThreshold: 80, totalQuestions: 5, lang: 'java',
+                gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                description: '潜入数据结构深海，理解线性与非线性结构的奥秘。'
+            },
+            {
+                id: 3, name: '算法思维挑战', subtitle: '排序·查找·递归', icon: 'fa-rocket',
+                theme: 'cosmos', difficulty: '进阶', category: '算法思维',
+                knowledgePoints: ['冒泡排序', '二分查找', '递归思想', '时间复杂度', '贪心算法'],
+                passThreshold: 80, totalQuestions: 5, lang: 'java',
+                gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+                description: '冲向算法星空，掌握经典排序、查找与递归思想。'
+            },
+            {
+                id: 4, name: '数据库奥秘', subtitle: 'SQL·表·查询', icon: 'fa-database',
+                theme: 'desert', difficulty: '进阶', category: '数据库',
+                knowledgePoints: ['SELECT查询', 'WHERE条件', 'JOIN连接', 'GROUP BY', '索引原理'],
+                passThreshold: 80, totalQuestions: 5, lang: 'sql',
+                gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
+                description: '穿越数据库沙漠，学会用SQL查询与分析数据。'
+            },
+            {
+                id: 5, name: '框架应用实战', subtitle: 'Spring·Vue·Web', icon: 'fa-fire',
+                theme: 'volcano', difficulty: '挑战', category: '框架应用',
+                knowledgePoints: ['IoC容器', 'REST接口', 'Vue组件', '状态管理', '路由配置'],
+                passThreshold: 80, totalQuestions: 5, lang: 'vue',
+                gradient: 'linear-gradient(135deg, #ff5858 0%, #f09819 100%)',
+                description: '攀登框架火山，在实战中融会贯通现代Web开发。'
+            },
+            {
+                id: 6, name: '综合实战巅峰', subtitle: '全栈终极挑战', icon: 'fa-crown',
+                theme: 'sky', difficulty: '挑战', category: '综合实战',
+                knowledgePoints: ['系统设计', '性能优化', '安全防护', '部署运维', '架构演进'],
+                passThreshold: 80, totalQuestions: 5, lang: 'java',
+                gradient: 'linear-gradient(135deg, #ffd700 0%, #ff9a44 100%)',
+                description: '登顶全栈巅峰，挑战真实工程问题与系统设计。'
+            }
+        ];
 
-        const categoryNames = {
-            'basic': '基础语法',
-            'datastructure': '数据结构',
-            'algorithm': '算法思维',
-            'database': '数据库',
-            'framework': '框架应用',
-            'comprehensive': '综合实战'
+        this.questState = this.loadQuestState();
+        this.questSession = null;
+        this.questTimer = null;
+        this.questAudioCtx = null;
+
+        this.renderQuestMap();
+    }
+
+    loadQuestState() {
+        const defaultState = {
+            cleared: {},
+            stars: {},
+            bestScore: {},
+            bestTime: {},
+            leaderboard: []
+        };
+        try {
+            return JSON.parse(localStorage.getItem('quest_state')) || defaultState;
+        } catch {
+            return defaultState;
+        }
+    }
+
+    saveQuestState() {
+        localStorage.setItem('quest_state', JSON.stringify(this.questState));
+    }
+
+    renderQuestMap() {
+        const mapEl = document.getElementById('questMap');
+        if (!mapEl) return;
+
+        mapEl.innerHTML = this.questLevels.map(level => {
+            const cleared = this.questState.cleared[level.id];
+            const stars = this.questState.stars[level.id] || 0;
+            const prevCleared = level.id === 1 || this.questState.cleared[level.id - 1];
+            const locked = !prevCleared;
+
+            const starsHtml = Array(3).fill(0).map((_, i) =>
+                `<i class="fas fa-star ${i < stars ? 'star--active' : ''}"></i>`
+            ).join('');
+
+            return `
+                <div class="quest-level-card quest-theme--${level.theme} ${locked ? 'is-locked' : ''} ${cleared ? 'is-cleared' : ''}" data-level-id="${level.id}">
+                    <div class="quest-level-lock">${locked ? '<i class="fas fa-lock"></i>' : ''}</div>
+                    <div class="quest-level-icon"><i class="fas ${level.icon}"></i></div>
+                    <div class="quest-level-info">
+                        <div class="quest-level-name">第${level.id}关 · ${level.name}</div>
+                        <div class="quest-level-subtitle">${level.subtitle}</div>
+                        <div class="quest-level-stars">${starsHtml}</div>
+                    </div>
+                    <div class="quest-level-difficulty quest-difficulty--${level.difficulty}">${level.difficulty}</div>
+                </div>
+            `;
+        }).join('');
+
+        mapEl.querySelectorAll('.quest-level-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const levelId = parseInt(card.dataset.levelId);
+                if (!card.classList.contains('is-locked')) {
+                    this.showQuestDetail(levelId);
+                }
+            });
+        });
+
+        this.updateQuestStats();
+    }
+
+    updateQuestStats() {
+        const clearedCount = Object.keys(this.questState.cleared).length;
+        const totalStars = Object.values(this.questState.stars).reduce((a, b) => a + b, 0);
+        const totalScore = Object.values(this.questState.bestScore).reduce((a, b) => a + b, 0);
+
+        const clearedEl = document.getElementById('questClearedCount');
+        const starsEl = document.getElementById('questTotalStars');
+        const scoreEl = document.getElementById('questTotalScore');
+
+        if (clearedEl) clearedEl.textContent = `${clearedCount}/${this.questLevels.length}`;
+        if (starsEl) starsEl.textContent = totalStars;
+        if (scoreEl) scoreEl.textContent = totalScore;
+    }
+
+    showQuestMap() {
+        document.getElementById('questMapView').style.display = 'block';
+        document.getElementById('questDetailView').style.display = 'none';
+        document.getElementById('questQuizView').style.display = 'none';
+        document.getElementById('questResultView').style.display = 'none';
+        document.getElementById('questLeaderboardView').style.display = 'none';
+        this.renderQuestMap();
+    }
+
+    showQuestDetail(levelId) {
+        const level = this.questLevels.find(l => l.id === levelId);
+        if (!level) return;
+
+        document.getElementById('questMapView').style.display = 'none';
+        document.getElementById('questDetailView').style.display = 'block';
+
+        const card = document.getElementById('questDetailCard');
+        const cleared = this.questState.cleared[levelId];
+        const bestScore = this.questState.bestScore[levelId] || 0;
+        const bestTime = this.questState.bestTime[levelId];
+        const stars = this.questState.stars[levelId] || 0;
+
+        card.style.background = level.gradient;
+        card.innerHTML = `
+            <div class="quest-detail-icon"><i class="fas ${level.icon}"></i></div>
+            <h3>第${level.id}关 · ${level.name}</h3>
+            <p class="quest-detail-desc">${level.description}</p>
+            <div class="quest-detail-meta">
+                <span><i class="fas fa-tag"></i> ${level.category}</span>
+                <span><i class="fas fa-signal"></i> ${level.difficulty}</span>
+                <span><i class="fas fa-list-check"></i> ${level.totalQuestions}题</span>
+                <span><i class="fas fa-percent"></i> 通关需 ${level.passThreshold}%</span>
+            </div>
+            <div class="quest-detail-knowledge">
+                <h5>知识点目标</h5>
+                <div class="quest-knowledge-tags">
+                    ${level.knowledgePoints.map(kp => `<span class="quest-knowledge-tag">${kp}</span>`).join('')}
+                </div>
+            </div>
+            ${cleared ? `
+                <div class="quest-detail-record">
+                    <div><i class="fas fa-star"></i> ${stars} 星</div>
+                    <div><i class="fas fa-bolt"></i> 最高分 ${bestScore}</div>
+                    <div><i class="fas fa-clock"></i> 最快 ${this.formatTime(bestTime || 0)}</div>
+                </div>
+            ` : ''}
+            <button class="quest-btn quest-btn--primary quest-btn--large" id="questStartBtn">
+                <i class="fas fa-play"></i> ${cleared ? '再次挑战' : '开始闯关'}
+            </button>
+        `;
+
+        document.getElementById('questStartBtn').addEventListener('click', () => this.startQuest(levelId));
+    }
+
+    showQuestLeaderboard() {
+        document.getElementById('questMapView').style.display = 'none';
+        document.getElementById('questLeaderboardView').style.display = 'block';
+
+        const listEl = document.getElementById('questLeaderboardList');
+        const records = this.questState.leaderboard || [];
+
+        if (records.length === 0) {
+            listEl.innerHTML = `
+                <div class="quest-leaderboard-empty">
+                    <i class="fas fa-flag-checkered"></i>
+                    <p>暂无闯关记录</p>
+                    <p class="quest-leaderboard-hint">完成任意关卡后，将自动登榜</p>
+                </div>
+            `;
+            return;
+        }
+
+        records.sort((a, b) => b.score - a.score);
+        listEl.innerHTML = records.slice(0, 20).map((r, idx) => {
+            const rankClass = idx === 0 ? 'rank--1' : (idx === 1 ? 'rank--2' : (idx === 2 ? 'rank--3' : ''));
+            return `
+                <div class="quest-leaderboard-item ${rankClass}">
+                    <div class="quest-leaderboard-rank">${idx + 1}</div>
+                    <div class="quest-leaderboard-info">
+                        <div class="quest-leaderboard-level">第${r.levelId}关 · ${r.levelName}</div>
+                        <div class="quest-leaderboard-time">${new Date(r.date).toLocaleString('zh-CN')}</div>
+                    </div>
+                    <div class="quest-leaderboard-stats">
+                        <div><i class="fas fa-star"></i> ${r.stars}</div>
+                        <div><i class="fas fa-bolt"></i> ${r.score}</div>
+                        <div><i class="fas fa-clock"></i> ${this.formatTime(r.time)}</div>
+                        <div><i class="fas fa-percent"></i> ${r.accuracy}%</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async startQuest(levelId) {
+        const level = this.questLevels.find(l => l.id === levelId);
+        if (!level) return;
+
+        document.getElementById('questDetailView').style.display = 'none';
+        document.getElementById('questQuizView').style.display = 'block';
+
+        document.getElementById('quizLevelName').textContent = `第${level.id}关 · ${level.name}`;
+
+        this.questSession = {
+            level,
+            questions: [],
+            currentIdx: 0,
+            answers: [],
+            correctCount: 0,
+            startTime: Date.now(),
+            endTime: null
         };
 
-        const difficultyNames = {
-            'easy': '入门',
-            'medium': '进阶',
-            'hard': '挑战'
-        };
+        this.startQuestTimer();
+        await this.generateQuestQuestions(level);
+    }
 
-        this.closeAllToolPanels();
-        this.createNewChat(true);
+    startQuestTimer() {
+        if (this.questTimer) clearInterval(this.questTimer);
+        const timerEl = document.getElementById('quizTimer');
+        this.questTimer = setInterval(() => {
+            if (!this.questSession) return;
+            const elapsed = Math.floor((Date.now() - this.questSession.startTime) / 1000);
+            if (timerEl) timerEl.textContent = this.formatTime(elapsed);
+        }, 1000);
+    }
 
-        const prompt = `请给我出${count}道${lang}的${categoryNames[category]}练习题，难度为${difficultyNames[difficulty]}级。
+    stopQuestTimer() {
+        if (this.questTimer) {
+            clearInterval(this.questTimer);
+            this.questTimer = null;
+        }
+    }
+
+    formatTime(seconds) {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    async generateQuestQuestions(level) {
+        const bodyEl = document.getElementById('quizBody');
+        const submitBtn = document.getElementById('quizSubmitBtn');
+
+        bodyEl.innerHTML = `
+            <div class="quest-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>正在生成第 ${level.id} 关题目...</p>
+            </div>
+        `;
+        submitBtn.disabled = true;
+
+        const prompt = `作为编程闯关系统，请为"${level.name}"关卡生成 ${level.totalQuestions} 道${level.lang}题目。
+
+关卡主题：${level.category}
+知识点：${level.knowledgePoints.join('、')}
+难度：${level.difficulty}
 
 要求：
-1. 每道题包含：题目描述、输入输出要求、示例
-2. 题目由浅入深排列
-3. 在所有题目之后，给出每道题的详细解题思路分析
-4. 提供参考代码实现
-5. 给出常见错误提示和代码优化建议
-6. 标注每道题考察的核心知识点`;
+1. 题目由浅入深排列
+2. 每道题以JSON数组返回，每个对象包含：
+   - "question": 题目描述
+   - "options": 4个选项数组
+   - "answer": 正确选项索引(0-3)
+   - "explanation": 详细解析
+   - "knowledge": 考察的知识点
 
-        this.userInput.value = prompt;
-        await this.sendMessage();
+只返回JSON数组，不要其他文字。`;
 
-        this.updatePracticeProgress(parseInt(count));
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: prompt,
+                    history: [],
+                    stream: false
+                })
+            });
+
+            if (!response.ok) throw new Error('请求失败');
+            const data = await response.json();
+            const content = data.response || data.content || data.message || '';
+
+            let questions = this.parseQuestQuestions(content);
+            if (questions.length === 0) {
+                questions = this.getFallbackQuestions(level);
+            }
+
+            this.questSession.questions = questions;
+            this.renderQuestQuestion();
+            submitBtn.disabled = false;
+        } catch (err) {
+            console.error('生成题目失败', err);
+            this.questSession.questions = this.getFallbackQuestions(level);
+            this.renderQuestQuestion();
+            submitBtn.disabled = false;
+        }
     }
 
-    updatePracticeProgress(newCount) {
-        let progress = JSON.parse(localStorage.getItem('practice_progress') || '{"completed":0,"total":0}');
-        progress.total += newCount;
-        progress.completed += newCount;
-        localStorage.setItem('practice_progress', JSON.stringify(progress));
-
-        const completedEl = document.getElementById('practiceCompleted');
-        const totalEl = document.getElementById('practiceTotal');
-        const fillEl = document.getElementById('practiceProgressFill');
-
-        if (completedEl) completedEl.textContent = progress.completed;
-        if (totalEl) totalEl.textContent = progress.total;
-        if (fillEl) fillEl.style.width = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) + '%' : '0%';
+    parseQuestQuestions(content) {
+        try {
+            const jsonMatch = content.match(/\[[\s\S]*\]/);
+            if (!jsonMatch) return [];
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (!Array.isArray(parsed)) return [];
+            return parsed.filter(q =>
+                q.question && Array.isArray(q.options) && typeof q.answer === 'number'
+            ).slice(0, this.questSession.level.totalQuestions);
+        } catch {
+            return [];
+        }
     }
 
-    loadPracticeProgress() {
-        const progress = JSON.parse(localStorage.getItem('practice_progress') || '{"completed":0,"total":0}');
-        const completedEl = document.getElementById('practiceCompleted');
-        const totalEl = document.getElementById('practiceTotal');
-        const fillEl = document.getElementById('practiceProgressFill');
+    getFallbackQuestions(level) {
+        return Array(level.totalQuestions).fill(0).map((_, i) => ({
+            question: `${level.knowledgePoints[i % level.knowledgePoints.length]}相关练习题 ${i + 1}：以下哪个描述是正确的？`,
+            options: [
+                '选项 A：符合知识点的正确描述',
+                '选项 B：错误的描述',
+                '选项 C：无关的描述',
+                '选项 D：部分正确但不完整的描述'
+            ],
+            answer: 0,
+            explanation: '正确答案为A。本题考察' + level.knowledgePoints[i % level.knowledgePoints.length] + '相关知识点。',
+            knowledge: level.knowledgePoints[i % level.knowledgePoints.length]
+        }));
+    }
 
-        if (completedEl) completedEl.textContent = progress.completed;
-        if (totalEl) totalEl.textContent = progress.total;
-        if (fillEl) fillEl.style.width = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) + '%' : '0%';
+    renderQuestQuestion() {
+        const session = this.questSession;
+        if (!session) return;
+
+        session.phase = 'answering';
+
+        const level = session.level;
+        const idx = session.currentIdx;
+        const q = session.questions[idx];
+        const bodyEl = document.getElementById('quizBody');
+        const progressText = document.getElementById('quizProgressText');
+        const progressFill = document.getElementById('quizProgressFill');
+
+        if (progressText) progressText.textContent = `第 ${idx + 1} / ${level.totalQuestions} 题`;
+        if (progressFill) progressFill.style.width = `${((idx + 1) / level.totalQuestions) * 100}%`;
+
+        const themeClass = `quest-theme--${level.theme}`;
+
+        bodyEl.innerHTML = `
+            <div class="quest-question ${themeClass}">
+                <div class="quest-question-meta">
+                    <span class="quest-question-tag"><i class="fas fa-tag"></i> ${q.knowledge || level.category}</span>
+                    <span class="quest-question-number">第 ${idx + 1} 题</span>
+                </div>
+                <div class="quest-question-text">${this.escapeHtml(q.question)}</div>
+                <div class="quest-question-options">
+                    ${q.options.map((opt, i) => `
+                        <label class="quest-option" data-idx="${i}">
+                            <input type="radio" name="questAnswer" value="${i}">
+                            <span class="quest-option-marker">${String.fromCharCode(65 + i)}</span>
+                            <span class="quest-option-text">${this.escapeHtml(opt)}</span>
+                        </label>
+                    `).join('')}
+                </div>
+                <div class="quest-feedback" id="questFeedback" style="display:none"></div>
+            </div>
+        `;
+
+        bodyEl.querySelectorAll('.quest-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                bodyEl.querySelectorAll('.quest-option').forEach(o => o.classList.remove('is-selected'));
+                opt.classList.add('is-selected');
+            });
+        });
+
+        const submitBtn = document.getElementById('quizSubmitBtn');
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 提交答案';
+        submitBtn.disabled = false;
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        return String(text).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    submitQuestAnswer() {
+        const session = this.questSession;
+        if (!session) return;
+
+        const submitBtn = document.getElementById('quizSubmitBtn');
+
+        if (session.phase === 'answered') {
+            if (session.currentIdx < session.questions.length - 1) {
+                session.currentIdx++;
+                session.phase = 'answering';
+                this.renderQuestQuestion();
+            } else {
+                this.finishQuest();
+            }
+            return;
+        }
+
+        const selected = document.querySelector('input[name="questAnswer"]:checked');
+        const feedbackEl = document.getElementById('questFeedback');
+
+        if (!selected) {
+            alert('请选择一个答案');
+            return;
+        }
+
+        const userAnswer = parseInt(selected.value);
+        const q = session.questions[session.currentIdx];
+        const isCorrect = userAnswer === q.answer;
+
+        session.answers.push({ userAnswer, correct: isCorrect });
+        if (isCorrect) session.correctCount++;
+
+        document.querySelectorAll('.quest-option').forEach((opt, i) => {
+            opt.classList.add('is-disabled');
+            if (i === q.answer) opt.classList.add('is-correct');
+            if (i === userAnswer && !isCorrect) opt.classList.add('is-wrong');
+        });
+
+        feedbackEl.style.display = 'block';
+        feedbackEl.className = `quest-feedback ${isCorrect ? 'quest-feedback--correct' : 'quest-feedback--wrong'}`;
+        feedbackEl.innerHTML = `
+            <div class="quest-feedback-header">
+                <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+                <span>${isCorrect ? '回答正确！' : '回答错误'}</span>
+            </div>
+            <div class="quest-feedback-body">
+                <strong>解析：</strong>${this.escapeHtml(q.explanation || '暂无解析')}
+            </div>
+        `;
+
+        if (isCorrect) {
+            this.playSound('correct');
+            this.playConfetti();
+        } else {
+            this.playSound('wrong');
+        }
+
+        session.phase = 'answered';
+        submitBtn.disabled = true;
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            const isLast = session.currentIdx >= session.questions.length - 1;
+            submitBtn.innerHTML = isLast
+                ? '<i class="fas fa-flag-checkered"></i> 查看结果'
+                : '<i class="fas fa-arrow-right"></i> 下一题';
+        }, 1200);
+    }
+
+    playSound(type) {
+        try {
+            if (!this.questAudioCtx) {
+                this.questAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const ctx = this.questAudioCtx;
+            const now = ctx.currentTime;
+
+            if (type === 'correct') {
+                [523.25, 659.25, 783.99].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0, now + i * 0.1);
+                    gain.gain.linearRampToValueAtTime(0.2, now + i * 0.1 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + i * 0.1);
+                    osc.stop(now + i * 0.1 + 0.3);
+                });
+            } else if (type === 'wrong') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.3);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'win') {
+                [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0, now + i * 0.12);
+                    gain.gain.linearRampToValueAtTime(0.25, now + i * 0.12 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + i * 0.12);
+                    osc.stop(now + i * 0.12 + 0.4);
+                });
+            }
+        } catch (e) {
+            console.warn('音效播放失败', e);
+        }
+    }
+
+    playConfetti() {
+        const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#ff9ff3'];
+        const container = document.createElement('div');
+        container.className = 'quest-confetti-container';
+        document.body.appendChild(container);
+
+        for (let i = 0; i < 30; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'quest-confetti-piece';
+            piece.style.left = Math.random() * 100 + '%';
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.animationDelay = Math.random() * 0.3 + 's';
+            piece.style.animationDuration = (1 + Math.random()) + 's';
+            piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+            container.appendChild(piece);
+        }
+
+        setTimeout(() => container.remove(), 2500);
+    }
+
+    finishQuest() {
+        const session = this.questSession;
+        if (!session) return;
+
+        this.stopQuestTimer();
+        session.endTime = Date.now();
+        const totalTime = Math.floor((session.endTime - session.startTime) / 1000);
+        const total = session.questions.length;
+        const correct = session.correctCount;
+        const accuracy = Math.round((correct / total) * 100);
+        const level = session.level;
+        const passed = accuracy >= level.passThreshold;
+
+        let stars = 0;
+        if (passed) {
+            stars = 1;
+            if (accuracy === 100) stars = 3;
+            else if (accuracy >= 90) stars = 2;
+        }
+
+        const score = passed ? Math.round(accuracy * 100 + Math.max(0, 300 - totalTime) * 2 + stars * 50) : Math.round(accuracy * 30);
+
+        if (passed) {
+            this.questState.cleared[level.id] = true;
+            const prevStars = this.questState.stars[level.id] || 0;
+            this.questState.stars[level.id] = Math.max(prevStars, stars);
+            const prevScore = this.questState.bestScore[level.id] || 0;
+            this.questState.bestScore[level.id] = Math.max(prevScore, score);
+            const prevTime = this.questState.bestTime[level.id];
+            if (!prevTime || totalTime < prevTime) {
+                this.questState.bestTime[level.id] = totalTime;
+            }
+
+            this.questState.leaderboard = this.questState.leaderboard || [];
+            this.questState.leaderboard.push({
+                levelId: level.id,
+                levelName: level.name,
+                score,
+                stars,
+                time: totalTime,
+                accuracy,
+                date: new Date().toISOString()
+            });
+            this.questState.leaderboard.sort((a, b) => b.score - a.score);
+            this.questState.leaderboard = this.questState.leaderboard.slice(0, 50);
+
+            this.saveQuestState();
+            this.playSound('win');
+            this.playConfetti();
+        }
+
+        document.getElementById('questQuizView').style.display = 'none';
+        document.getElementById('questResultView').style.display = 'block';
+
+        const card = document.getElementById('questResultCard');
+        card.style.background = passed ? level.gradient : 'linear-gradient(135deg, #636e72 0%, #2d3436 100%)';
+        card.innerHTML = `
+            <div class="quest-result-icon">
+                <i class="fas ${passed ? 'fa-trophy' : 'fa-redo'}"></i>
+            </div>
+            <h3>${passed ? '闯关成功！' : '闯关失败'}</h3>
+            <div class="quest-result-stars">
+                ${Array(3).fill(0).map((_, i) => `<i class="fas fa-star ${i < stars ? 'star--active' : ''}"></i>`).join('')}
+            </div>
+            <div class="quest-result-stats">
+                <div class="quest-result-stat">
+                    <div class="quest-result-stat-value">${correct}/${total}</div>
+                    <div class="quest-result-stat-label">答对题数</div>
+                </div>
+                <div class="quest-result-stat">
+                    <div class="quest-result-stat-value">${accuracy}%</div>
+                    <div class="quest-result-stat-label">正确率</div>
+                </div>
+                <div class="quest-result-stat">
+                    <div class="quest-result-stat-value">${this.formatTime(totalTime)}</div>
+                    <div class="quest-result-stat-label">用时</div>
+                </div>
+                <div class="quest-result-stat">
+                    <div class="quest-result-stat-value">${score}</div>
+                    <div class="quest-result-stat-label">得分</div>
+                </div>
+            </div>
+            ${passed && level.id < this.questLevels.length ? `
+                <div class="quest-result-unlock">
+                    <i class="fas fa-unlock"></i>
+                    已解锁第 ${level.id + 1} 关：${this.questLevels[level.id].name}
+                </div>
+            ` : ''}
+            <div class="quest-result-actions">
+                <button class="quest-btn quest-btn--secondary" id="resultRetryBtn">
+                    <i class="fas fa-redo"></i> 再次挑战
+                </button>
+                <button class="quest-btn quest-btn--primary" id="resultBackBtn">
+                    <i class="fas fa-arrow-left"></i> 返回关卡
+                </button>
+            </div>
+        `;
+
+        document.getElementById('resultRetryBtn').addEventListener('click', () => this.startQuest(level.id));
+        document.getElementById('resultBackBtn').addEventListener('click', () => this.showQuestMap());
+
+        this.questSession = null;
+    }
+
+    quitQuest() {
+        if (!confirm('确定要退出本次闯关吗？进度将不会保存。')) return;
+        this.stopQuestTimer();
+        this.questSession = null;
+        this.showQuestMap();
     }
 
     switchLearningTab(tab) {
