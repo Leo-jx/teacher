@@ -352,7 +352,7 @@ class DevAssistant {
 
     async sendMessage() {
         const content = this.userInput.value.trim();
-        if (!content) return;
+        if (!content) return null;
 
         this.userInput.value = '';
         this.userInput.style.height = 'auto';
@@ -369,6 +369,7 @@ class DevAssistant {
         this.addMessage('user', content);
         this.setStatus('typing');
 
+        let aiContent = null;
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
@@ -387,7 +388,7 @@ class DevAssistant {
             if (data.error) {
                 this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u53D1\u751F\u9519\u8BEF\uFF1A' + data.error);
             } else {
-                const aiContent = data.choices?.[0]?.message?.content || data.content || '\u62B1\u6B49\uFF0C\u672A\u80FD\u83B7\u53D6\u56DE\u590D\u3002';
+                aiContent = data.choices?.[0]?.message?.content || data.content || '\u62B1\u6B49\uFF0C\u672A\u80FD\u83B7\u53D6\u56DE\u590D\u3002';
                 this.addMessage('assistant', aiContent);
                 if (data.conversationId) {
                     this.dbConversationId = data.conversationId;
@@ -403,6 +404,8 @@ class DevAssistant {
             this.setStatus('ready');
             this.scrollToBottom();
         }
+
+        return aiContent;
     }
 
     async createDbConversation(title) {
@@ -1368,9 +1371,49 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 请给出详细的学习指导。`;
 
         this.userInput.value = prompt;
-        await this.sendMessage();
+        const aiContent = await this.sendMessage();
 
         this.updateLearningProgress(selectedPath);
+
+        if (aiContent) {
+            this.addMessage('assistant', '正在为您生成学习路径思维导图，请稍候...');
+            await this.generateMindmapFromText(pathData.name, aiContent);
+        }
+    }
+
+    async generateMindmapFromText(topic, mindmapText) {
+        const imagePrompt = `生成一张专业的学习路径思维导图，主题为"${topic}"。
+
+思维导图内容结构：
+${mindmapText.substring(0, 800)}
+
+设计要求：
+- 现代科技风格，深色背景，蓝色紫色渐变配色
+- 清晰的层级树形结构，节点之间有连接线
+- 核心主题位于中央，子主题向外辐射展开
+- 文字清晰可读，使用中文
+- 布局合理美观，节点间距适中
+- 专业视觉效果，适合学习参考`;
+
+        try {
+            const response = await fetch('/api/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: imagePrompt })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.imageUrl) {
+                const imageHtml = `\n\n**学习路径思维导图已生成：**\n\n![思维导图](${data.imageUrl})\n\n如需下载，请右键点击图片选择"图片另存为"。`;
+                this.addMessage('assistant', imageHtml);
+            } else {
+                this.addMessage('assistant', `\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\uFF1A${data.error || '\u672A\u77E5\u9519\u8BEF'}`);
+            }
+        } catch (error) {
+            console.error('\u751F\u6210\u601D\u7EF4\u5BFC\u56FE\u5931\u8D25:', error);
+            this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002');
+        }
     }
 
     updateLearningProgress(path) {

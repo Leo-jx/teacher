@@ -3,7 +3,12 @@ const DEFAULT_CONFIG = {
     MODEL_ID: 'xop35qwen2b',
     API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
     API_SECRET: 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw',
-    JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production-change-very-long-key'
+    JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production-change-very-long-key',
+    IMAGE_API_URL: 'https://maas-api.cn-huabei-1.xf-yun.com/v2/images/generations',
+    IMAGE_MODEL_ID: 'xopqwentti20b',
+    IMAGE_APP_ID: 'f3f40af8',
+    IMAGE_API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
+    IMAGE_API_SECRET: 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw'
 };
 
 const SYSTEM_PROMPT = `你是"程序员AI辅助学习助手小智"，一位全栈技术专家。你的名字叫"小智"。
@@ -394,12 +399,77 @@ async function handleChatRequest(request, env) {
     }
 }
 
+async function handleGenerateImage(request, env) {
+    try {
+        const { prompt } = await request.json();
+
+        if (!prompt) {
+            return new Response(JSON.stringify({ error: '\u8BF7\u8F93\u5165\u751F\u6210\u63D0\u793A' }), { status: 400, headers: corsHeaders });
+        }
+
+        const IMAGE_API_URL = getConfigValue(env, 'IMAGE_API_URL');
+        const IMAGE_MODEL_ID = getConfigValue(env, 'IMAGE_MODEL_ID');
+        const IMAGE_APP_ID = getConfigValue(env, 'IMAGE_APP_ID');
+        const IMAGE_API_KEY = getConfigValue(env, 'IMAGE_API_KEY');
+        const IMAGE_API_SECRET = getConfigValue(env, 'IMAGE_API_SECRET');
+
+        if (!IMAGE_API_KEY || !IMAGE_API_SECRET || !IMAGE_MODEL_ID) {
+            return new Response(JSON.stringify({
+                error: '\u6587\u751F\u56FEAPI\u914D\u7F6E\u672A\u5B8C\u6210',
+                message: '\u8BF7\u5728\u914D\u7F6E\u4E2D\u8BBE\u7F6EIMAGE_API_KEY\u3001IMAGE_API_SECRET\u548CIMAGE_MODEL_ID'
+            }), { status: 400, headers: corsHeaders });
+        }
+
+        const authHeader = `Bearer ${IMAGE_API_KEY}:${IMAGE_API_SECRET}`;
+        const body = {
+            model: IMAGE_MODEL_ID,
+            prompt: prompt,
+            n: 1,
+            size: '1024x1024'
+        };
+
+        if (IMAGE_APP_ID) {
+            body.app_id = IMAGE_APP_ID;
+        }
+
+        const response = await fetch(IMAGE_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeader
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`\u6587\u751F\u56FEAPI\u8BF7\u6C42\u5931\u8D25: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        const imageUrl = data.data?.[0]?.url || data.url || data.images?.[0]?.url;
+
+        if (!imageUrl) {
+            return new Response(JSON.stringify({
+                error: '\u751F\u6210\u56FE\u7247\u5931\u8D25',
+                raw: data
+            }), { status: 500, headers: corsHeaders });
+        }
+
+        return new Response(JSON.stringify({ success: true, imageUrl }), { headers: corsHeaders });
+    } catch (error) {
+        console.error('\u751F\u6210\u56FE\u7247\u9519\u8BEF:', error);
+        return new Response(JSON.stringify({ error: '\u751F\u6210\u56FE\u7247\u5931\u8D25', detail: error.message }), { status: 500, headers: corsHeaders });
+    }
+}
+
 async function handleConfigRequest(env) {
     return new Response(JSON.stringify({
         success: true,
         config: {
             websocket: { available: false, message: '\u5F53\u524D\u5E73\u53F0\u4E0D\u652F\u6301WebSocket\uFF0C\u8BF7\u4F7F\u7528HTTP\u6A21\u5F0F' },
-            database: { available: !!env.DB }
+            database: { available: !!env.DB },
+            imageGeneration: { available: !!(getConfigValue(env, 'IMAGE_API_KEY') && getConfigValue(env, 'IMAGE_API_SECRET') && getConfigValue(env, 'IMAGE_MODEL_ID')) }
         }
     }), { headers: corsHeaders });
 }
@@ -484,6 +554,8 @@ export default {
             response = await handleChatRequest(request, env);
         } else if (path === '/api/config' && request.method === 'GET') {
             response = await handleConfigRequest(env);
+        } else if (path === '/api/generate-image' && request.method === 'POST') {
+            response = await handleGenerateImage(request, env);
         } else {
             response = await env.ASSETS.fetch(request);
         }
