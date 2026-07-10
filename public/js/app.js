@@ -334,6 +334,11 @@ class DevAssistant {
 
         document.getElementById('startLearningBtn')?.addEventListener('click', () => this.startLearning());
         document.getElementById('createPlanBtn')?.addEventListener('click', () => this.createLearningPlan());
+
+        document.getElementById('generateMindmapBtn')?.addEventListener('click', () => this.generateMindmap());
+        document.getElementById('viewMindmapCodeBtn')?.addEventListener('click', () => this.toggleMindmapCode());
+        document.getElementById('exportMindmapCodeBtn')?.addEventListener('click', () => this.exportMindmapCode());
+        document.getElementById('copyMindmapCodeBtn')?.addEventListener('click', () => this.copyMindmapCode());
     }
 
     autoResizeTextarea() {
@@ -1140,12 +1145,196 @@ class DevAssistant {
         document.getElementById('learningPathsContent').style.display = tab === 'paths' ? 'block' : 'none';
         document.getElementById('learningPlanContent').style.display = tab === 'plan' ? 'block' : 'none';
         document.getElementById('learningProgressContent').style.display = tab === 'progress' ? 'block' : 'none';
+        document.getElementById('mindmapContent').style.display = tab === 'mindmap' ? 'block' : 'none';
 
         if (tab === 'plan') {
             this.loadLearningPlans();
         } else if (tab === 'progress') {
             this.loadLearningProgress();
         }
+    }
+
+    analyzeMindmapText(text) {
+        const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
+        const root = { title: '核心主题', children: [] };
+        const stopWords = new Set(['的', '了', '和', '与', '或', '在', '是', '为', '及', '等', '可', '以', '需', '要', '应', '该', '将', '被', '把', '让', '使', '由', '从', '到', '向', '对', '于', '并', '且', '而', '但', '则', '即', '也', '都', '已', '已经', '能够', '可以', '应该', '需要', '进行', '通过', '关于', '对于']);
+
+        const extractKeywords = (sentence) => {
+            const cleaned = sentence.replace(/[，。；：、！？""''（）()【】《》\[\]{}.,;:!?'"`~\-_+=|\\/<>@#$%^&*]/g, ' ');
+            const words = cleaned.split(/\s+/).filter(w => w.length >= 2 && w.length <= 8 && !stopWords.has(w));
+            return words;
+        };
+
+        if (paragraphs.length === 0) return root;
+
+        const firstLineKeywords = extractKeywords(paragraphs[0]);
+        root.title = firstLineKeywords.slice(0, 4).join('') || paragraphs[0].substring(0, 12);
+
+        paragraphs.forEach((para, idx) => {
+            const sentences = para.split(/[。！？.!?；;]/).map(s => s.trim()).filter(s => s.length > 4);
+            if (sentences.length === 0) return;
+
+            const topicKeywords = extractKeywords(sentences[0]);
+            const topicTitle = topicKeywords.slice(0, 3).join('') || `主题${idx + 1}`;
+
+            const branch = {
+                title: topicTitle,
+                children: []
+            };
+
+            sentences.slice(0, 4).forEach(sentence => {
+                const keywords = extractKeywords(sentence);
+                const suggestion = keywords.slice(0, 2).join('') || sentence.substring(0, 10);
+                branch.children.push({
+                    title: suggestion,
+                    children: []
+                });
+            });
+
+            root.children.push(branch);
+        });
+
+        if (root.children.length === 0) {
+            root.children.push({ title: '主要观点', children: [{ title: '详见原文', children: [] }] });
+        }
+
+        return root;
+    }
+
+    renderMindmapSVG(data) {
+        const palette = ['#6c5ce7', '#00cec9', '#fdcb6e', '#ff7675', '#a29bfe', '#55efc4', '#ffeaa7', '#fab1a0'];
+        const levelHeight = 80;
+        const nodeWidth = 180;
+        const nodeHeight = 44;
+        const hGap = 60;
+        const padding = 40;
+
+        const countLeaves = (node) => {
+            if (!node.children || node.children.length === 0) return 1;
+            return node.children.reduce((sum, c) => sum + countLeaves(c), 0);
+        };
+
+        const totalLeaves = countLeaves(data);
+        const treeDepth = (node, depth = 0) => {
+            if (!node.children || node.children.length === 0) return depth;
+            return Math.max(...node.children.map(c => treeDepth(c, depth + 1)));
+        };
+        const maxDepth = treeDepth(data);
+
+        const width = padding * 2 + (maxDepth + 1) * (nodeWidth + hGap);
+        const height = padding * 2 + totalLeaves * levelHeight;
+
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" class="mindmap-svg">`;
+        svg += `<rect width="${width}" height="${height}" fill="#0f0f1a"/>`;
+
+        const layoutNode = (node, x, yCenter, depth, color) => {
+            const leaves = countLeaves(node);
+            const nodeY = yCenter;
+
+            if (node.children && node.children.length > 0) {
+                let currentY = yCenter - (leaves * levelHeight) / 2 + levelHeight / 2;
+                node.children.forEach((child, i) => {
+                    const childLeaves = countLeaves(child);
+                    const childYCenter = currentY + (childLeaves * levelHeight) / 2;
+                    const childColor = depth === 0 ? palette[i % palette.length] : color;
+                    const childX = x + nodeWidth + hGap;
+
+                    svg += `<path d="M ${x + nodeWidth} ${nodeY + nodeHeight / 2} C ${(x + nodeWidth + childX) / 2} ${nodeY + nodeHeight / 2}, ${(x + nodeWidth + childX) / 2} ${childYCenter + nodeHeight / 2}, ${childX} ${childYCenter + nodeHeight / 2}" stroke="${childColor}" stroke-width="2" fill="none" opacity="0.6"/>`;
+
+                    layoutNode(child, childX, childYCenter, depth + 1, childColor);
+                    currentY += childLeaves * levelHeight;
+                });
+            }
+
+            const fillColor = depth === 0 ? '#6c5ce7' : color;
+            const textColor = '#ffffff';
+            const fontSize = depth === 0 ? 16 : (depth === 1 ? 14 : 12);
+            const fontWeight = depth <= 1 ? 600 : 400;
+            const title = (node.title || '').substring(0, 14);
+
+            svg += `<rect x="${x}" y="${nodeY}" width="${nodeWidth}" height="${nodeHeight}" rx="8" fill="${fillColor}" opacity="${depth === 0 ? 1 : 0.85}"/>`;
+            svg += `<text x="${x + nodeWidth / 2}" y="${nodeY + nodeHeight / 2 + 5}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="${fontWeight}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${title}</text>`;
+        };
+
+        const rootYCenter = height / 2 - nodeHeight / 2;
+        layoutNode(data, padding, rootYCenter, 0, palette[0]);
+
+        svg += '</svg>';
+        return svg;
+    }
+
+    generateMindmap() {
+        const text = document.getElementById('mindmapTextInput')?.value?.trim();
+        if (!text) {
+            alert('请输入需要总结的文本内容');
+            return;
+        }
+
+        const data = this.analyzeMindmapText(text);
+        const svgContent = this.renderMindmapSVG(data);
+        this.currentMindmapSVG = svgContent;
+
+        const previewSection = document.getElementById('mindmapPreviewSection');
+        if (previewSection) {
+            previewSection.innerHTML = `
+                <div class="mindmap-preview-header">
+                    <span><i class="fas fa-check-circle"></i> 思维导图已生成</span>
+                </div>
+                <div class="mindmap-preview-canvas">${svgContent}</div>
+            `;
+        }
+
+        const codeBlock = document.getElementById('mindmapCodeBlock');
+        if (codeBlock) {
+            codeBlock.textContent = svgContent;
+        }
+
+        const codeSection = document.getElementById('mindmapCodeSection');
+        if (codeSection) {
+            codeSection.style.display = 'none';
+        }
+    }
+
+    toggleMindmapCode() {
+        if (!this.currentMindmapSVG) {
+            alert('请先生成思维导图');
+            return;
+        }
+        const codeSection = document.getElementById('mindmapCodeSection');
+        if (codeSection) {
+            codeSection.style.display = codeSection.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    exportMindmapCode() {
+        if (!this.currentMindmapSVG) {
+            alert('请先生成思维导图');
+            return;
+        }
+        const blob = new Blob([this.currentMindmapSVG], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mindmap_${Date.now()}.svg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    copyMindmapCode() {
+        if (!this.currentMindmapSVG) {
+            alert('请先生成思维导图');
+            return;
+        }
+        navigator.clipboard.writeText(this.currentMindmapSVG).then(() => {
+            const btn = document.getElementById('copyMindmapCodeBtn');
+            if (btn) {
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                setTimeout(() => { btn.innerHTML = original; }, 1500);
+            }
+        }).catch(() => alert('复制失败，请手动选择代码复制'));
     }
 
     selectLearningPath(path) {
