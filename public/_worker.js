@@ -401,7 +401,7 @@ async function handleChatRequest(request, env) {
 }
 
 async function generateXfyunAuthorization(apiKey, apiSecret, host, path, date) {
-    const signatureOrigin = `date: ${date}\nhost: ${host}\nPOST ${path} HTTP/1.1`;
+    const signatureOrigin = `host: ${host}\ndate: ${date}\nPOST ${path} HTTP/1.1`;
     const encoder = new TextEncoder();
     const keyData = await crypto.subtle.importKey(
         'raw',
@@ -418,7 +418,8 @@ async function generateXfyunAuthorization(apiKey, apiSecret, host, path, date) {
     const signatureArray = Array.from(new Uint8Array(signatureBuffer));
     const signature = btoa(String.fromCharCode(...signatureArray));
 
-    const authorization = `api_key="${apiKey}", algorithm="hmac-sha256", headers="date host request-line", signature="${signature}"`;
+    const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+    const authorization = btoa(authorizationOrigin);
 
     return authorization;
 }
@@ -434,13 +435,14 @@ async function handleGenerateImage(request, env) {
         const IMAGE_API_HOST = getConfigValue(env, 'IMAGE_API_HOST');
         const IMAGE_API_PATH = getConfigValue(env, 'IMAGE_API_PATH');
         const IMAGE_MODEL_ID = getConfigValue(env, 'IMAGE_MODEL_ID');
+        const IMAGE_APP_ID = getConfigValue(env, 'IMAGE_APP_ID');
         const IMAGE_API_KEY = getConfigValue(env, 'IMAGE_API_KEY');
         const IMAGE_API_SECRET = getConfigValue(env, 'IMAGE_API_SECRET');
 
-        if (!IMAGE_API_KEY || !IMAGE_API_SECRET || !IMAGE_MODEL_ID || !IMAGE_API_HOST || !IMAGE_API_PATH) {
+        if (!IMAGE_API_KEY || !IMAGE_API_SECRET || !IMAGE_MODEL_ID || !IMAGE_APP_ID || !IMAGE_API_HOST || !IMAGE_API_PATH) {
             return new Response(JSON.stringify({
                 error: '\u6587\u751F\u56FEAPI\u914D\u7F6E\u672A\u5B8C\u6210',
-                message: '\u8BF7\u68C0\u67E5IMAGE_API_HOST\u3001IMAGE_API_PATH\u3001IMAGE_API_KEY\u3001IMAGE_API_SECRET\u3001IMAGE_MODEL_ID'
+                message: '\u8BF7\u68C0\u67E5IMAGE_API_HOST\u3001IMAGE_API_PATH\u3001IMAGE_API_KEY\u3001IMAGE_API_SECRET\u3001IMAGE_MODEL_ID\u3001IMAGE_APP_ID'
             }), { status: 400, headers: corsHeaders });
         }
 
@@ -453,58 +455,74 @@ async function handleGenerateImage(request, env) {
             date
         );
 
+        const requestUrl = `https://${IMAGE_API_HOST}${IMAGE_API_PATH}?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${encodeURIComponent(IMAGE_API_HOST)}`;
+
         const truncatedPrompt = prompt.substring(0, 1024);
 
         const requestBody = {
-            model: IMAGE_MODEL_ID,
-            prompt: truncatedPrompt,
-            n: 1,
-            size: '1024x1024',
-            response_format: 'b64_json'
+            header: {
+                app_id: IMAGE_APP_ID
+            },
+            parameter: {
+                chat: {
+                    domain: IMAGE_MODEL_ID,
+                    width: 1024,
+                    height: 1024,
+                    seed: Math.floor(Math.random() * 1000000),
+                    num_inference_steps: 20,
+                    guidance_scale: 5.0,
+                    scheduler: 'DPM++ 2M Karras'
+                }
+            },
+            payload: {
+                message: {
+                    text: [
+                        {
+                            role: 'user',
+                            content: truncatedPrompt
+                        }
+                    ]
+                }
+            }
         };
-
-        const requestUrl = `https://${IMAGE_API_HOST}${IMAGE_API_PATH}`;
 
         const response = await fetch(requestUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authorization,
-                'Date': date,
-                'Host': IMAGE_API_HOST
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`\u6587\u751F\u56FEAPI\u8BF7\u6C42\u5931\u8D25: ${response.status} ${errorText.substring(0, 500)}`);
+            throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 500)}`);
         }
 
         const data = await response.json();
 
-        let imageUrl = data.data?.[0]?.url || data.url || data.images?.[0]?.url;
-        let base64Content = data.data?.[0]?.b64_json || data.b64_json;
-
-        if (!imageUrl && !base64Content && data.payload?.choices?.text?.[0]?.content) {
-            base64Content = data.payload.choices.text[0].content;
+        const headerCode = data.header?.code;
+        if (headerCode !== undefined && headerCode !== 0) {
+            const errorMsg = data.header?.message || '\u672A\u77E5\u9519\u8BEF';
+            const sid = data.header?.sid || '';
+            throw new Error(`\u8BAF\u98DE\u9519\u8BEF\u7801[${headerCode}]: ${errorMsg}${sid ? ' (sid: ' + sid + ')' : ''}`);
         }
 
-        if (base64Content && !imageUrl) {
-            imageUrl = `data:image/png;base64,${base64Content}`;
-        }
+        const base64Content = data.payload?.choices?.text?.[0]?.content;
 
-        if (!imageUrl) {
+        if (!base64Content) {
             return new Response(JSON.stringify({
                 error: '\u751F\u6210\u56FE\u7247\u5931\u8D25\uFF1A\u672A\u83B7\u53D6\u5230\u56FE\u7247\u6570\u636E',
                 raw: JSON.stringify(data).substring(0, 500)
             }), { status: 500, headers: corsHeaders });
         }
 
+        const dataUrl = `data:image/png;base64,${base64Content}`;
+
         return new Response(JSON.stringify({
             success: true,
-            imageUrl: imageUrl,
-            format: imageUrl.startsWith('data:') ? 'base64' : 'url'
+            imageUrl: dataUrl,
+            format: 'base64'
         }), { headers: corsHeaders });
     } catch (error) {
         console.error('\u751F\u6210\u56FE\u7247\u9519\u8BEF:', error);
@@ -522,7 +540,7 @@ async function handleConfigRequest(env) {
             websocket: { available: false, message: '\u5F53\u524D\u5E73\u53F0\u4E0D\u652F\u6301WebSocket\uFF0C\u8BF7\u4F7F\u7528HTTP\u6A21\u5F0F' },
             database: { available: !!env.DB },
             imageGeneration: {
-                available: !!(getConfigValue(env, 'IMAGE_API_KEY') && getConfigValue(env, 'IMAGE_API_SECRET') && getConfigValue(env, 'IMAGE_MODEL_ID') && getConfigValue(env, 'IMAGE_API_HOST') && getConfigValue(env, 'IMAGE_API_PATH')),
+                available: !!(getConfigValue(env, 'IMAGE_API_KEY') && getConfigValue(env, 'IMAGE_API_SECRET') && getConfigValue(env, 'IMAGE_MODEL_ID') && getConfigValue(env, 'IMAGE_APP_ID') && getConfigValue(env, 'IMAGE_API_HOST') && getConfigValue(env, 'IMAGE_API_PATH')),
                 endpoint: `https://${getConfigValue(env, 'IMAGE_API_HOST')}${getConfigValue(env, 'IMAGE_API_PATH')}`
             }
         }
