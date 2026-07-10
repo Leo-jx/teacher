@@ -1197,9 +1197,10 @@ class DevAssistant {
     renderMindmapSVG(data) {
         const palette = ['#6c5ce7', '#00cec9', '#fdcb6e', '#ff7675', '#a29bfe', '#55efc4', '#ffeaa7', '#fab1a0'];
         const hGap = 80;
-        const vGap = 40;
-        const padding = 50;
-        const lineHeight = 22;
+        const vGap = 30;
+        const padding = 60;
+        const lineHeight = 24;
+        const maxLineWidth = 380;
 
         const estimateTextWidth = (text, fontSize) => {
             let width = 0;
@@ -1210,13 +1211,13 @@ class DevAssistant {
             return width;
         };
 
-        const wrapText = (text, maxWidth, fontSize) => {
+        const wrapText = (text, fontSize) => {
             const lines = [];
             if (!text) return [];
             const chars = text.split('');
             let currentLine = '';
             let currentWidth = 0;
-            const targetWidth = maxWidth - 20;
+            const targetWidth = maxLineWidth;
 
             for (let i = 0; i < chars.length; i++) {
                 const char = chars[i];
@@ -1238,11 +1239,11 @@ class DevAssistant {
         const calculateNodeSize = (node, depth) => {
             const fontSize = depth === 0 ? 18 : (depth === 1 ? 15 : 13);
             const title = node.title || '';
-            const textWidth = estimateTextWidth(title, fontSize);
-            const maxWidth = Math.max(120, Math.min(textWidth + 30, depth === 0 ? 350 : 320));
-            const lines = wrapText(title, maxWidth, fontSize);
+            const lines = wrapText(title, fontSize);
             const height = Math.max(40, lines.length * lineHeight + 16);
-            return { width: maxWidth, height, fontSize, lines };
+            const textWidth = estimateTextWidth(title, fontSize);
+            const width = Math.max(120, Math.min(textWidth + 30, maxLineWidth + 20));
+            return { width, height, fontSize, lines };
         };
 
         const countLeaves = (node) => {
@@ -1250,56 +1251,80 @@ class DevAssistant {
             return node.children.reduce((sum, c) => sum + countLeaves(c), 0);
         };
 
+        const calculateSubtreeHeight = (node) => {
+            if (!node.children || node.children.length === 0) {
+                const size = calculateNodeSize(node, 0);
+                return size.height;
+            }
+            let totalHeight = 0;
+            node.children.forEach(child => {
+                totalHeight += calculateSubtreeHeight(child);
+            });
+            totalHeight += (node.children.length - 1) * vGap;
+            return totalHeight;
+        };
+
         const treeDepth = (node, depth = 0) => {
             if (!node.children || node.children.length === 0) return depth;
             return Math.max(...node.children.map(c => treeDepth(c, depth + 1)));
         };
 
-        const totalLeaves = countLeaves(data);
         const maxDepth = treeDepth(data);
-
-        let totalWidth = padding * 2;
-        let totalHeight = padding * 2 + totalLeaves * (vGap + 60);
 
         const nodeLayouts = [];
 
-        const computeLayout = (node, x, depth, color) => {
+        const computeLayout = (node, x, y, depth, color) => {
             const nodeSize = calculateNodeSize(node, depth);
-            const leaves = countLeaves(node);
-            const nodeHeight = nodeSize.height;
             const nodeWidth = nodeSize.width;
-
-            let y = padding + (totalHeight - nodeHeight) / 2;
-            if (depth > 0) {
-                y = padding + totalHeight / 2 - nodeHeight / 2;
-            }
-
-            if (x + nodeWidth > totalWidth) {
-                totalWidth = x + nodeWidth + padding;
-            }
+            const nodeHeight = nodeSize.height;
 
             const layout = { x, y, width: nodeWidth, height: nodeHeight, node, depth, color, nodeSize };
             nodeLayouts.push(layout);
 
             if (node.children && node.children.length > 0) {
-                let childY = y + nodeHeight / 2 - (leaves * (vGap + nodeSize.height)) / 2;
                 const childX = x + nodeWidth + hGap;
+                let childY = y + nodeHeight / 2;
+
+                const childHeights = node.children.map(child => calculateSubtreeHeight(child));
+                const totalChildHeight = childHeights.reduce((sum, h) => sum + h, 0) + (node.children.length - 1) * vGap;
+                childY -= totalChildHeight / 2;
 
                 node.children.forEach((child, i) => {
-                    const childLeaves = countLeaves(child);
-                    const childSize = calculateNodeSize(child, depth + 1);
+                    const childHeight = childHeights[i];
                     const childColor = depth === 0 ? palette[i % palette.length] : color;
-                    const childCenterY = childY + (childLeaves * (vGap + childSize.height)) / 2;
 
-                    computeLayout(child, childX, depth + 1, childColor);
-                    childY += childLeaves * (vGap + childSize.height);
+                    computeLayout(child, childX, childY, depth + 1, childColor);
+                    childY += childHeight + vGap;
                 });
             }
 
             return layout;
         };
 
-        computeLayout(data, padding, 0, palette[0]);
+        const rootSize = calculateNodeSize(data, 0);
+        let totalWidth = padding * 2 + rootSize.width;
+        let totalHeight = padding * 2 + calculateSubtreeHeight(data);
+
+        const maxPossibleWidth = padding * 2 + (maxDepth + 1) * (maxLineWidth + 20 + hGap);
+        totalWidth = Math.max(totalWidth, maxPossibleWidth);
+
+        computeLayout(data, padding, padding, 0, palette[0]);
+
+        let actualMaxWidth = padding;
+        nodeLayouts.forEach(layout => {
+            if (layout.x + layout.width > actualMaxWidth) {
+                actualMaxWidth = layout.x + layout.width;
+            }
+        });
+        totalWidth = actualMaxWidth + padding;
+
+        let actualMaxHeight = padding;
+        nodeLayouts.forEach(layout => {
+            if (layout.y + layout.height > actualMaxHeight) {
+                actualMaxHeight = layout.y + layout.height;
+            }
+        });
+        totalHeight = actualMaxHeight + padding;
 
         const containerWidth = totalWidth + 20;
         const containerHeight = totalHeight + 20;
@@ -1328,7 +1353,6 @@ class DevAssistant {
             const { x, y, width, height, color } = layout;
 
             if (node.children && node.children.length > 0) {
-                let childY = y + height / 2;
                 const childX = x + width + hGap;
 
                 node.children.forEach((child, i) => {
