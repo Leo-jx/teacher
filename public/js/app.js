@@ -11,6 +11,12 @@ class DevAssistant {
         this.userId = null;
         this.dbConversationId = null;
         this.activeRequests = new Map();
+        this.practiceData = null;
+        this.practiceSelectedLevel = null;
+        this.practiceSession = null;
+        this.practiceCurrentAnswer = null;
+        this.practiceTimerInterval = null;
+        this.practiceTimeLeft = 0;
 
         this.init();
     }
@@ -23,7 +29,7 @@ class DevAssistant {
         this.setupMarked();
         this.autoResizeTextarea();
         this.updateCharCount();
-        this.initQuestSystem();
+        this.loadPracticeProgress();
         this.initLearningPath();
         this.showApp();
     }
@@ -322,12 +328,6 @@ class DevAssistant {
         document.getElementById('learnSyntaxBtn')?.addEventListener('click', () => this.learnSyntax());
         document.getElementById('learnAlgorithmBtn')?.addEventListener('click', () => this.learnAlgorithm());
         document.getElementById('decodeErrorBtn')?.addEventListener('click', () => this.decodeError());
-        document.getElementById('practiceBtn')?.addEventListener('click', () => this.openCodeTool('practice'));
-        document.getElementById('questLeaderboardBtn')?.addEventListener('click', () => this.showQuestLeaderboard());
-        document.getElementById('questBackBtn')?.addEventListener('click', () => this.showQuestMap());
-        document.getElementById('leaderboardBackBtn')?.addEventListener('click', () => this.showQuestMap());
-        document.getElementById('quizSubmitBtn')?.addEventListener('click', () => this.submitQuestAnswer());
-        document.getElementById('quizQuitBtn')?.addEventListener('click', () => this.quitQuest());
 
         document.querySelectorAll('.learning-tab').forEach(tab => {
             tab.addEventListener('click', (e) => this.switchLearningTab(e.target.dataset.tab));
@@ -339,6 +339,16 @@ class DevAssistant {
 
         document.getElementById('startLearningBtn')?.addEventListener('click', () => this.startLearning());
         document.getElementById('createPlanBtn')?.addEventListener('click', () => this.createLearningPlan());
+
+        document.getElementById('practiceBtn')?.addEventListener('click', () => this.startChallenge());
+        document.getElementById('practiceResumeBtn')?.addEventListener('click', () => this.resumeChallenge());
+        document.getElementById('practiceExitBtn')?.addEventListener('click', () => this.exitChallenge());
+        document.getElementById('practiceSubmitBtn')?.addEventListener('click', () => this.submitPracticeAnswer());
+        document.getElementById('practiceSkipBtn')?.addEventListener('click', () => this.skipPracticeQuestion());
+        document.getElementById('practiceNextQuestionBtn')?.addEventListener('click', () => this.nextPracticeQuestion());
+        document.getElementById('practiceRetryBtn')?.addEventListener('click', () => this.retryChallenge());
+        document.getElementById('practiceNextBtn')?.addEventListener('click', () => this.goNextLevel());
+        document.getElementById('practiceBackLobbyBtn')?.addEventListener('click', () => this.backToLobby());
     }
 
     autoResizeTextarea() {
@@ -1072,675 +1082,734 @@ class DevAssistant {
         await this.sendMessage();
     }
 
-    initQuestSystem() {
-        this.questLevels = [
-            {
-                id: 1, name: '编程基础入门', subtitle: '变量与控制流', icon: 'fa-seedling',
-                theme: 'forest', difficulty: '入门', category: '基础语法',
-                knowledgePoints: ['变量声明', '数据类型', '条件语句', '循环结构', '函数定义'],
-                passThreshold: 80, totalQuestions: 5, lang: 'java',
-                gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                description: '从零开始，掌握编程的基本要素：变量、条件、循环与函数。'
-            },
-            {
-                id: 2, name: '数据结构探险', subtitle: '数组·链表·栈·队列', icon: 'fa-cubes',
-                theme: 'ocean', difficulty: '进阶', category: '数据结构',
-                knowledgePoints: ['数组操作', '链表遍历', '栈与队列', '哈希表', '树结构基础'],
-                passThreshold: 80, totalQuestions: 5, lang: 'java',
-                gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                description: '潜入数据结构深海，理解线性与非线性结构的奥秘。'
-            },
-            {
-                id: 3, name: '算法思维挑战', subtitle: '排序·查找·递归', icon: 'fa-rocket',
-                theme: 'cosmos', difficulty: '进阶', category: '算法思维',
-                knowledgePoints: ['冒泡排序', '二分查找', '递归思想', '时间复杂度', '贪心算法'],
-                passThreshold: 80, totalQuestions: 5, lang: 'java',
-                gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
-                description: '冲向算法星空，掌握经典排序、查找与递归思想。'
-            },
-            {
-                id: 4, name: '数据库奥秘', subtitle: 'SQL·表·查询', icon: 'fa-database',
-                theme: 'desert', difficulty: '进阶', category: '数据库',
-                knowledgePoints: ['SELECT查询', 'WHERE条件', 'JOIN连接', 'GROUP BY', '索引原理'],
-                passThreshold: 80, totalQuestions: 5, lang: 'sql',
-                gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
-                description: '穿越数据库沙漠，学会用SQL查询与分析数据。'
-            },
-            {
-                id: 5, name: '框架应用实战', subtitle: 'Spring·Vue·Web', icon: 'fa-fire',
-                theme: 'volcano', difficulty: '挑战', category: '框架应用',
-                knowledgePoints: ['IoC容器', 'REST接口', 'Vue组件', '状态管理', '路由配置'],
-                passThreshold: 80, totalQuestions: 5, lang: 'vue',
-                gradient: 'linear-gradient(135deg, #ff5858 0%, #f09819 100%)',
-                description: '攀登框架火山，在实战中融会贯通现代Web开发。'
-            },
-            {
-                id: 6, name: '综合实战巅峰', subtitle: '全栈终极挑战', icon: 'fa-crown',
-                theme: 'sky', difficulty: '挑战', category: '综合实战',
-                knowledgePoints: ['系统设计', '性能优化', '安全防护', '部署运维', '架构演进'],
-                passThreshold: 80, totalQuestions: 5, lang: 'java',
-                gradient: 'linear-gradient(135deg, #ffd700 0%, #ff9a44 100%)',
-                description: '登顶全栈巅峰，挑战真实工程问题与系统设计。'
-            }
+    // ============ 闯关式题目练习系统 ============
+
+    getPRACTICE_LEVELS() {
+        return [
+            { id: 1, name: '启程', difficulty: 'easy',   difficultyLabel: '初级', count: 5, threshold: 60, color: '#55efc4', icon: 'fa-seedling', desc: '基础概念与语法入门' },
+            { id: 2, name: '进阶', difficulty: 'easy',   difficultyLabel: '初级', count: 5, threshold: 65, color: '#74b9ff', icon: 'fa-shoe-prints', desc: '巩固核心知识点' },
+            { id: 3, name: '实战', difficulty: 'medium', difficultyLabel: '中级', count: 6, threshold: 70, color: '#fdcb6e', icon: 'fa-fire', desc: '场景化综合应用' },
+            { id: 4, name: '高手', difficulty: 'medium', difficultyLabel: '中级', count: 6, threshold: 75, color: '#ff7675', icon: 'fa-mountain', desc: '进阶算法与陷阱' },
+            { id: 5, name: '大师', difficulty: 'hard',   difficultyLabel: '高级', count: 8, threshold: 80, color: '#a29bfe', icon: 'fa-crown', desc: '深度综合挑战' }
         ];
-
-        this.questState = this.loadQuestState();
-        this.questSession = null;
-        this.questTimer = null;
-        this.questAudioCtx = null;
-
-        this.renderQuestMap();
     }
 
-    loadQuestState() {
-        const defaultState = {
-            cleared: {},
-            stars: {},
-            bestScore: {},
-            bestTime: {},
-            leaderboard: []
+    getCategoryName(cat) {
+        const names = {
+            'basic': '基础语法', 'datastructure': '数据结构', 'algorithm': '算法思维',
+            'database': '数据库', 'framework': '框架应用', 'comprehensive': '综合实战'
         };
-        try {
-            return JSON.parse(localStorage.getItem('quest_state')) || defaultState;
-        } catch {
-            return defaultState;
+        return names[cat] || '基础语法';
+    }
+
+    getLangName(lang) {
+        const names = { 'java':'Java', 'python':'Python', 'javascript':'JavaScript',
+                        'cpp':'C/C++', 'sql':'SQL', 'vue':'Vue' };
+        return names[lang] || 'Java';
+    }
+
+    getQuestionTypeLabel(type) {
+        const labels = {
+            'multiple_choice': '单选题',
+            'true_false': '判断题',
+            'fill_blank': '填空题',
+            'short_answer': '简答题'
+        };
+        return labels[type] || '题目';
+    }
+
+    loadPracticeProgress() {
+        const data = JSON.parse(localStorage.getItem('practice_challenge_data') || '{}');
+        if (!data.levels) {
+            data.levels = this.getPRACTICE_LEVELS().map(l => ({
+                id: l.id,
+                unlocked: l.id === 1,
+                bestAccuracy: 0,
+                stars: 0,
+                attempts: 0,
+                completedQuestions: 0
+            }));
+            data.totalCompleted = 0;
+            data.totalStars = 0;
+            localStorage.setItem('practice_challenge_data', JSON.stringify(data));
+        }
+        this.practiceData = data;
+        this.renderPracticeLobby();
+        this.checkPracticeResume();
+    }
+
+    savePracticeData() {
+        if (this.practiceData) {
+            localStorage.setItem('practice_challenge_data', JSON.stringify(this.practiceData));
         }
     }
 
-    saveQuestState() {
-        localStorage.setItem('quest_state', JSON.stringify(this.questState));
-    }
+    renderPracticeLobby() {
+        const grid = document.getElementById('practiceLevelsGrid');
+        if (!grid || !this.practiceData) return;
 
-    renderQuestMap() {
-        const mapEl = document.getElementById('questMap');
-        if (!mapEl) return;
-
-        mapEl.innerHTML = this.questLevels.map(level => {
-            const cleared = this.questState.cleared[level.id];
-            const stars = this.questState.stars[level.id] || 0;
-            const prevCleared = level.id === 1 || this.questState.cleared[level.id - 1];
-            const locked = !prevCleared;
-
-            const starsHtml = Array(3).fill(0).map((_, i) =>
-                `<i class="fas fa-star ${i < stars ? 'star--active' : ''}"></i>`
+        const levels = this.getPRACTICE_LEVELS();
+        grid.innerHTML = levels.map(level => {
+            const state = this.practiceData.levels.find(l => l.id === level.id) || { unlocked: false, stars: 0, bestAccuracy: 0, attempts: 0 };
+            const starsHtml = '★★★'.split('').map((s, i) =>
+                `<span class="practice-star ${i < state.stars ? 'filled' : ''}">${s}</span>`
             ).join('');
-
+            const lockIcon = state.unlocked ? '' : '<i class="fas fa-lock practice-lock-icon"></i>';
             return `
-                <div class="quest-level-card quest-theme--${level.theme} ${locked ? 'is-locked' : ''} ${cleared ? 'is-cleared' : ''}" data-level-id="${level.id}">
-                    <div class="quest-level-lock">${locked ? '<i class="fas fa-lock"></i>' : ''}</div>
-                    <div class="quest-level-icon"><i class="fas ${level.icon}"></i></div>
-                    <div class="quest-level-info">
-                        <div class="quest-level-name">第${level.id}关 · ${level.name}</div>
-                        <div class="quest-level-subtitle">${level.subtitle}</div>
-                        <div class="quest-level-stars">${starsHtml}</div>
+                <div class="practice-level-card ${state.unlocked ? 'unlocked' : 'locked'} ${this.practiceSelectedLevel === level.id ? 'selected' : ''}"
+                     data-level="${level.id}"
+                     style="--level-color: ${level.color}">
+                    <div class="practice-level-icon"><i class="fas ${level.icon}"></i></div>
+                    <div class="practice-level-info">
+                        <div class="practice-level-name">第 ${level.id} 关 · ${level.name}</div>
+                        <div class="practice-level-desc">${level.desc}</div>
+                        <div class="practice-level-meta">
+                            <span class="practice-level-tag">${level.difficultyLabel}</span>
+                            <span class="practice-level-count">${level.count} 题</span>
+                            <span class="practice-level-threshold">通关 ${level.threshold}%</span>
+                        </div>
+                        <div class="practice-level-stars">${starsHtml}</div>
+                        ${state.attempts > 0 ? `<div class="practice-level-best">最佳 ${state.bestAccuracy}% · 已挑战 ${state.attempts} 次</div>` : ''}
                     </div>
-                    <div class="quest-level-difficulty quest-difficulty--${level.difficulty}">${level.difficulty}</div>
+                    ${lockIcon}
                 </div>
             `;
         }).join('');
 
-        mapEl.querySelectorAll('.quest-level-card').forEach(card => {
+        grid.querySelectorAll('.practice-level-card').forEach(card => {
             card.addEventListener('click', () => {
-                const levelId = parseInt(card.dataset.levelId);
-                if (!card.classList.contains('is-locked')) {
-                    this.showQuestDetail(levelId);
+                const levelId = parseInt(card.dataset.level);
+                const state = this.practiceData.levels.find(l => l.id === levelId);
+                if (!state || !state.unlocked) {
+                    this.showToast('该关卡尚未解锁，请先完成前置关卡');
+                    return;
                 }
+                this.practiceSelectedLevel = levelId;
+                grid.querySelectorAll('.practice-level-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                document.getElementById('practiceBtn').disabled = false;
             });
         });
 
-        this.updateQuestStats();
-    }
-
-    updateQuestStats() {
-        const clearedCount = Object.keys(this.questState.cleared).length;
-        const totalStars = Object.values(this.questState.stars).reduce((a, b) => a + b, 0);
-        const totalScore = Object.values(this.questState.bestScore).reduce((a, b) => a + b, 0);
-
-        const clearedEl = document.getElementById('questClearedCount');
-        const starsEl = document.getElementById('questTotalStars');
-        const scoreEl = document.getElementById('questTotalScore');
-
-        if (clearedEl) clearedEl.textContent = `${clearedCount}/${this.questLevels.length}`;
+        // 更新顶部统计
+        const totalStars = this.practiceData.levels.reduce((s, l) => s + (l.stars || 0), 0);
+        const totalCompleted = this.practiceData.totalCompleted || 0;
+        const unlockedCount = this.practiceData.levels.filter(l => l.unlocked).length;
+        const starsEl = document.getElementById('practiceTotalStars');
+        const completedEl = document.getElementById('practiceTotalCompleted');
+        const unlockedEl = document.getElementById('practiceUnlockedLevels');
         if (starsEl) starsEl.textContent = totalStars;
-        if (scoreEl) scoreEl.textContent = totalScore;
+        if (completedEl) completedEl.textContent = totalCompleted;
+        if (unlockedEl) unlockedEl.textContent = unlockedCount;
     }
 
-    showQuestMap() {
-        document.getElementById('questMapView').style.display = 'block';
-        document.getElementById('questDetailView').style.display = 'none';
-        document.getElementById('questQuizView').style.display = 'none';
-        document.getElementById('questResultView').style.display = 'none';
-        document.getElementById('questLeaderboardView').style.display = 'none';
-        this.renderQuestMap();
+    checkPracticeResume() {
+        const session = JSON.parse(localStorage.getItem('practice_session_save') || 'null');
+        const hint = document.getElementById('practiceResumeHint');
+        if (hint) hint.style.display = session ? 'flex' : 'none';
     }
 
-    showQuestDetail(levelId) {
-        const level = this.questLevels.find(l => l.id === levelId);
-        if (!level) return;
-
-        document.getElementById('questMapView').style.display = 'none';
-        document.getElementById('questDetailView').style.display = 'block';
-
-        const card = document.getElementById('questDetailCard');
-        const cleared = this.questState.cleared[levelId];
-        const bestScore = this.questState.bestScore[levelId] || 0;
-        const bestTime = this.questState.bestTime[levelId];
-        const stars = this.questState.stars[levelId] || 0;
-
-        card.style.background = level.gradient;
-        card.innerHTML = `
-            <div class="quest-detail-icon"><i class="fas ${level.icon}"></i></div>
-            <h3>第${level.id}关 · ${level.name}</h3>
-            <p class="quest-detail-desc">${level.description}</p>
-            <div class="quest-detail-meta">
-                <span><i class="fas fa-tag"></i> ${level.category}</span>
-                <span><i class="fas fa-signal"></i> ${level.difficulty}</span>
-                <span><i class="fas fa-list-check"></i> ${level.totalQuestions}题</span>
-                <span><i class="fas fa-percent"></i> 通关需 ${level.passThreshold}%</span>
-            </div>
-            <div class="quest-detail-knowledge">
-                <h5>知识点目标</h5>
-                <div class="quest-knowledge-tags">
-                    ${level.knowledgePoints.map(kp => `<span class="quest-knowledge-tag">${kp}</span>`).join('')}
-                </div>
-            </div>
-            ${cleared ? `
-                <div class="quest-detail-record">
-                    <div><i class="fas fa-star"></i> ${stars} 星</div>
-                    <div><i class="fas fa-bolt"></i> 最高分 ${bestScore}</div>
-                    <div><i class="fas fa-clock"></i> 最快 ${this.formatTime(bestTime || 0)}</div>
-                </div>
-            ` : ''}
-            <button class="quest-btn quest-btn--primary quest-btn--large" id="questStartBtn">
-                <i class="fas fa-play"></i> ${cleared ? '再次挑战' : '开始闯关'}
-            </button>
-        `;
-
-        document.getElementById('questStartBtn').addEventListener('click', () => this.startQuest(levelId));
-    }
-
-    showQuestLeaderboard() {
-        document.getElementById('questMapView').style.display = 'none';
-        document.getElementById('questLeaderboardView').style.display = 'block';
-
-        const listEl = document.getElementById('questLeaderboardList');
-        const records = this.questState.leaderboard || [];
-
-        if (records.length === 0) {
-            listEl.innerHTML = `
-                <div class="quest-leaderboard-empty">
-                    <i class="fas fa-flag-checkered"></i>
-                    <p>暂无闯关记录</p>
-                    <p class="quest-leaderboard-hint">完成任意关卡后，将自动登榜</p>
-                </div>
-            `;
+    async startChallenge() {
+        if (!this.practiceSelectedLevel) {
+            this.showToast('请先选择一个关卡');
             return;
         }
-
-        records.sort((a, b) => b.score - a.score);
-        listEl.innerHTML = records.slice(0, 20).map((r, idx) => {
-            const rankClass = idx === 0 ? 'rank--1' : (idx === 1 ? 'rank--2' : (idx === 2 ? 'rank--3' : ''));
-            return `
-                <div class="quest-leaderboard-item ${rankClass}">
-                    <div class="quest-leaderboard-rank">${idx + 1}</div>
-                    <div class="quest-leaderboard-info">
-                        <div class="quest-leaderboard-level">第${r.levelId}关 · ${r.levelName}</div>
-                        <div class="quest-leaderboard-time">${new Date(r.date).toLocaleString('zh-CN')}</div>
-                    </div>
-                    <div class="quest-leaderboard-stats">
-                        <div><i class="fas fa-star"></i> ${r.stars}</div>
-                        <div><i class="fas fa-bolt"></i> ${r.score}</div>
-                        <div><i class="fas fa-clock"></i> ${this.formatTime(r.time)}</div>
-                        <div><i class="fas fa-percent"></i> ${r.accuracy}%</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    async startQuest(levelId) {
-        const level = this.questLevels.find(l => l.id === levelId);
+        const level = this.getPRACTICE_LEVELS().find(l => l.id === this.practiceSelectedLevel);
         if (!level) return;
 
-        document.getElementById('questDetailView').style.display = 'none';
-        document.getElementById('questQuizView').style.display = 'block';
+        const category = document.getElementById('practiceCategorySelect')?.value || 'basic';
+        const lang = document.getElementById('practiceLangSelect')?.value || 'java';
+        const timerSec = parseInt(document.getElementById('practiceTimerSelect')?.value || '0');
 
-        document.getElementById('quizLevelName').textContent = `第${level.id}关 · ${level.name}`;
-
-        this.questSession = {
+        this.practiceSession = {
+            levelId: level.id,
             level,
+            category,
+            lang,
+            timerSec,
             questions: [],
-            currentIdx: 0,
-            answers: [],
+            currentIndex: 0,
             correctCount: 0,
             startTime: Date.now(),
-            endTime: null
+            answeredHistory: []
         };
 
-        this.startQuestTimer();
-        await this.generateQuestQuestions(level);
+        this.openFullscreenPractice();
+        await this.loadPracticeQuestions();
     }
 
-    startQuestTimer() {
-        if (this.questTimer) clearInterval(this.questTimer);
-        const timerEl = document.getElementById('quizTimer');
-        this.questTimer = setInterval(() => {
-            if (!this.questSession) return;
-            const elapsed = Math.floor((Date.now() - this.questSession.startTime) / 1000);
-            if (timerEl) timerEl.textContent = this.formatTime(elapsed);
-        }, 1000);
-    }
-
-    stopQuestTimer() {
-        if (this.questTimer) {
-            clearInterval(this.questTimer);
-            this.questTimer = null;
+    async resumeChallenge() {
+        const session = JSON.parse(localStorage.getItem('practice_session_save') || 'null');
+        if (!session) {
+            this.showToast('未找到可恢复的进度');
+            return;
         }
+        this.practiceSession = session;
+        this.practiceSelectedLevel = session.levelId;
+        this.openFullscreenPractice();
+        this.renderCurrentQuestion();
     }
 
-    formatTime(seconds) {
-        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
+    openFullscreenPractice() {
+        const fs = document.getElementById('practiceFullscreen');
+        if (!fs) return;
+        fs.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+
+        const level = this.practiceSession.level;
+        document.getElementById('practiceFsLevelName').textContent = `第 ${level.id} 关 · ${level.name}`;
+        document.getElementById('practiceFsLevelTag').textContent = level.difficultyLabel;
+        document.getElementById('practiceFsTotal').textContent = level.count;
+        document.getElementById('practiceFsCurrentIndex').textContent = '1';
+        document.getElementById('practiceFsCorrect').textContent = '0';
+        document.getElementById('practiceFsProgressFill').style.width = '0%';
+
+        // 计时器显示控制
+        const timerWrap = document.getElementById('practiceFsTimer');
+        timerWrap.style.display = this.practiceSession.timerSec > 0 ? 'flex' : 'none';
+
+        // 显示 loading，隐藏其他
+        document.getElementById('practiceFsLoading').style.display = 'flex';
+        document.getElementById('practiceFsQuestion').style.display = 'none';
+        document.getElementById('practiceFsResult').style.display = 'none';
+        document.getElementById('practiceFsFooter').style.display = 'none';
     }
 
-    async generateQuestQuestions(level) {
-        const bodyEl = document.getElementById('quizBody');
-        const submitBtn = document.getElementById('quizSubmitBtn');
+    async loadPracticeQuestions() {
+        const { level, category, lang } = this.practiceSession;
+        const categoryName = this.getCategoryName(category);
+        const langName = this.getLangName(lang);
 
-        bodyEl.innerHTML = `
-            <div class="quest-loading">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>正在生成第 ${level.id} 关题目...</p>
-            </div>
-        `;
-        submitBtn.disabled = true;
+        const prompt = `你是编程教学出题专家。请基于以下要求生成 ${level.count} 道${langName}编程练习题：
+- 知识点方向：${categoryName}
+- 难度等级：${level.difficultyLabel}（${level.difficulty}）
+- 题型混合：包含单选题(multiple_choice)、判断题(true_false)、填空题(fill_blank)、简答题(short_answer)，简答题不超过 1 道
+- 每题必须独立、非重复，紧扣${categoryName}知识点
 
-        const prompt = `作为编程闯关系统，请为"${level.name}"关卡生成 ${level.totalQuestions} 道${level.lang}题目。
+请严格返回 JSON 数组，每道题字段如下：
+{
+  "type": "multiple_choice|true_false|fill_blank|short_answer",
+  "question": "题干文本",
+  "options": ["A.选项1","B.选项2","C.选项3","D.选项4"],  // 仅 multiple_choice 需要
+  "answer": "正确答案",  // multiple_choice 填选项字母如 "A"；true_false 填 "true" 或 "false"；fill_blank 填标准答案文本；short_answer 填参考要点
+  "points": "考察知识点",
+  "explanation": "详细解析"
+}
 
-关卡主题：${level.category}
-知识点：${level.knowledgePoints.join('、')}
-难度：${level.difficulty}
-
-要求：
-1. 题目由浅入深排列
-2. 每道题以JSON数组返回，每个对象包含：
-   - "question": 题目描述
-   - "options": 4个选项数组
-   - "answer": 正确选项索引(0-3)
-   - "explanation": 详细解析
-   - "knowledge": 考察的知识点
-
-只返回JSON数组，不要其他文字。`;
+只返回 JSON 数组，不要任何额外文字、markdown 代码块标记或解释。`;
 
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.authToken ? `Bearer ${this.authToken}` : ''
+                },
                 body: JSON.stringify({
-                    message: prompt,
-                    history: [],
-                    stream: false
+                    messages: [{ role: 'user', content: prompt }]
                 })
             });
 
-            if (!response.ok) throw new Error('请求失败');
             const data = await response.json();
-            const content = data.response || data.content || data.message || '';
+            const content = data.choices?.[0]?.message?.content || data.content || '';
 
-            let questions = this.parseQuestQuestions(content);
+            const questions = this.parsePracticeQuestions(content, level.count);
             if (questions.length === 0) {
-                questions = this.getFallbackQuestions(level);
+                throw new Error('AI 返回内容无法解析');
             }
 
-            this.questSession.questions = questions;
-            this.renderQuestQuestion();
-            submitBtn.disabled = false;
-        } catch (err) {
-            console.error('生成题目失败', err);
-            this.questSession.questions = this.getFallbackQuestions(level);
-            this.renderQuestQuestion();
-            submitBtn.disabled = false;
+            this.practiceSession.questions = questions;
+            this.practiceSession.currentIndex = 0;
+            this.practiceSession.correctCount = 0;
+            this.renderCurrentQuestion();
+        } catch (error) {
+            console.error('生成题目失败:', error);
+            document.getElementById('practiceFsLoading').style.display = 'none';
+            document.getElementById('practiceFsQuestion').style.display = 'block';
+            document.getElementById('practiceQTitle').innerHTML =
+                `<div style="color:#ff7675;text-align:center;padding:40px 20px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:36px;"></i>
+                    <p style="margin-top:12px;">题目生成失败：${error.message}</p>
+                    <p style="font-size:13px;opacity:0.7;margin-top:8px;">请稍后重试或检查网络连接</p>
+                </div>`;
+            document.getElementById('practiceFsFooter').style.display = 'flex';
+            document.getElementById('practiceSubmitBtn').style.display = 'none';
+            document.getElementById('practiceSkipBtn').style.display = 'none';
+            document.getElementById('practiceNextQuestionBtn').style.display = 'none';
         }
     }
 
-    parseQuestQuestions(content) {
+    parsePracticeQuestions(content, expectedCount) {
+        let text = content.trim();
+        // 去除可能的 markdown 代码块标记
+        text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+        // 尝试提取 JSON 数组
+        const startIdx = text.indexOf('[');
+        const endIdx = text.lastIndexOf(']');
+        if (startIdx === -1 || endIdx === -1) return [];
+        const jsonStr = text.substring(startIdx, endIdx + 1);
         try {
-            const jsonMatch = content.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) return [];
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (!Array.isArray(parsed)) return [];
-            return parsed.filter(q =>
-                q.question && Array.isArray(q.options) && typeof q.answer === 'number'
-            ).slice(0, this.questSession.level.totalQuestions);
-        } catch {
-            return [];
+            const arr = JSON.parse(jsonStr);
+            if (!Array.isArray(arr)) return [];
+            return arr.filter(q => q && q.type && q.question).slice(0, expectedCount);
+        } catch (e) {
+            // 尝试宽松解析：去除尾部逗号
+            try {
+                const cleaned = jsonStr.replace(/,\s*([\]}])/g, '$1');
+                const arr = JSON.parse(cleaned);
+                return Array.isArray(arr) ? arr.filter(q => q && q.type && q.question).slice(0, expectedCount) : [];
+            } catch (e2) {
+                return [];
+            }
         }
     }
 
-    getFallbackQuestions(level) {
-        return Array(level.totalQuestions).fill(0).map((_, i) => ({
-            question: `${level.knowledgePoints[i % level.knowledgePoints.length]}相关练习题 ${i + 1}：以下哪个描述是正确的？`,
-            options: [
-                '选项 A：符合知识点的正确描述',
-                '选项 B：错误的描述',
-                '选项 C：无关的描述',
-                '选项 D：部分正确但不完整的描述'
-            ],
-            answer: 0,
-            explanation: '正确答案为A。本题考察' + level.knowledgePoints[i % level.knowledgePoints.length] + '相关知识点。',
-            knowledge: level.knowledgePoints[i % level.knowledgePoints.length]
-        }));
-    }
+    renderCurrentQuestion() {
+        const session = this.practiceSession;
+        if (!session || !session.questions.length) return;
 
-    renderQuestQuestion() {
-        const session = this.questSession;
-        if (!session) return;
+        const q = session.questions[session.currentIndex];
+        const total = session.questions.length;
+        const idx = session.currentIndex + 1;
 
-        session.phase = 'answering';
+        document.getElementById('practiceFsLoading').style.display = 'none';
+        document.getElementById('practiceFsQuestion').style.display = 'flex';
+        document.getElementById('practiceFsResult').style.display = 'none';
+        document.getElementById('practiceFsFooter').style.display = 'flex';
 
-        const level = session.level;
-        const idx = session.currentIdx;
-        const q = session.questions[idx];
-        const bodyEl = document.getElementById('quizBody');
-        const progressText = document.getElementById('quizProgressText');
-        const progressFill = document.getElementById('quizProgressFill');
+        document.getElementById('practiceFsCurrentIndex').textContent = idx;
+        document.getElementById('practiceFsTotal').textContent = total;
+        document.getElementById('practiceFsCorrect').textContent = session.correctCount;
+        document.getElementById('practiceFsProgressFill').style.width = ((idx - 1) / total * 100) + '%';
 
-        if (progressText) progressText.textContent = `第 ${idx + 1} / ${level.totalQuestions} 题`;
-        if (progressFill) progressFill.style.width = `${((idx + 1) / level.totalQuestions) * 100}%`;
+        document.getElementById('practiceQType').textContent = this.getQuestionTypeLabel(q.type);
+        document.getElementById('practiceQPoints').textContent = q.points || '';
+        document.getElementById('practiceQTitle').textContent = q.question;
 
-        const themeClass = `quest-theme--${level.theme}`;
+        const optionsEl = document.getElementById('practiceQOptions');
+        const answerAreaEl = document.getElementById('practiceQAnswerArea');
+        optionsEl.innerHTML = '';
+        answerAreaEl.innerHTML = '';
 
-        bodyEl.innerHTML = `
-            <div class="quest-question ${themeClass}">
-                <div class="quest-question-meta">
-                    <span class="quest-question-tag"><i class="fas fa-tag"></i> ${q.knowledge || level.category}</span>
-                    <span class="quest-question-number">第 ${idx + 1} 题</span>
-                </div>
-                <div class="quest-question-text">${this.escapeHtml(q.question)}</div>
-                <div class="quest-question-options">
-                    ${q.options.map((opt, i) => `
-                        <label class="quest-option" data-idx="${i}">
-                            <input type="radio" name="questAnswer" value="${i}">
-                            <span class="quest-option-marker">${String.fromCharCode(65 + i)}</span>
-                            <span class="quest-option-text">${this.escapeHtml(opt)}</span>
-                        </label>
-                    `).join('')}
-                </div>
-                <div class="quest-feedback" id="questFeedback" style="display:none"></div>
-            </div>
-        `;
+        this.practiceCurrentAnswer = null;
 
-        bodyEl.querySelectorAll('.quest-option').forEach(opt => {
-            opt.addEventListener('click', () => {
-                bodyEl.querySelectorAll('.quest-option').forEach(o => o.classList.remove('is-selected'));
-                opt.classList.add('is-selected');
+        if (q.type === 'multiple_choice') {
+            optionsEl.style.display = 'block';
+            answerAreaEl.style.display = 'none';
+            (q.options || []).forEach((opt, i) => {
+                const letter = opt.match(/^([A-Z])[.、\)]?\s*/)?.[1] || String.fromCharCode(65 + i);
+                const text = opt.replace(/^[A-Z][.、\)]?\s*/, '');
+                const btn = document.createElement('button');
+                btn.className = 'practice-option';
+                btn.dataset.value = letter;
+                btn.innerHTML = `<span class="practice-option-letter">${letter}</span><span class="practice-option-text">${text}</span>`;
+                btn.addEventListener('click', () => {
+                    optionsEl.querySelectorAll('.practice-option').forEach(o => o.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    this.practiceCurrentAnswer = letter;
+                });
+                optionsEl.appendChild(btn);
             });
-        });
+        } else if (q.type === 'true_false') {
+            optionsEl.style.display = 'block';
+            answerAreaEl.style.display = 'none';
+            ['true', 'false'].forEach(val => {
+                const btn = document.createElement('button');
+                btn.className = 'practice-option tf';
+                btn.dataset.value = val;
+                btn.innerHTML = `<span class="practice-option-letter">${val === 'true' ? '✓' : '✗'}</span><span class="practice-option-text">${val === 'true' ? '正确' : '错误'}</span>`;
+                btn.addEventListener('click', () => {
+                    optionsEl.querySelectorAll('.practice-option').forEach(o => o.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    this.practiceCurrentAnswer = val;
+                });
+                optionsEl.appendChild(btn);
+            });
+        } else if (q.type === 'fill_blank') {
+            optionsEl.style.display = 'none';
+            answerAreaEl.style.display = 'block';
+            answerAreaEl.innerHTML = `
+                <label class="practice-answer-label">请填写答案：</label>
+                <input type="text" class="practice-fill-input" id="practiceFillInput"
+                       placeholder="请输入你的答案" autocomplete="off">
+            `;
+            const input = document.getElementById('practiceFillInput');
+            input.addEventListener('input', () => { this.practiceCurrentAnswer = input.value.trim(); });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); this.submitPracticeAnswer(); }
+            });
+            setTimeout(() => input.focus(), 100);
+        } else if (q.type === 'short_answer') {
+            optionsEl.style.display = 'none';
+            answerAreaEl.style.display = 'block';
+            answerAreaEl.innerHTML = `
+                <label class="practice-answer-label">请输入你的解答：</label>
+                <textarea class="practice-short-textarea" id="practiceShortInput"
+                          placeholder="请详细作答..." rows="6"></textarea>
+            `;
+            const ta = document.getElementById('practiceShortInput');
+            ta.addEventListener('input', () => { this.practiceCurrentAnswer = ta.value.trim(); });
+            setTimeout(() => ta.focus(), 100);
+        }
 
-        const submitBtn = document.getElementById('quizSubmitBtn');
-        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 提交答案';
-        submitBtn.disabled = false;
+        // 重置反馈区
+        const feedback = document.getElementById('practiceQFeedback');
+        feedback.style.display = 'none';
+        feedback.innerHTML = '';
+
+        // 重置按钮
+        document.getElementById('practiceSubmitBtn').style.display = 'inline-flex';
+        document.getElementById('practiceSubmitBtn').disabled = false;
+        document.getElementById('practiceSkipBtn').style.display = 'inline-flex';
+        document.getElementById('practiceNextQuestionBtn').style.display = 'none';
+
+        // 启动计时器
+        this.startPracticeTimer();
+
+        // 保存会话
+        this.savePracticeSession();
     }
 
-    escapeHtml(text) {
-        if (!text) return '';
-        return String(text).replace(/[&<>"']/g, c => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-        }[c]));
+    startPracticeTimer() {
+        this.stopPracticeTimer();
+        if (!this.practiceSession || this.practiceSession.timerSec <= 0) return;
+        this.practiceTimeLeft = this.practiceSession.timerSec;
+        this.updatePracticeTimerDisplay();
+        this.practiceTimerInterval = setInterval(() => {
+            this.practiceTimeLeft--;
+            this.updatePracticeTimerDisplay();
+            if (this.practiceTimeLeft <= 0) {
+                this.stopPracticeTimer();
+                this.showToast('时间到，自动提交');
+                this.submitPracticeAnswer(true);
+            }
+        }, 1000);
     }
 
-    submitQuestAnswer() {
-        const session = this.questSession;
+    stopPracticeTimer() {
+        if (this.practiceTimerInterval) {
+            clearInterval(this.practiceTimerInterval);
+            this.practiceTimerInterval = null;
+        }
+    }
+
+    updatePracticeTimerDisplay() {
+        const el = document.getElementById('practiceFsTimerText');
+        if (!el) return;
+        const m = Math.floor(this.practiceTimeLeft / 60).toString().padStart(2, '0');
+        const s = (this.practiceTimeLeft % 60).toString().padStart(2, '0');
+        el.textContent = `${m}:${s}`;
+        const wrap = document.getElementById('practiceFsTimer');
+        if (wrap) {
+            wrap.classList.toggle('warning', this.practiceTimeLeft <= 10);
+        }
+    }
+
+    async submitPracticeAnswer(timeout = false) {
+        const session = this.practiceSession;
         if (!session) return;
+        const q = session.questions[session.currentIndex];
+        this.stopPracticeTimer();
 
-        const submitBtn = document.getElementById('quizSubmitBtn');
-
-        if (session.phase === 'answered') {
-            if (session.currentIdx < session.questions.length - 1) {
-                session.currentIdx++;
-                session.phase = 'answering';
-                this.renderQuestQuestion();
-            } else {
-                this.finishQuest();
-            }
+        const userAnswer = timeout ? '' : (this.practiceCurrentAnswer || '');
+        if (!timeout && !userAnswer) {
+            this.showToast('请先选择或填写答案');
+            this.startPracticeTimer();
             return;
         }
 
-        const selected = document.querySelector('input[name="questAnswer"]:checked');
-        const feedbackEl = document.getElementById('questFeedback');
+        let isCorrect = false;
+        let aiEvaluation = null;
 
-        if (!selected) {
-            alert('请选择一个答案');
-            return;
+        // 客户端验证
+        if (q.type === 'multiple_choice') {
+            isCorrect = userAnswer.toUpperCase() === String(q.answer || '').toUpperCase().charAt(0);
+        } else if (q.type === 'true_false') {
+            isCorrect = userAnswer.toLowerCase() === String(q.answer || '').toLowerCase();
+        } else if (q.type === 'fill_blank') {
+            isCorrect = this.normalizeText(userAnswer) === this.normalizeText(q.answer);
+        } else if (q.type === 'short_answer') {
+            // 简答题调用 AI 评估
+            aiEvaluation = await this.evaluateShortAnswer(q, userAnswer);
+            isCorrect = aiEvaluation?.correct || false;
         }
 
-        const userAnswer = parseInt(selected.value);
-        const q = session.questions[session.currentIdx];
-        const isCorrect = userAnswer === q.answer;
-
-        session.answers.push({ userAnswer, correct: isCorrect });
         if (isCorrect) session.correctCount++;
-
-        document.querySelectorAll('.quest-option').forEach((opt, i) => {
-            opt.classList.add('is-disabled');
-            if (i === q.answer) opt.classList.add('is-correct');
-            if (i === userAnswer && !isCorrect) opt.classList.add('is-wrong');
+        session.answeredHistory.push({
+            questionId: session.currentIndex,
+            type: q.type,
+            userAnswer,
+            correctAnswer: q.answer,
+            isCorrect,
+            aiScore: aiEvaluation?.score
         });
 
-        feedbackEl.style.display = 'block';
-        feedbackEl.className = `quest-feedback ${isCorrect ? 'quest-feedback--correct' : 'quest-feedback--wrong'}`;
-        feedbackEl.innerHTML = `
-            <div class="quest-feedback-header">
-                <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
-                <span>${isCorrect ? '回答正确！' : '回答错误'}</span>
-            </div>
-            <div class="quest-feedback-body">
-                <strong>解析：</strong>${this.escapeHtml(q.explanation || '暂无解析')}
-            </div>
-        `;
-
-        if (isCorrect) {
-            this.playSound('correct');
-            this.playConfetti();
-        } else {
-            this.playSound('wrong');
-        }
-
-        session.phase = 'answered';
-        submitBtn.disabled = true;
-        setTimeout(() => {
-            submitBtn.disabled = false;
-            const isLast = session.currentIdx >= session.questions.length - 1;
-            submitBtn.innerHTML = isLast
-                ? '<i class="fas fa-flag-checkered"></i> 查看结果'
-                : '<i class="fas fa-arrow-right"></i> 下一题';
-        }, 1200);
+        this.showPracticeFeedback(isCorrect, q, userAnswer, aiEvaluation);
+        this.savePracticeSession();
     }
 
-    playSound(type) {
-        try {
-            if (!this.questAudioCtx) {
-                this.questAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            const ctx = this.questAudioCtx;
-            const now = ctx.currentTime;
+    normalizeText(s) {
+        return String(s || '').trim().toLowerCase().replace(/\s+/g, '').replace(/[，。、；：！？""''（）()]/g, '');
+    }
 
-            if (type === 'correct') {
-                [523.25, 659.25, 783.99].forEach((freq, i) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.value = freq;
-                    gain.gain.setValueAtTime(0, now + i * 0.1);
-                    gain.gain.linearRampToValueAtTime(0.2, now + i * 0.1 + 0.02);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(now + i * 0.1);
-                    osc.stop(now + i * 0.1 + 0.3);
-                });
-            } else if (type === 'wrong') {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, now);
-                osc.frequency.exponentialRampToValueAtTime(80, now + 0.3);
-                gain.gain.setValueAtTime(0.15, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.3);
-            } else if (type === 'win') {
-                [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.value = freq;
-                    gain.gain.setValueAtTime(0, now + i * 0.12);
-                    gain.gain.linearRampToValueAtTime(0.25, now + i * 0.12 + 0.02);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(now + i * 0.12);
-                    osc.stop(now + i * 0.12 + 0.4);
-                });
+    async evaluateShortAnswer(question, userAnswer) {
+        const prompt = `请评估以下简答题作答是否正确。
+
+题目：${question.question}
+参考答案要点：${question.answer}
+考察知识点：${question.points || ''}
+学生作答：${userAnswer}
+
+请严格返回 JSON：{"correct": true/false, "score": 0-100, "comment": "点评"}
+判断标准：核心要点覆盖即可判正确，不要求字面一致。只返回 JSON，不要任何额外文字。`;
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.authToken ? `Bearer ${this.authToken}` : ''
+                },
+                body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+            });
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content || data.content || '';
+            const match = content.match(/\{[\s\S]*\}/);
+            if (match) {
+                return JSON.parse(match[0]);
             }
         } catch (e) {
-            console.warn('音效播放失败', e);
+            console.error('简答题评估失败:', e);
         }
+        return { correct: false, score: 0, comment: '评估失败' };
     }
 
-    playConfetti() {
-        const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#ff9ff3'];
-        const container = document.createElement('div');
-        container.className = 'quest-confetti-container';
-        document.body.appendChild(container);
+    showPracticeFeedback(isCorrect, question, userAnswer, aiEvaluation) {
+        const feedback = document.getElementById('practiceQFeedback');
+        feedback.style.display = 'block';
+        feedback.className = 'practice-q-feedback ' + (isCorrect ? 'correct' : 'wrong');
 
-        for (let i = 0; i < 30; i++) {
-            const piece = document.createElement('div');
-            piece.className = 'quest-confetti-piece';
-            piece.style.left = Math.random() * 100 + '%';
-            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-            piece.style.animationDelay = Math.random() * 0.3 + 's';
-            piece.style.animationDuration = (1 + Math.random()) + 's';
-            piece.style.transform = `rotate(${Math.random() * 360}deg)`;
-            container.appendChild(piece);
-        }
-
-        setTimeout(() => container.remove(), 2500);
-    }
-
-    finishQuest() {
-        const session = this.questSession;
-        if (!session) return;
-
-        this.stopQuestTimer();
-        session.endTime = Date.now();
-        const totalTime = Math.floor((session.endTime - session.startTime) / 1000);
-        const total = session.questions.length;
-        const correct = session.correctCount;
-        const accuracy = Math.round((correct / total) * 100);
-        const level = session.level;
-        const passed = accuracy >= level.passThreshold;
-
-        let stars = 0;
-        if (passed) {
-            stars = 1;
-            if (accuracy === 100) stars = 3;
-            else if (accuracy >= 90) stars = 2;
-        }
-
-        const score = passed ? Math.round(accuracy * 100 + Math.max(0, 300 - totalTime) * 2 + stars * 50) : Math.round(accuracy * 30);
-
-        if (passed) {
-            this.questState.cleared[level.id] = true;
-            const prevStars = this.questState.stars[level.id] || 0;
-            this.questState.stars[level.id] = Math.max(prevStars, stars);
-            const prevScore = this.questState.bestScore[level.id] || 0;
-            this.questState.bestScore[level.id] = Math.max(prevScore, score);
-            const prevTime = this.questState.bestTime[level.id];
-            if (!prevTime || totalTime < prevTime) {
-                this.questState.bestTime[level.id] = totalTime;
-            }
-
-            this.questState.leaderboard = this.questState.leaderboard || [];
-            this.questState.leaderboard.push({
-                levelId: level.id,
-                levelName: level.name,
-                score,
-                stars,
-                time: totalTime,
-                accuracy,
-                date: new Date().toISOString()
-            });
-            this.questState.leaderboard.sort((a, b) => b.score - a.score);
-            this.questState.leaderboard = this.questState.leaderboard.slice(0, 50);
-
-            this.saveQuestState();
-            this.playSound('win');
-            this.playConfetti();
-        }
-
-        document.getElementById('questQuizView').style.display = 'none';
-        document.getElementById('questResultView').style.display = 'block';
-
-        const card = document.getElementById('questResultCard');
-        card.style.background = passed ? level.gradient : 'linear-gradient(135deg, #636e72 0%, #2d3436 100%)';
-        card.innerHTML = `
-            <div class="quest-result-icon">
-                <i class="fas ${passed ? 'fa-trophy' : 'fa-redo'}"></i>
+        const correctLabel = isCorrect ? '回答正确' : '回答错误';
+        let html = `
+            <div class="practice-feedback-header">
+                <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+                <span>${correctLabel}</span>
             </div>
-            <h3>${passed ? '闯关成功！' : '闯关失败'}</h3>
-            <div class="quest-result-stars">
-                ${Array(3).fill(0).map((_, i) => `<i class="fas fa-star ${i < stars ? 'star--active' : ''}"></i>`).join('')}
-            </div>
-            <div class="quest-result-stats">
-                <div class="quest-result-stat">
-                    <div class="quest-result-stat-value">${correct}/${total}</div>
-                    <div class="quest-result-stat-label">答对题数</div>
-                </div>
-                <div class="quest-result-stat">
-                    <div class="quest-result-stat-value">${accuracy}%</div>
-                    <div class="quest-result-stat-label">正确率</div>
-                </div>
-                <div class="quest-result-stat">
-                    <div class="quest-result-stat-value">${this.formatTime(totalTime)}</div>
-                    <div class="quest-result-stat-label">用时</div>
-                </div>
-                <div class="quest-result-stat">
-                    <div class="quest-result-stat-value">${score}</div>
-                    <div class="quest-result-stat-label">得分</div>
-                </div>
-            </div>
-            ${passed && level.id < this.questLevels.length ? `
-                <div class="quest-result-unlock">
-                    <i class="fas fa-unlock"></i>
-                    已解锁第 ${level.id + 1} 关：${this.questLevels[level.id].name}
-                </div>
-            ` : ''}
-            <div class="quest-result-actions">
-                <button class="quest-btn quest-btn--secondary" id="resultRetryBtn">
-                    <i class="fas fa-redo"></i> 再次挑战
-                </button>
-                <button class="quest-btn quest-btn--primary" id="resultBackBtn">
-                    <i class="fas fa-arrow-left"></i> 返回关卡
-                </button>
+            <div class="practice-feedback-row">
+                <span class="practice-feedback-label">你的答案：</span>
+                <span class="practice-feedback-value">${userAnswer || '（未作答）'}</span>
             </div>
         `;
+        if (!isCorrect) {
+            html += `
+                <div class="practice-feedback-row">
+                    <span class="practice-feedback-label">正确答案：</span>
+                    <span class="practice-feedback-value correct">${question.answer}</span>
+                </div>
+            `;
+        }
+        if (aiEvaluation) {
+            html += `
+                <div class="practice-feedback-row">
+                    <span class="practice-feedback-label">AI 评分：</span>
+                    <span class="practice-feedback-value">${aiEvaluation.score}</span>
+                </div>
+                <div class="practice-feedback-row">
+                    <span class="practice-feedback-label">AI 点评：</span>
+                    <span class="practice-feedback-value">${aiEvaluation.comment || ''}</span>
+                </div>
+            `;
+        }
+        html += `
+            <div class="practice-feedback-row">
+                <span class="practice-feedback-label">考察点：</span>
+                <span class="practice-feedback-value">${question.points || ''}</span>
+            </div>
+            <div class="practice-feedback-explanation">
+                <i class="fas fa-lightbulb"></i>
+                <div>${question.explanation || '暂无解析'}</div>
+            </div>
+        `;
+        feedback.innerHTML = html;
 
-        document.getElementById('resultRetryBtn').addEventListener('click', () => this.startQuest(level.id));
-        document.getElementById('resultBackBtn').addEventListener('click', () => this.showQuestMap());
+        // 高亮选项
+        if (question.type === 'multiple_choice' || question.type === 'true_false') {
+            const options = document.querySelectorAll('.practice-option');
+            const correctVal = question.type === 'multiple_choice'
+                ? String(question.answer || '').toUpperCase().charAt(0)
+                : String(question.answer || '').toLowerCase();
+            options.forEach(opt => {
+                opt.disabled = true;
+                if (opt.dataset.value === correctVal) {
+                    opt.classList.add('correct');
+                } else if (opt.classList.contains('selected')) {
+                    opt.classList.add('wrong');
+                }
+            });
+        }
 
-        this.questSession = null;
+        // 切换按钮
+        document.getElementById('practiceSubmitBtn').style.display = 'none';
+        document.getElementById('practiceSkipBtn').style.display = 'none';
+        document.getElementById('practiceNextQuestionBtn').style.display = 'inline-flex';
     }
 
-    quitQuest() {
-        if (!confirm('确定要退出本次闯关吗？进度将不会保存。')) return;
-        this.stopQuestTimer();
-        this.questSession = null;
-        this.showQuestMap();
+    skipPracticeQuestion() {
+        const session = this.practiceSession;
+        if (!session) return;
+        this.stopPracticeTimer();
+        const q = session.questions[session.currentIndex];
+        session.answeredHistory.push({
+            questionId: session.currentIndex,
+            type: q.type,
+            userAnswer: '',
+            correctAnswer: q.answer,
+            isCorrect: false,
+            skipped: true
+        });
+        this.showPracticeFeedback(false, q, '', null);
+    }
+
+    nextPracticeQuestion() {
+        const session = this.practiceSession;
+        if (!session) return;
+        session.currentIndex++;
+        if (session.currentIndex >= session.questions.length) {
+            this.finishChallenge();
+        } else {
+            this.renderCurrentQuestion();
+        }
+    }
+
+    finishChallenge() {
+        this.stopPracticeTimer();
+        const session = this.practiceSession;
+        const total = session.questions.length;
+        const correct = session.correctCount;
+        const accuracy = total > 0 ? Math.round(correct / total * 100) : 0;
+        const level = session.level;
+
+        // 计算星数：>=threshold 3星；>=threshold-10 2星；>=threshold-20 1星；否则 0
+        let stars = 0;
+        if (accuracy >= level.threshold) stars = 3;
+        else if (accuracy >= level.threshold - 10) stars = 2;
+        else if (accuracy >= level.threshold - 20) stars = 1;
+
+        // 更新关卡状态
+        const levelState = this.practiceData.levels.find(l => l.id === level.id);
+        if (levelState) {
+            levelState.attempts = (levelState.attempts || 0) + 1;
+            levelState.bestAccuracy = Math.max(levelState.bestAccuracy || 0, accuracy);
+            levelState.stars = Math.max(levelState.stars || 0, stars);
+            levelState.completedQuestions = (levelState.completedQuestions || 0) + total;
+            this.practiceData.totalCompleted = (this.practiceData.totalCompleted || 0) + total;
+            this.practiceData.totalStars = this.practiceData.levels.reduce((s, l) => s + (l.stars || 0), 0);
+
+            // 解锁下一关
+            let unlockedNext = false;
+            if (accuracy >= level.threshold && level.id < 5) {
+                const next = this.practiceData.levels.find(l => l.id === level.id + 1);
+                if (next && !next.unlocked) {
+                    next.unlocked = true;
+                    unlockedNext = true;
+                }
+            }
+            this.savePracticeData();
+            this.clearPracticeSession();
+
+            // 显示结果页
+            document.getElementById('practiceFsLoading').style.display = 'none';
+            document.getElementById('practiceFsQuestion').style.display = 'none';
+            document.getElementById('practiceFsResult').style.display = 'flex';
+            document.getElementById('practiceFsFooter').style.display = 'none';
+            document.getElementById('practiceFsProgressFill').style.width = '100%';
+
+            document.getElementById('practiceResultCorrect').textContent = `${correct}/${total}`;
+            document.getElementById('practiceResultAccuracy').textContent = accuracy + '%';
+            document.getElementById('practiceResultStars').textContent = stars;
+
+            const passed = accuracy >= level.threshold;
+            document.getElementById('practiceResultTitle').textContent = passed ? '🎉 通关成功' : '挑战未通过';
+            const iconEl = document.getElementById('practiceResultIcon');
+            iconEl.innerHTML = `<i class="fas ${passed ? 'fa-trophy' : 'fa-redo'}"></i>`;
+            iconEl.className = 'practice-result-icon ' + (passed ? 'passed' : 'failed');
+
+            const unlockEl = document.getElementById('practiceResultUnlock');
+            if (unlockedNext) {
+                const nextLevel = this.getPRACTICE_LEVELS().find(l => l.id === level.id + 1);
+                unlockEl.style.display = 'flex';
+                document.getElementById('practiceResultUnlockText').textContent = `已解锁第 ${nextLevel.id} 关 · ${nextLevel.name}`;
+            } else {
+                unlockEl.style.display = 'none';
+            }
+
+            // 下一关按钮显示控制
+            const nextBtn = document.getElementById('practiceNextBtn');
+            const nextLevelState = this.practiceData.levels.find(l => l.id === level.id + 1);
+            if (passed && nextLevelState && nextLevelState.unlocked) {
+                nextBtn.style.display = 'inline-flex';
+            } else {
+                nextBtn.style.display = 'none';
+            }
+        }
+    }
+
+    savePracticeSession() {
+        if (this.practiceSession) {
+            localStorage.setItem('practice_session_save', JSON.stringify(this.practiceSession));
+        }
+    }
+
+    clearPracticeSession() {
+        localStorage.removeItem('practice_session_save');
+        this.checkPracticeResume();
+    }
+
+    exitChallenge() {
+        if (!confirm('退出挑战将保存当前进度，可稍后继续。确认退出？')) return;
+        this.stopPracticeTimer();
+        this.savePracticeSession();
+        this.closeFullscreenPractice();
+    }
+
+    closeFullscreenPractice() {
+        const fs = document.getElementById('practiceFullscreen');
+        if (fs) fs.style.display = 'none';
+        document.body.style.overflow = '';
+        this.stopPracticeTimer();
+        this.renderPracticeLobby();
+        this.checkPracticeResume();
+    }
+
+    retryChallenge() {
+        this.clearPracticeSession();
+        this.startChallenge();
+    }
+
+    goNextLevel() {
+        const currentLevel = this.practiceSession?.levelId || this.practiceSelectedLevel;
+        this.practiceSelectedLevel = currentLevel + 1;
+        this.clearPracticeSession();
+        this.startChallenge();
+    }
+
+    backToLobby() {
+        this.clearPracticeSession();
+        this.closeFullscreenPractice();
+    }
+
+    showToast(message) {
+        let toast = document.getElementById('practiceToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'practiceToast';
+            toast.className = 'practice-toast';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(this._practiceToastTimer);
+        this._practiceToastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
     }
 
     switchLearningTab(tab) {
