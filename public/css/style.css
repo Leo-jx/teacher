@@ -2763,6 +2763,39 @@ button, a, input, select, textarea {
     margin-bottom: 8px;
 }
 
+.mindmap-presets {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.presets-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.preset-chip {
+    padding: 4px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.preset-chip:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
 .mindmap-textarea {
     width: 100%;
     min-height: 120px;
