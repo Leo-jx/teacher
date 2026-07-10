@@ -8,6 +8,7 @@ const DEFAULT_CONFIG = {
     IMAGE_API_PATH: '/v2.1/tti',
     IMAGE_MODEL_ID: 'xopqwentti20b',
     IMAGE_APP_ID: 'f3f40af8',
+    IMAGE_PATCH_ID: '0',
     IMAGE_API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
     IMAGE_API_SECRET: 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw'
 };
@@ -436,6 +437,7 @@ async function handleGenerateImage(request, env) {
         const IMAGE_API_PATH = getConfigValue(env, 'IMAGE_API_PATH');
         const IMAGE_MODEL_ID = getConfigValue(env, 'IMAGE_MODEL_ID');
         const IMAGE_APP_ID = getConfigValue(env, 'IMAGE_APP_ID');
+        const IMAGE_PATCH_ID = getConfigValue(env, 'IMAGE_PATCH_ID');
         const IMAGE_API_KEY = getConfigValue(env, 'IMAGE_API_KEY');
         const IMAGE_API_SECRET = getConfigValue(env, 'IMAGE_API_SECRET');
 
@@ -459,10 +461,16 @@ async function handleGenerateImage(request, env) {
 
         const truncatedPrompt = prompt.substring(0, 1024);
 
+        const requestHeader = {
+            app_id: IMAGE_APP_ID
+        };
+
+        if (IMAGE_PATCH_ID && IMAGE_PATCH_ID !== 'undefined' && IMAGE_PATCH_ID !== '') {
+            requestHeader.patch_id = [IMAGE_PATCH_ID];
+        }
+
         const requestBody = {
-            header: {
-                app_id: IMAGE_APP_ID
-            },
+            header: requestHeader,
             parameter: {
                 chat: {
                     domain: IMAGE_MODEL_ID,
@@ -541,7 +549,8 @@ async function handleConfigRequest(env) {
             database: { available: !!env.DB },
             imageGeneration: {
                 available: !!(getConfigValue(env, 'IMAGE_API_KEY') && getConfigValue(env, 'IMAGE_API_SECRET') && getConfigValue(env, 'IMAGE_MODEL_ID') && getConfigValue(env, 'IMAGE_APP_ID') && getConfigValue(env, 'IMAGE_API_HOST') && getConfigValue(env, 'IMAGE_API_PATH')),
-                endpoint: `https://${getConfigValue(env, 'IMAGE_API_HOST')}${getConfigValue(env, 'IMAGE_API_PATH')}`
+                endpoint: `https://${getConfigValue(env, 'IMAGE_API_HOST')}${getConfigValue(env, 'IMAGE_API_PATH')}`,
+                patchId: getConfigValue(env, 'IMAGE_PATCH_ID') || null
             }
         }
     }), { headers: corsHeaders });
