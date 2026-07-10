@@ -340,51 +340,6 @@ class DevAssistant {
         document.getElementById('viewMindmapCodeBtn')?.addEventListener('click', () => this.toggleMindmapCode());
         document.getElementById('exportMindmapCodeBtn')?.addEventListener('click', () => this.exportMindmapCode());
         document.getElementById('copyMindmapCodeBtn')?.addEventListener('click', () => this.copyMindmapCode());
-
-        document.querySelectorAll('.preset-chip').forEach(chip => {
-            chip.addEventListener('click', (e) => this.loadMindmapPreset(e.currentTarget.dataset.preset));
-        });
-    }
-
-    loadMindmapPreset(preset) {
-        const textarea = document.getElementById('mindmapTextInput');
-        if (!textarea) return;
-
-        const presets = {
-            mysql: `MySQL系统化学习（下半部分）
-
-一级分支：学习模块清单
-子项：将12个学习模块拆分规划
-子项：第一阶段：基石入门模块
-子项：第二阶段：内功进阶模块
-子项：第三阶段：架构拔高模块
-子项：学习建议：禁止跨阶段跳跃学习
-
-一级分支：配套参考书籍
-子项：选书原则：由浅入深搭建知识体系
-子项：《MySQL技术内幕》：内功必读书籍，新手建议先阅读前两章
-子项：《高性能MySQL》：性能调优与架构设计经典工具书`,
-            java: `Java全栈开发学习路径
-
-一级分支：基础阶段
-子项：Java基础语法与面向对象
-子项：集合框架与泛型
-子项：异常处理与IO流
-子项：多线程编程与并发
-
-一级分支：进阶阶段
-子项：JVM原理与内存模型
-子项：设计模式与重构技巧
-子项：Spring框架核心原理
-子项：Spring Boot自动配置机制`
-        };
-
-        if (preset === 'clear') {
-            textarea.value = '';
-        } else if (presets[preset]) {
-            textarea.value = presets[preset];
-            setTimeout(() => this.generateMindmap(), 100);
-        }
     }
 
     autoResizeTextarea() {
@@ -1230,42 +1185,6 @@ class DevAssistant {
 
         if (paragraphs.length === 0) return root;
 
-        const hasStructuredMarkers = text.includes('一级分支') || text.includes('子项') || text.includes('二级分支');
-        if (hasStructuredMarkers) {
-            const lines = text.split(/\n+/).map(l => l.trim()).filter(l => l.length > 0);
-            root.title = lines[0] || '核心主题';
-
-            let currentBranch = null;
-            const seenBranchTitles = new Set();
-            const seenSubTitles = new Set();
-
-            lines.slice(1).forEach(line => {
-                const branchMatch = line.match(/^(?:一级分支|分支|主分支)[：:]\s*(.+)$/);
-                const subMatch = line.match(/^(?:子项|二级分支|子节点|要点)[：:]\s*(.+)$/);
-
-                if (branchMatch) {
-                    if (root.children.length >= MAX_BRANCHES) return;
-                    const title = branchMatch[1].trim();
-                    if (!title || seenBranchTitles.has(title)) return;
-                    seenBranchTitles.add(title);
-                    currentBranch = { title, children: [] };
-                    root.children.push(currentBranch);
-                } else if (subMatch && currentBranch) {
-                    if (currentBranch.children.length >= MAX_SUB_NODES) return;
-                    const title = subMatch[1].trim();
-                    if (!title || seenSubTitles.has(title)) return;
-                    seenSubTitles.add(title);
-                    currentBranch.children.push({ title, children: [] });
-                }
-            });
-
-            root.children = root.children.filter(b => b.children.length > 0);
-
-            if (root.children.length > 0) {
-                return root;
-            }
-        }
-
         const firstLineKeywords = extractKeywords(paragraphs[0]);
         root.title = firstLineKeywords.slice(0, 3).join('') || paragraphs[0];
 
@@ -1310,74 +1229,53 @@ class DevAssistant {
 
     renderMindmapSVG(data) {
         const palette = ['#6c5ce7', '#00cec9', '#fdcb6e', '#ff7675', '#a29bfe', '#55efc4'];
-        const depthColors = ['#6c5ce7', '#2d3436', '#4a4a4a'];
+        const levelHeight = 60;
+        const nodeHeight = 36;
         const charWidth = 14;
-        const nodePadding = 20;
-        const lineHeight = 22;
-        const vGap = 24;
-        const hGap = 50;
-        const padding = 40;
+        const nodePadding = 24;
+        const hGap = 40;
+        const vGap = 40;
         const escapeXml = (s) => (s || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
 
-        const maxCharsPerLine = 30;
-        const wrapText = (text) => {
-            const chars = (text || '').split('');
-            const lines = [];
-            let current = '';
-            for (let i = 0; i < chars.length; i++) {
-                current += chars[i];
-                if (current.length >= maxCharsPerLine && i < chars.length - 1) {
-                    lines.push(current);
-                    current = '';
-                }
-            }
-            if (current) lines.push(current);
-            return lines.length > 0 ? lines : [text || ''];
-        };
-
         const getNodeWidth = (title) => {
-            const lines = wrapText(title);
-            const maxLen = Math.max(...lines.map(l => l.length));
-            return maxLen * charWidth + nodePadding;
+            const len = (title || '').length;
+            return Math.max(80, len * charWidth + nodePadding);
         };
 
-        const getNodeHeight = (title) => {
-            const lines = wrapText(title);
-            return Math.max(44, lines.length * lineHeight + 16);
+        const getDepth1Width = () => getNodeWidth(data.title || '核心主题');
+        const getDepth2Width = () => {
+            if (!data.children || data.children.length === 0) return 80;
+            return Math.max(...data.children.map(c => getNodeWidth(c.title)));
         };
-
-        const depth1Width = getNodeWidth(data.title || '核心主题');
-        const depth2Widths = data.children ? data.children.slice(0, 5).map(c => getNodeWidth(c.title)) : [];
-        const maxDepth2Width = depth2Widths.length > 0 ? Math.max(...depth2Widths) : 150;
-        const depth3Widths = [];
-        if (data.children) {
-            data.children.slice(0, 5).forEach(b => {
-                if (b.children) {
-                    b.children.slice(0, 5).forEach(c => {
-                        depth3Widths.push(getNodeWidth(c.title));
-                    });
+        const getDepth3Width = () => {
+            if (!data.children || data.children.length === 0) return 80;
+            let max = 80;
+            data.children.forEach(b => {
+                if (b.children && b.children.length > 0) {
+                    max = Math.max(max, ...b.children.map(c => getNodeWidth(c.title)));
                 }
             });
-        }
-        const maxDepth3Width = depth3Widths.length > 0 ? Math.max(...depth3Widths) : 150;
+            return max;
+        };
+
+        const depth1Width = getDepth1Width();
+        const depth2Width = getDepth2Width();
+        const depth3Width = getDepth3Width();
 
         const hasDepth3 = data.children && data.children.some(b => b.children && b.children.length > 0);
         const maxDepth = hasDepth3 ? 2 : 1;
 
+        const countLeaves = (node, depth = 0) => {
+            if (depth >= maxDepth || !node.children || node.children.length === 0) return 1;
+            return node.children.slice(0, 5).reduce((sum, c) => sum + countLeaves(c, depth + 1), 0);
+        };
+
+        const totalLeaves = countLeaves(data);
         const getNodeWidthAtDepth = (depth) => {
             if (depth === 0) return depth1Width;
-            if (depth === 1) return maxDepth2Width;
-            return maxDepth3Width;
+            if (depth === 1) return depth2Width;
+            return depth3Width;
         };
-
-        const countChildren = (node, depth) => {
-            if (depth >= maxDepth || !node.children || node.children.length === 0) return 1;
-            return node.children.slice(0, 5).reduce((sum, c) => sum + countChildren(c, depth + 1), 0);
-        };
-
-        const totalNodes = countChildren(data, 0);
-        const nodeHeight = 56;
-        const totalHeight = padding * 2 + totalNodes * (nodeHeight + vGap);
 
         const computeXPositions = () => {
             const positions = [0];
@@ -1391,53 +1289,48 @@ class DevAssistant {
         };
         const xPositions = computeXPositions();
         const totalWidth = xPositions[xPositions.length - 1];
+        const padding = 30;
         const width = padding * 2 + totalWidth;
+        const height = padding * 2 + totalLeaves * levelHeight + vGap;
 
-        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}" class="mindmap-svg">`;
-        svg += `<rect width="${width}" height="${totalHeight}" fill="#000000"/>`;
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" class="mindmap-svg">`;
+        svg += `<rect width="${width}" height="${height}" fill="#0f0f1a"/>`;
 
-        const layoutNode = (node, depth, yStart) => {
-            if (depth > maxDepth) return yStart;
+        const layoutNode = (node, depth, yCenter, color) => {
+            if (depth > maxDepth) return;
             const x = padding + xPositions[depth];
             const nodeWidth = getNodeWidthAtDepth(depth);
-            const nodeHeight = getNodeHeight(node.title);
+            const leaves = countLeaves(node, depth);
+            const nodeY = yCenter;
 
-            let nextY;
             if (depth < maxDepth && node.children && node.children.length > 0) {
-                const childCount = node.children.slice(0, 5).length;
-                const subtreeHeight = childCount * (nodeHeight + vGap);
-                nextY = yStart + subtreeHeight;
-
+                let currentY = yCenter - (leaves * levelHeight) / 2 + levelHeight / 2;
                 node.children.slice(0, 5).forEach((child, i) => {
-                    const childY = yStart + i * (nodeHeight + vGap);
+                    const childLeaves = countLeaves(child, depth + 1);
+                    const childYCenter = currentY + (childLeaves * levelHeight) / 2;
+                    const childColor = depth === 0 ? palette[i % palette.length] : color;
                     const childX = padding + xPositions[depth + 1];
-                    const childNodeHeight = getNodeHeight(child.title);
+                    const childNodeWidth = getNodeWidthAtDepth(depth + 1);
 
-                    svg += `<path d="M ${x + nodeWidth} ${yStart + subtreeHeight / 2} C ${(x + nodeWidth + childX) / 2} ${yStart + subtreeHeight / 2}, ${(x + nodeWidth + childX) / 2} ${childY + childNodeHeight / 2}, ${childX} ${childY + childNodeHeight / 2}" stroke="${palette[i % palette.length]}" stroke-width="2" fill="none" opacity="0.8"/>`;
+                    svg += `<path d="M ${x + nodeWidth} ${nodeY + nodeHeight / 2} C ${(x + nodeWidth + childX) / 2} ${nodeY + nodeHeight / 2}, ${(x + nodeWidth + childX) / 2} ${childYCenter + nodeHeight / 2}, ${childX} ${childYCenter + nodeHeight / 2}" stroke="${childColor}" stroke-width="1.8" fill="none" opacity="0.7"/>`;
 
-                    layoutNode(child, depth + 1, childY);
+                    layoutNode(child, depth + 1, childYCenter, childColor);
+                    currentY += childLeaves * levelHeight;
                 });
-            } else {
-                nextY = yStart + nodeHeight + vGap;
             }
 
-            const fillColor = depthColors[depth];
+            const fillColor = depth === 0 ? '#6c5ce7' : color;
             const textColor = '#ffffff';
             const fontSize = depth === 0 ? 15 : (depth === 1 ? 13 : 12);
             const fontWeight = depth <= 1 ? 600 : 400;
-            const lines = wrapText(node.title);
-            const escapedLines = lines.map(l => escapeXml(l));
+            const title = escapeXml(node.title || '');
 
-            svg += `<rect x="${x}" y="${yStart}" width="${nodeWidth}" height="${nodeHeight}" rx="8" fill="${fillColor}" opacity="1"/>`;
-            const textStartY = yStart + nodeHeight / 2 - (lines.length - 1) * lineHeight / 2 + 5;
-            escapedLines.forEach((line, idx) => {
-                svg += `<text x="${x + nodeWidth / 2}" y="${textStartY + idx * lineHeight}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="${fontWeight}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${line}</text>`;
-            });
-
-            return nextY;
+            svg += `<rect x="${x}" y="${nodeY}" width="${nodeWidth}" height="${nodeHeight}" rx="6" fill="${fillColor}" opacity="${depth === 0 ? 1 : 0.88}"/>`;
+            svg += `<text x="${x + nodeWidth / 2}" y="${nodeY + nodeHeight / 2 + 5}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="${fontWeight}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${title}</text>`;
         };
 
-        layoutNode(data, 0, padding);
+        const rootYCenter = height / 2 - nodeHeight / 2;
+        layoutNode(data, 0, rootYCenter, palette[0]);
 
         svg += '</svg>';
         return svg;
@@ -1721,34 +1614,20 @@ class DevAssistant {
 
         const prompt = `我正在学习【${pathData.name}】学习路径，当前处于${levelNames[level]}。
 
-请严格按照以下结构化格式输出学习计划（用于自动生成思维导图），每个一级分支最多5个子项，每个子项用完整短语表达，不要使用Markdown符号：
+请为我制定详细的学习计划，包括：
 
-${pathData.name}学习计划（${levelNames[level]}）
+1. **学习目标**：明确本阶段需要掌握的核心技能
+2. **学习模块**：列出需要学习的模块清单
+3. **学习资源推荐**：
+${pathData.resources.map(r => `   - ${r}`).join('\n')}
+4. **学习建议**：针对${levelNames[level]}的学习方法和注意事项
+5. **实践项目**：推荐适合当前水平的练习项目
+6. **时间规划**：建议的学习时间安排
 
-一级分支：学习目标
-子项：${pathData.modules.slice(0, 1)[0] || '基础入门'}
-子项：核心概念理解
-子项：动手实践能力
-子项：项目实战经验
+学习路径包含以下模块：
+${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 
-一级分支：学习模块
-${pathData.modules.slice(0, 5).map(m => `子项：${m}`).join('\n')}
-
-一级分支：学习资源
-${pathData.resources.slice(0, 5).map(r => `子项：${r}`).join('\n')}
-
-一级分支：学习建议
-子项：循序渐进，禁止跳跃学习
-子项：理论与实战结合
-子项：每日定时复习巩固
-子项：参与社区交流讨论
-
-一级分支：实践项目
-子项：基础练习项目巩固语法
-子项：综合项目锻炼架构能力
-子项：开源项目贡献提升能力
-
-请基于以上模板，结合${levelNames[level]}的特点，给出具体且完整的学习指导。每个子项必须是完整短语，不要省略关键信息。`;
+请给出详细的学习指导。`;
 
         this.userInput.value = prompt;
         this.pendingLearningPathMindmap = true;
@@ -1758,11 +1637,6 @@ ${pathData.resources.slice(0, 5).map(r => `子项：${r}`).join('\n')}
     }
 
     parseLearningPathText(text) {
-        const hasStructuredMarkers = text.includes('一级分支') || text.includes('子项') || text.includes('二级分支');
-        if (hasStructuredMarkers) {
-            return this.analyzeMindmapText(text);
-        }
-
         const MAX_BRANCHES = 5;
         const MAX_SUB_NODES = 5;
 

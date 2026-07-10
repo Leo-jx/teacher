@@ -2763,39 +2763,6 @@ button, a, input, select, textarea {
     margin-bottom: 8px;
 }
 
-.mindmap-presets {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-}
-
-.presets-label {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.preset-chip {
-    padding: 4px 10px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    color: var(--text-primary);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition);
-    white-space: nowrap;
-}
-
-.preset-chip:hover {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-}
-
 .mindmap-textarea {
     width: 100%;
     min-height: 120px;
@@ -2890,16 +2857,16 @@ button, a, input, select, textarea {
 
 .mindmap-preview-canvas {
     padding: 16px;
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 420px;
-    background: #000000;
+    overflow: auto;
+    max-height: 380px;
+    display: flex;
+    justify-content: center;
+    background: #0f0f1a;
 }
 
 .mindmap-svg {
-    display: block;
-    max-width: none;
-    max-height: none;
+    max-width: 100%;
+    height: auto;
 }
 
 .mindmap-code-section {
@@ -2986,10 +2953,11 @@ button, a, input, select, textarea {
 
 .mindmap-canvas-wrapper {
     padding: 16px;
-    overflow-x: auto;
-    overflow-y: auto;
+    overflow: auto;
     max-height: 420px;
-    background: #000000;
+    display: flex;
+    justify-content: center;
+    background: #0f0f1a;
 }
 
 .mindmap-actions-bar {
