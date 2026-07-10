@@ -1309,28 +1309,18 @@ class DevAssistant {
     }
 
     renderMindmapSVG(data) {
-        const BG_COLOR = '#000000';
-        const LEVEL_COLORS = {
-            0: '#6c5ce7',
-            1: '#00cec9',
-            2: '#fdcb6e'
-        };
-        const TEXT_COLOR = '#ffffff';
-        const LINE_COLOR = '#888888';
-
+        const palette = ['#6c5ce7', '#00cec9', '#fdcb6e', '#ff7675', '#a29bfe', '#55efc4'];
+        const depthColors = ['#6c5ce7', '#2d3436', '#4a4a4a'];
         const charWidth = 14;
-        const nodeHPadding = 24;
-        const nodeVPadding = 12;
-        const lineHeight = 20;
-        const nodeVSpacing = 14;
+        const nodePadding = 20;
+        const lineHeight = 22;
+        const vGap = 24;
         const hGap = 50;
-        const vGap = 40;
-        const padding = 30;
-
+        const padding = 40;
         const escapeXml = (s) => (s || '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
 
-        const wrapTextByWidth = (text, nodeWidth) => {
-            const maxCharsPerLine = Math.max(4, Math.floor((nodeWidth - nodeHPadding) / charWidth));
+        const maxCharsPerLine = 30;
+        const wrapText = (text) => {
             const chars = (text || '').split('');
             const lines = [];
             let current = '';
@@ -1345,120 +1335,106 @@ class DevAssistant {
             return lines.length > 0 ? lines : [text || ''];
         };
 
-        const calcNodeWidth = (text) => {
-            const natural = (text || '').length * charWidth + nodeHPadding;
-            return Math.max(120, natural);
+        const getNodeWidth = (title) => {
+            const lines = wrapText(title);
+            const maxLen = Math.max(...lines.map(l => l.length));
+            return maxLen * charWidth + nodePadding;
         };
 
-        const calcNodeHeight = (text, nodeWidth) => {
-            const lines = wrapTextByWidth(text, nodeWidth);
-            return lines.length * lineHeight + nodeVPadding * 2;
+        const getNodeHeight = (title) => {
+            const lines = wrapText(title);
+            return Math.max(44, lines.length * lineHeight + 16);
         };
+
+        const depth1Width = getNodeWidth(data.title || '核心主题');
+        const depth2Widths = data.children ? data.children.slice(0, 5).map(c => getNodeWidth(c.title)) : [];
+        const maxDepth2Width = depth2Widths.length > 0 ? Math.max(...depth2Widths) : 150;
+        const depth3Widths = [];
+        if (data.children) {
+            data.children.slice(0, 5).forEach(b => {
+                if (b.children) {
+                    b.children.slice(0, 5).forEach(c => {
+                        depth3Widths.push(getNodeWidth(c.title));
+                    });
+                }
+            });
+        }
+        const maxDepth3Width = depth3Widths.length > 0 ? Math.max(...depth3Widths) : 150;
 
         const hasDepth3 = data.children && data.children.some(b => b.children && b.children.length > 0);
         const maxDepth = hasDepth3 ? 2 : 1;
 
-        const depth1Width = calcNodeWidth(data.title || '核心主题');
-        const depth2Width = data.children && data.children.length > 0
-            ? Math.max(...data.children.map(c => calcNodeWidth(c.title || '')))
-            : 120;
-        const depth3Nodes = [];
-        if (data.children) {
-            data.children.forEach(b => {
-                if (b.children) depth3Nodes.push(...b.children);
-            });
-        }
-        const depth3Width = depth3Nodes.length > 0
-            ? Math.max(...depth3Nodes.map(c => calcNodeWidth(c.title || '')))
-            : 120;
-
         const getNodeWidthAtDepth = (depth) => {
             if (depth === 0) return depth1Width;
-            if (depth === 1) return depth2Width;
-            return depth3Width;
+            if (depth === 1) return maxDepth2Width;
+            return maxDepth3Width;
         };
 
-        const xPositions = [0];
-        let xAcc = 0;
-        for (let d = 0; d <= maxDepth; d++) {
-            xAcc += getNodeWidthAtDepth(d);
-            if (d < maxDepth) xAcc += hGap;
-            xPositions.push(xAcc);
-        }
-        const totalLayoutWidth = xPositions[xPositions.length - 1];
-        const width = padding * 2 + totalLayoutWidth;
+        const countChildren = (node, depth) => {
+            if (depth >= maxDepth || !node.children || node.children.length === 0) return 1;
+            return node.children.slice(0, 5).reduce((sum, c) => sum + countChildren(c, depth + 1), 0);
+        };
 
-        const measureSubtreeHeight = (node, depth) => {
-            const nodeWidth = getNodeWidthAtDepth(depth);
-            const ownHeight = calcNodeHeight(node.title || '', nodeWidth);
-            if (depth >= maxDepth || !node.children || node.children.length === 0) {
-                return ownHeight + nodeVSpacing;
+        const totalNodes = countChildren(data, 0);
+        const nodeHeight = 56;
+        const totalHeight = padding * 2 + totalNodes * (nodeHeight + vGap);
+
+        const computeXPositions = () => {
+            const positions = [0];
+            let acc = 0;
+            for (let d = 0; d <= maxDepth; d++) {
+                acc += getNodeWidthAtDepth(d);
+                if (d < maxDepth) acc += hGap;
+                positions.push(acc);
             }
-            const childrenHeight = node.children.slice(0, 5).reduce((sum, c) => sum + measureSubtreeHeight(c, depth + 1), 0);
-            return Math.max(ownHeight + nodeVSpacing, childrenHeight);
+            return positions;
         };
+        const xPositions = computeXPositions();
+        const totalWidth = xPositions[xPositions.length - 1];
+        const width = padding * 2 + totalWidth;
 
-        const totalLayoutHeight = measureSubtreeHeight(data, 0);
-        const height = padding * 2 + totalLayoutHeight + vGap;
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}" class="mindmap-svg">`;
+        svg += `<rect width="${width}" height="${totalHeight}" fill="#000000"/>`;
 
-        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" class="mindmap-svg">`;
-        svg += `<rect width="${width}" height="${height}" fill="${BG_COLOR}"/>`;
-
-        const layoutNode = (node, depth, yTop) => {
-            if (depth > maxDepth) return yTop;
-
+        const layoutNode = (node, depth, yStart) => {
+            if (depth > maxDepth) return yStart;
             const x = padding + xPositions[depth];
             const nodeWidth = getNodeWidthAtDepth(depth);
-            const nodeHeight = calcNodeHeight(node.title || '', nodeWidth);
+            const nodeHeight = getNodeHeight(node.title);
 
-            let nodeY;
+            let nextY;
             if (depth < maxDepth && node.children && node.children.length > 0) {
-                let currentY = yTop;
-                const childLayouts = [];
-                node.children.slice(0, 5).forEach((child) => {
-                    const childSubtreeHeight = measureSubtreeHeight(child, depth + 1);
-                    childLayouts.push({ y: currentY, height: childSubtreeHeight });
-                    currentY += childSubtreeHeight;
-                });
-                const subtreeHeight = currentY - yTop;
-                nodeY = yTop + (subtreeHeight - nodeHeight) / 2;
+                const childCount = node.children.slice(0, 5).length;
+                const subtreeHeight = childCount * (nodeHeight + vGap);
+                nextY = yStart + subtreeHeight;
 
                 node.children.slice(0, 5).forEach((child, i) => {
+                    const childY = yStart + i * (nodeHeight + vGap);
                     const childX = padding + xPositions[depth + 1];
-                    const childNodeWidth = getNodeWidthAtDepth(depth + 1);
-                    const childNodeHeight = calcNodeHeight(child.title || '', childNodeWidth);
-                    const childSubtreeHeight = childLayouts[i].height;
-                    const childY = childLayouts[i].y + (childSubtreeHeight - childNodeHeight) / 2;
+                    const childNodeHeight = getNodeHeight(child.title);
 
-                    const startX = x + nodeWidth;
-                    const startY = nodeY + nodeHeight / 2;
-                    const endX = childX;
-                    const endY = childY + childNodeHeight / 2;
-                    const ctrlX = (startX + endX) / 2;
+                    svg += `<path d="M ${x + nodeWidth} ${yStart + subtreeHeight / 2} C ${(x + nodeWidth + childX) / 2} ${yStart + subtreeHeight / 2}, ${(x + nodeWidth + childX) / 2} ${childY + childNodeHeight / 2}, ${childX} ${childY + childNodeHeight / 2}" stroke="${palette[i % palette.length]}" stroke-width="2" fill="none" opacity="0.8"/>`;
 
-                    svg += `<path d="M ${startX} ${startY} C ${ctrlX} ${startY}, ${ctrlX} ${endY}, ${endX} ${endY}" stroke="${LINE_COLOR}" stroke-width="1.5" fill="none" opacity="0.8"/>`;
+                    layoutNode(child, depth + 1, childY);
                 });
             } else {
-                nodeY = yTop;
+                nextY = yStart + nodeHeight + vGap;
             }
 
-            const fillColor = LEVEL_COLORS[depth] || LEVEL_COLORS[2];
-            const fontSize = depth === 0 ? 16 : (depth === 1 ? 14 : 13);
-            const fontWeight = depth === 0 ? 700 : (depth === 1 ? 600 : 500);
-            const lines = wrapTextByWidth(node.title, nodeWidth);
+            const fillColor = depthColors[depth];
+            const textColor = '#ffffff';
+            const fontSize = depth === 0 ? 15 : (depth === 1 ? 13 : 12);
+            const fontWeight = depth <= 1 ? 600 : 400;
+            const lines = wrapText(node.title);
             const escapedLines = lines.map(l => escapeXml(l));
 
-            svg += `<rect x="${x}" y="${nodeY}" width="${nodeWidth}" height="${nodeHeight}" rx="8" ry="8" fill="${fillColor}" opacity="1"/>`;
-            const textBlockHeight = lines.length * lineHeight;
-            const textStartY = nodeY + (nodeHeight - textBlockHeight) / 2 + lineHeight - 4;
+            svg += `<rect x="${x}" y="${yStart}" width="${nodeWidth}" height="${nodeHeight}" rx="8" fill="${fillColor}" opacity="1"/>`;
+            const textStartY = yStart + nodeHeight / 2 - (lines.length - 1) * lineHeight / 2 + 5;
             escapedLines.forEach((line, idx) => {
-                svg += `<text x="${x + nodeWidth / 2}" y="${textStartY + idx * lineHeight}" text-anchor="middle" fill="${TEXT_COLOR}" font-size="${fontSize}" font-weight="${fontWeight}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${line}</text>`;
+                svg += `<text x="${x + nodeWidth / 2}" y="${textStartY + idx * lineHeight}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="${fontWeight}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${line}</text>`;
             });
 
-            if (depth < maxDepth && node.children && node.children.length > 0) {
-                return yTop + (node.children.slice(0, 5).reduce((sum, c) => sum + measureSubtreeHeight(c, depth + 1), 0));
-            }
-            return yTop + nodeHeight + nodeVSpacing;
+            return nextY;
         };
 
         layoutNode(data, 0, padding);
