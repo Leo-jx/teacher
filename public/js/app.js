@@ -1710,7 +1710,7 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
         const data = this.parseLearningPathText(text);
         const svgContent = this.renderMindmapSVG(data);
 
-        const existingMindmap = this.messagesContainer.querySelector('.learning-path-mindmap');
+        const existingMindmap = messageElement.parentElement.querySelector('.learning-path-mindmap');
         if (existingMindmap) existingMindmap.remove();
 
         const mindmapWrapper = document.createElement('div');
@@ -1734,7 +1734,7 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
             <pre class="mindmap-code-display" style="display:none"><code></code></pre>
         `;
 
-        this.messagesContainer.appendChild(mindmapWrapper);
+        messageElement.parentElement.insertBefore(mindmapWrapper, messageElement.nextSibling);
 
         const codeDisplay = mindmapWrapper.querySelector('.mindmap-code-display code');
         if (codeDisplay) codeDisplay.textContent = svgContent;
