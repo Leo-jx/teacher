@@ -352,7 +352,7 @@ class DevAssistant {
 
     async sendMessage() {
         const content = this.userInput.value.trim();
-        if (!content) return null;
+        if (!content) return;
 
         this.userInput.value = '';
         this.userInput.style.height = 'auto';
@@ -369,7 +369,6 @@ class DevAssistant {
         this.addMessage('user', content);
         this.setStatus('typing');
 
-        let aiContent = null;
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
@@ -388,7 +387,7 @@ class DevAssistant {
             if (data.error) {
                 this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u53D1\u751F\u9519\u8BEF\uFF1A' + data.error);
             } else {
-                aiContent = data.choices?.[0]?.message?.content || data.content || '\u62B1\u6B49\uFF0C\u672A\u80FD\u83B7\u53D6\u56DE\u590D\u3002';
+                const aiContent = data.choices?.[0]?.message?.content || data.content || '\u62B1\u6B49\uFF0C\u672A\u80FD\u83B7\u53D6\u56DE\u590D\u3002';
                 this.addMessage('assistant', aiContent);
                 if (data.conversationId) {
                     this.dbConversationId = data.conversationId;
@@ -404,8 +403,6 @@ class DevAssistant {
             this.setStatus('ready');
             this.scrollToBottom();
         }
-
-        return aiContent;
     }
 
     async createDbConversation(title) {
@@ -1371,42 +1368,9 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 请给出详细的学习指导。`;
 
         this.userInput.value = prompt;
-        const aiContent = await this.sendMessage();
+        await this.sendMessage();
 
         this.updateLearningProgress(selectedPath);
-
-        if (aiContent) {
-            this.addMessage('assistant', '正在为您生成学习路径思维导图，请稍候...');
-            await this.generateMindmapFromText(pathData.name, aiContent);
-        }
-    }
-
-    async generateMindmapFromText(topic, mindmapText) {
-        const cleanText = mindmapText.replace(/[#*`]/g, '').replace(/\n{3,}/g, '\n\n').substring(0, 600);
-
-        const imagePrompt = `专业的学习路径思维导图，主题：${topic}。要求：科技风格，蓝色紫色渐变，树形结构，节点连接清晰，文字使用中文，布局美观。内容结构：${cleanText}`;
-
-        try {
-            const response = await fetch('/api/generate-image', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: imagePrompt })
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.imageUrl) {
-                const imageHtml = `\n\n**学习路径思维导图已生成：**\n\n![${topic}思维导图](${data.imageUrl})\n\n> 提示：右键点击图片可选择"图片另存为"进行下载。`;
-                this.addMessage('assistant', imageHtml);
-            } else {
-                console.error('思维导图生成失败详情:', data);
-                const errorMsg = data.detail || data.error || data.message || '未知错误';
-                this.addMessage('assistant', `\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\u3002\n\n**错误详情**：${errorMsg}\n\n**排查建议**：\n1. 检查讯飞MaaS平台服务状态\n2. 确认APIKey、APISecret、APPID配置正确\n3. 查看浏览器控制台获取详细错误日志`);
-            }
-        } catch (error) {
-            console.error('生成思维导图网络错误:', error);
-            this.addMessage('assistant', `\u62B1\u6B49\uFF0C\u601D\u7EF4\u5BFC\u56FE\u751F\u6210\u5931\u8D25\uFF1A${error.message}\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002`);
-        }
     }
 
     updateLearningProgress(path) {

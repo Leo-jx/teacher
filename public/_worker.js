@@ -3,14 +3,7 @@ const DEFAULT_CONFIG = {
     MODEL_ID: 'xop35qwen2b',
     API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
     API_SECRET: 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw',
-    JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production-change-very-long-key',
-    IMAGE_API_HOST: 'maas-api.cn-huabei-1.xf-yun.com',
-    IMAGE_API_PATH: '/v2.1/tti',
-    IMAGE_MODEL_ID: 'xopqwentti20b',
-    IMAGE_APP_ID: 'f3f40af8',
-    IMAGE_PATCH_ID: '0',
-    IMAGE_API_KEY: 'a87ffea24723ba51b2817406aa6cdf30',
-    IMAGE_API_SECRET: 'MjM0MTJmMjFkYTAzYjNiYWEzODA1MjMw'
+    JWT_SECRET: 'xiao-zhi-secret-key-2024-change-in-production-change-very-long-key'
 };
 
 const SYSTEM_PROMPT = `你是"程序员AI辅助学习助手小智"，一位全栈技术专家。你的名字叫"小智"。
@@ -401,157 +394,12 @@ async function handleChatRequest(request, env) {
     }
 }
 
-async function generateXfyunAuthorization(apiKey, apiSecret, host, path, date) {
-    const signatureOrigin = `host: ${host}\ndate: ${date}\nPOST ${path} HTTP/1.1`;
-    const encoder = new TextEncoder();
-    const keyData = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(apiSecret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
-    const signatureBuffer = await crypto.subtle.sign(
-        'HMAC',
-        keyData,
-        encoder.encode(signatureOrigin)
-    );
-    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-    const signature = btoa(String.fromCharCode(...signatureArray));
-
-    const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
-    const authorization = btoa(authorizationOrigin);
-
-    return authorization;
-}
-
-async function handleGenerateImage(request, env) {
-    try {
-        const { prompt } = await request.json();
-
-        if (!prompt) {
-            return new Response(JSON.stringify({ error: '\u8BF7\u8F93\u5165\u751F\u6210\u63D0\u793A' }), { status: 400, headers: corsHeaders });
-        }
-
-        const IMAGE_API_HOST = getConfigValue(env, 'IMAGE_API_HOST');
-        const IMAGE_API_PATH = getConfigValue(env, 'IMAGE_API_PATH');
-        const IMAGE_MODEL_ID = getConfigValue(env, 'IMAGE_MODEL_ID');
-        const IMAGE_APP_ID = getConfigValue(env, 'IMAGE_APP_ID');
-        const IMAGE_PATCH_ID = getConfigValue(env, 'IMAGE_PATCH_ID');
-        const IMAGE_API_KEY = getConfigValue(env, 'IMAGE_API_KEY');
-        const IMAGE_API_SECRET = getConfigValue(env, 'IMAGE_API_SECRET');
-
-        if (!IMAGE_API_KEY || !IMAGE_API_SECRET || !IMAGE_MODEL_ID || !IMAGE_APP_ID || !IMAGE_API_HOST || !IMAGE_API_PATH) {
-            return new Response(JSON.stringify({
-                error: '\u6587\u751F\u56FEAPI\u914D\u7F6E\u672A\u5B8C\u6210',
-                message: '\u8BF7\u68C0\u67E5IMAGE_API_HOST\u3001IMAGE_API_PATH\u3001IMAGE_API_KEY\u3001IMAGE_API_SECRET\u3001IMAGE_MODEL_ID\u3001IMAGE_APP_ID'
-            }), { status: 400, headers: corsHeaders });
-        }
-
-        const date = new Date().toUTCString();
-        const authorization = await generateXfyunAuthorization(
-            IMAGE_API_KEY,
-            IMAGE_API_SECRET,
-            IMAGE_API_HOST,
-            IMAGE_API_PATH,
-            date
-        );
-
-        const requestUrl = `https://${IMAGE_API_HOST}${IMAGE_API_PATH}?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${encodeURIComponent(IMAGE_API_HOST)}`;
-
-        const truncatedPrompt = prompt.substring(0, 1024);
-
-        const requestHeader = {
-            app_id: IMAGE_APP_ID
-        };
-
-        if (IMAGE_PATCH_ID && IMAGE_PATCH_ID !== 'undefined' && IMAGE_PATCH_ID !== '') {
-            requestHeader.patch_id = [IMAGE_PATCH_ID];
-        }
-
-        const requestBody = {
-            header: requestHeader,
-            parameter: {
-                chat: {
-                    domain: IMAGE_MODEL_ID,
-                    width: 1024,
-                    height: 1024,
-                    seed: Math.floor(Math.random() * 1000000),
-                    num_inference_steps: 20,
-                    guidance_scale: 5.0,
-                    scheduler: 'DPM++ 2M Karras'
-                }
-            },
-            payload: {
-                message: {
-                    text: [
-                        {
-                            role: 'user',
-                            content: truncatedPrompt
-                        }
-                    ]
-                }
-            }
-        };
-
-        const response = await fetch(requestUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 500)}`);
-        }
-
-        const data = await response.json();
-
-        const headerCode = data.header?.code;
-        if (headerCode !== undefined && headerCode !== 0) {
-            const errorMsg = data.header?.message || '\u672A\u77E5\u9519\u8BEF';
-            const sid = data.header?.sid || '';
-            throw new Error(`\u8BAF\u98DE\u9519\u8BEF\u7801[${headerCode}]: ${errorMsg}${sid ? ' (sid: ' + sid + ')' : ''}`);
-        }
-
-        const base64Content = data.payload?.choices?.text?.[0]?.content;
-
-        if (!base64Content) {
-            return new Response(JSON.stringify({
-                error: '\u751F\u6210\u56FE\u7247\u5931\u8D25\uFF1A\u672A\u83B7\u53D6\u5230\u56FE\u7247\u6570\u636E',
-                raw: JSON.stringify(data).substring(0, 500)
-            }), { status: 500, headers: corsHeaders });
-        }
-
-        const dataUrl = `data:image/png;base64,${base64Content}`;
-
-        return new Response(JSON.stringify({
-            success: true,
-            imageUrl: dataUrl,
-            format: 'base64'
-        }), { headers: corsHeaders });
-    } catch (error) {
-        console.error('\u751F\u6210\u56FE\u7247\u9519\u8BEF:', error);
-        return new Response(JSON.stringify({
-            error: '\u751F\u6210\u56FE\u7247\u5931\u8D25',
-            detail: error.message
-        }), { status: 500, headers: corsHeaders });
-    }
-}
-
 async function handleConfigRequest(env) {
     return new Response(JSON.stringify({
         success: true,
         config: {
             websocket: { available: false, message: '\u5F53\u524D\u5E73\u53F0\u4E0D\u652F\u6301WebSocket\uFF0C\u8BF7\u4F7F\u7528HTTP\u6A21\u5F0F' },
-            database: { available: !!env.DB },
-            imageGeneration: {
-                available: !!(getConfigValue(env, 'IMAGE_API_KEY') && getConfigValue(env, 'IMAGE_API_SECRET') && getConfigValue(env, 'IMAGE_MODEL_ID') && getConfigValue(env, 'IMAGE_APP_ID') && getConfigValue(env, 'IMAGE_API_HOST') && getConfigValue(env, 'IMAGE_API_PATH')),
-                endpoint: `https://${getConfigValue(env, 'IMAGE_API_HOST')}${getConfigValue(env, 'IMAGE_API_PATH')}`,
-                patchId: getConfigValue(env, 'IMAGE_PATCH_ID') || null
-            }
+            database: { available: !!env.DB }
         }
     }), { headers: corsHeaders });
 }
@@ -636,8 +484,6 @@ export default {
             response = await handleChatRequest(request, env);
         } else if (path === '/api/config' && request.method === 'GET') {
             response = await handleConfigRequest(env);
-        } else if (path === '/api/generate-image' && request.method === 'POST') {
-            response = await handleGenerateImage(request, env);
         } else {
             response = await env.ASSETS.fetch(request);
         }

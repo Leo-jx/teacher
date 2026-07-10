@@ -1055,23 +1055,6 @@ button, a, input, select, textarea {
     border: 1px solid #3a3a5c;
 }
 
-.message-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin: 12px 0;
-    display: block;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.message-content img:hover {
-    transform: scale(1.01);
-    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.25);
-}
-
 .message-content pre code {
     display: block;
     padding: 0;
