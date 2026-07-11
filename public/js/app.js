@@ -38,6 +38,7 @@ class DevAssistant {
         this.loadPracticeProgress();
         this.initLearningPath();
         this.showApp();
+        this.restoreSidebarState();
         this.injectToastStyles();
         this.injectConfirmDialogStyles();
         this.injectAnimationStyles();
@@ -1221,7 +1222,7 @@ class DevAssistant {
 
         this.sidebarClose.addEventListener('click', () => this.closeSidebar());
 
-        this.sidebarOpen.addEventListener('click', () => this.openSidebar());
+        this.sidebarOpen.addEventListener('click', () => this.toggleSidebarCollapse());
 
         // 输入事件：charCount 节流 100ms
         this.userInput.addEventListener('input', this.throttle(() => {
@@ -2030,6 +2031,39 @@ class DevAssistant {
 
         // 移除移动端 overlay 遮罩
         this._removeSidebarOverlay();
+    }
+
+    /** 桌面端侧边栏折叠/展开切换 */
+    toggleSidebarCollapse() {
+        const container = document.getElementById('appContainer');
+        const btn = this.sidebarOpen;
+        const icon = btn.querySelector('i');
+        const isCollapsed = container.classList.toggle('sidebar-collapsed');
+
+        if (isCollapsed) {
+            icon.className = 'fas fa-indent';
+            btn.setAttribute('aria-label', '展开侧边栏');
+        } else {
+            icon.className = 'fas fa-bars';
+            btn.setAttribute('aria-label', '收起侧边栏');
+        }
+
+        // 保存折叠状态
+        localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+    }
+
+    /** 恢复侧边栏折叠状态 */
+    restoreSidebarState() {
+        if (window.innerWidth > 768 && localStorage.getItem('sidebar_collapsed') === '1') {
+            const container = document.getElementById('appContainer');
+            container.classList.add('sidebar-collapsed');
+            const btn = this.sidebarOpen;
+            if (btn) {
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = 'fas fa-indent';
+                btn.setAttribute('aria-label', '展开侧边栏');
+            }
+        }
     }
 
     /** 创建侧边栏遮罩层（移动端） */
