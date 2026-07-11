@@ -94,6 +94,12 @@ class DevAssistant {
             document.getElementById('logoutBtn').style.display = 'none';
         }
         this.loadChatHistory();
+
+        // Entrance animation for welcome screen
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        if (welcomeScreen) {
+            welcomeScreen.style.animation = 'slideIn 0.5s ease forwards';
+        }
     }
 
     logout() {
@@ -296,6 +302,15 @@ class DevAssistant {
                 this.closeSidebar();
             }
         });
+
+        // Sidebar overlay click to close sidebar
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', () => {
+                document.getElementById('sidebar').classList.remove('open');
+                sidebarOverlay.classList.remove('active');
+            });
+        }
 
         this.codeToolItems.forEach(item => {
             item.addEventListener('click', (e) => {
@@ -507,6 +522,9 @@ class DevAssistant {
         messageEl.appendChild(content);
         messageEl.appendChild(timestamp);
 
+        // Smooth message entrance animation
+        messageEl.style.animation = 'slideIn 0.3s ease forwards';
+
         this.messagesContainer.appendChild(messageEl);
         this.scrollToBottom();
 
@@ -566,7 +584,7 @@ class DevAssistant {
         this.welcomeScreen.style.display = 'none';
         this.messagesContainer.innerHTML = '';
 
-        this.messages.forEach(msg => {
+        this.messages.forEach((msg, index) => {
             const messageEl = document.createElement('div');
             messageEl.className = `message ${msg.role}`;
 
@@ -592,6 +610,11 @@ class DevAssistant {
             messageEl.appendChild(avatar);
             messageEl.appendChild(content);
             messageEl.appendChild(timestamp);
+
+            // Smooth entrance animation for the last (newest) message
+            if (index === this.messages.length - 1) {
+                messageEl.style.animation = 'slideIn 0.3s ease forwards';
+            }
 
             this.messagesContainer.appendChild(messageEl);
         });
@@ -942,10 +965,12 @@ class DevAssistant {
 
     openSidebar() {
         this.sidebar.classList.add('open');
+        document.getElementById('sidebarOverlay').classList.add('active');
     }
 
     closeSidebar() {
         this.sidebar.classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('active');
     }
 
     openCodeTool(tool) {
