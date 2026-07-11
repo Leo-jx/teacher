@@ -17,6 +17,12 @@ class DevAssistant {
         this.practiceCurrentAnswer = null;
         this.practiceTimerInterval = null;
         this.practiceTimeLeft = 0;
+        // Toast 堆叠计数器
+        this._toastCounter = 0;
+        // 确认弹窗实例
+        this._confirmDialog = null;
+        // 网络状态
+        this._isOnline = navigator.onLine;
 
         this.init();
     }
@@ -32,7 +38,940 @@ class DevAssistant {
         this.loadPracticeProgress();
         this.initLearningPath();
         this.showApp();
+        this.injectToastStyles();
+        this.injectConfirmDialogStyles();
+        this.injectAnimationStyles();
+        this.initNetworkStatus();
     }
+
+    // ============ 自定义 Toast 通知系统 ============
+
+    /** 注入 Toast 所需的 CSS 样式 */
+    injectToastStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            /* Toast 通知容器 */
+            .custom-toast-container {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                pointer-events: none;
+                max-width: 380px;
+            }
+            /* 单个 Toast */
+            .custom-toast {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 14px 18px;
+                border-radius: 10px;
+                background: #1e1e2e;
+                color: #e0e0e0;
+                font-size: 14px;
+                box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+                pointer-events: auto;
+                transform: translateX(120%);
+                opacity: 0;
+                animation: toastSlideIn 0.35s cubic-bezier(0.21,1.02,0.73,1) forwards;
+                position: relative;
+                overflow: hidden;
+            }
+            .custom-toast.removing {
+                animation: toastSlideOut 0.3s ease-in forwards;
+            }
+            /* Toast 类型颜色 */
+            .custom-toast.success { border-left: 4px solid #55efc4; }
+            .custom-toast.error   { border-left: 4px solid #ff7675; }
+            .custom-toast.warning { border-left: 4px solid #fdcb6e; }
+            .custom-toast.info    { border-left: 4px solid #74b9ff; }
+            /* Toast 图标 */
+            .custom-toast .toast-icon { font-size: 18px; flex-shrink: 0; }
+            .custom-toast.success .toast-icon { color: #55efc4; }
+            .custom-toast.error   .toast-icon { color: #ff7675; }
+            .custom-toast.warning .toast-icon { color: #fdcb6e; }
+            .custom-toast.info    .toast-icon { color: #74b9ff; }
+            /* Toast 关闭按钮 */
+            .custom-toast .toast-close {
+                position: absolute;
+                top: 8px;
+                right: 10px;
+                background: none;
+                border: none;
+                color: #999;
+                cursor: pointer;
+                font-size: 14px;
+                padding: 2px 6px;
+                border-radius: 4px;
+                transition: background 0.2s, color 0.2s;
+            }
+            .custom-toast .toast-close:hover {
+                background: rgba(255,255,255,0.1);
+                color: #fff;
+            }
+            /* Toast 进度条 */
+            .custom-toast .toast-progress {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                height: 3px;
+                border-radius: 0 0 10px 10px;
+                animation: toastProgress 3s linear forwards;
+            }
+            .custom-toast.success .toast-progress { background: #55efc4; }
+            .custom-toast.error   .toast-progress { background: #ff7675; }
+            .custom-toast.warning .toast-progress { background: #fdcb6e; }
+            .custom-toast.info    .toast-progress { background: #74b9ff; }
+            /* Toast 动画 */
+            @keyframes toastSlideIn {
+                from { transform: translateX(120%); opacity: 0; }
+                to   { transform: translateX(0);    opacity: 1; }
+            }
+            @keyframes toastSlideOut {
+                from { transform: translateX(0);    opacity: 1; }
+                to   { transform: translateX(120%); opacity: 0; }
+            }
+            @keyframes toastProgress {
+                from { width: 100%; }
+                to   { width: 0%; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /**
+     * 显示自定义 Toast 通知
+     * @param {string} message - 消息文本
+     * @param {'success'|'error'|'warning'|'info'} type - Toast 类型
+     * @param {number} duration - 自动消失时间（毫秒），默认 3000
+     */
+    showToast(message, type = 'info', duration = 3000) {
+        // 兼容原有练习模块的 showToast 调用（单参数字符串形式）
+        if (typeof type === 'number') {
+            duration = type;
+            type = 'info';
+        }
+
+        let container = document.getElementById('customToastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'customToastContainer';
+            container.className = 'custom-toast-container';
+            document.body.appendChild(container);
+        }
+
+        const iconMap = {
+            success: 'fa-check-circle',
+            error: 'fa-times-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `custom-toast ${type}`;
+        toast.innerHTML = `
+            <i class="fas ${iconMap[type] || iconMap.info} toast-icon"></i>
+            <span class="toast-message">${this._escapeHtml(message)}</span>
+            <button class="toast-close" aria-label="关闭通知"><i class="fas fa-times"></i></button>
+            <div class="toast-progress" style="animation-duration:${duration}ms"></div>
+        `;
+
+        // 关闭按钮事件
+        toast.querySelector('.toast-close').addEventListener('click', () => this._removeToast(toast));
+
+        container.appendChild(toast);
+        this._toastCounter++;
+
+        // 自动消失
+        const timer = setTimeout(() => this._removeToast(toast), duration);
+        toast._autoCloseTimer = timer;
+
+        // 最多同时显示 5 个
+        const toasts = container.querySelectorAll('.custom-toast:not(.removing)');
+        if (toasts.length > 5) {
+            this._removeToast(toasts[0]);
+        }
+    }
+
+    /** 移除单个 Toast */
+    _removeToast(toast) {
+        if (toast._removed) return;
+        toast._removed = true;
+        clearTimeout(toast._autoCloseTimer);
+        toast.classList.add('removing');
+        toast.addEventListener('animationend', () => {
+            toast.remove();
+            this._toastCounter = Math.max(0, this._toastCounter - 1);
+        });
+    }
+
+    /** HTML 转义 */
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ============ 自定义确认弹窗 ============
+
+    /** 注入确认弹窗 CSS */
+    injectConfirmDialogStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            /* 确认弹窗遮罩 */
+            .confirm-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 99998;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                animation: confirmOverlayIn 0.25s ease forwards;
+            }
+            .confirm-overlay.closing {
+                animation: confirmOverlayOut 0.2s ease forwards;
+            }
+            /* 确认弹窗主体 */
+            .confirm-dialog {
+                background: #1e1e2e;
+                border-radius: 14px;
+                padding: 32px;
+                max-width: 420px;
+                width: 90%;
+                box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+                transform: scale(0.85);
+                opacity: 0;
+                animation: confirmDialogIn 0.3s cubic-bezier(0.21,1.02,0.73,1) forwards;
+            }
+            .confirm-overlay.closing .confirm-dialog {
+                animation: confirmDialogOut 0.2s ease forwards;
+            }
+            .confirm-dialog h3 {
+                color: #e0e0e0;
+                font-size: 18px;
+                margin: 0 0 10px 0;
+            }
+            .confirm-dialog p {
+                color: #a0a0b0;
+                font-size: 14px;
+                line-height: 1.6;
+                margin: 0 0 24px 0;
+            }
+            .confirm-dialog-actions {
+                display: flex;
+                gap: 12px;
+                justify-content: flex-end;
+            }
+            .confirm-dialog-actions button {
+                padding: 10px 24px;
+                border-radius: 8px;
+                border: none;
+                font-size: 14px;
+                cursor: pointer;
+                transition: transform 0.15s, opacity 0.15s;
+            }
+            .confirm-dialog-actions button:active { transform: scale(0.96); }
+            .confirm-dialog-actions .confirm-btn-cancel {
+                background: #2a2a3e;
+                color: #a0a0b0;
+            }
+            .confirm-dialog-actions .confirm-btn-cancel:hover { background: #3a3a4e; }
+            .confirm-dialog-actions .confirm-btn-ok {
+                background: #6c5ce7;
+                color: #fff;
+            }
+            .confirm-dialog-actions .confirm-btn-ok:hover { background: #7d6ff0; }
+            /* 动画 */
+            @keyframes confirmOverlayIn {
+                from { opacity: 0; }
+                to   { opacity: 1; }
+            }
+            @keyframes confirmOverlayOut {
+                from { opacity: 1; }
+                to   { opacity: 0; }
+            }
+            @keyframes confirmDialogIn {
+                from { transform: scale(0.85); opacity: 0; }
+                to   { transform: scale(1);    opacity: 1; }
+            }
+            @keyframes confirmDialogOut {
+                from { transform: scale(1);    opacity: 1; }
+                to   { transform: scale(0.85); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /**
+     * 自定义确认弹窗（替换原生 confirm）
+     * @param {string} message - 描述文本
+     * @param {object} options - 配置项
+     * @param {string} options.title - 标题，默认"确认操作"
+     * @param {string} options.confirmText - 确认按钮文本，默认"确定"
+     * @param {string} options.cancelText - 取消按钮文本，默认"取消"
+     * @returns {Promise<boolean>} 用户点击确认返回 true，取消返回 false
+     */
+    confirmDialog(message, options = {}) {
+        const {
+            title = '确认操作',
+            confirmText = '确定',
+            cancelText = '取消'
+        } = options;
+
+        return new Promise((resolve) => {
+            // 移除已存在的弹窗
+            if (this._confirmDialog) {
+                this._confirmDialog.remove();
+                this._confirmDialog = null;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.className = 'confirm-overlay';
+
+            overlay.innerHTML = `
+                <div class="confirm-dialog">
+                    <h3>${this._escapeHtml(title)}</h3>
+                    <p>${this._escapeHtml(message)}</p>
+                    <div class="confirm-dialog-actions">
+                        <button class="confirm-btn-cancel">${this._escapeHtml(cancelText)}</button>
+                        <button class="confirm-btn-ok">${this._escapeHtml(confirmText)}</button>
+                    </div>
+                </div>
+            `;
+
+            // 点击遮罩关闭
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    this._closeConfirmDialog(overlay, false, resolve);
+                }
+            });
+
+            // 按钮事件
+            overlay.querySelector('.confirm-btn-cancel').addEventListener('click', () => {
+                this._closeConfirmDialog(overlay, false, resolve);
+            });
+            overlay.querySelector('.confirm-btn-ok').addEventListener('click', () => {
+                this._closeConfirmDialog(overlay, true, resolve);
+            });
+
+            document.body.appendChild(overlay);
+            this._confirmDialog = overlay;
+
+            // ESC 关闭
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    this._closeConfirmDialog(overlay, false, resolve);
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+        });
+    }
+
+    /** 关闭确认弹窗 */
+    _closeConfirmDialog(overlay, result, resolve) {
+        overlay.classList.add('closing');
+        overlay.addEventListener('animationend', () => {
+            overlay.remove();
+            if (this._confirmDialog === overlay) {
+                this._confirmDialog = null;
+            }
+            resolve(result);
+        });
+    }
+
+    // ============ 防抖和节流工具 ============
+
+    /**
+     * 防抖函数
+     * @param {Function} fn - 需要防抖的函数
+     * @param {number} delay - 延迟时间（毫秒）
+     * @returns {Function}
+     */
+    debounce(fn, delay) {
+        let timer = null;
+        return (...args) => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = null;
+            }, delay);
+        };
+    }
+
+    /**
+     * 节流函数
+     * @param {Function} fn - 需要节流的函数
+     * @param {number} delay - 间隔时间（毫秒）
+     * @returns {Function}
+     */
+    throttle(fn, delay) {
+        let lastTime = 0;
+        return (...args) => {
+            const now = Date.now();
+            if (now - lastTime >= delay) {
+                lastTime = now;
+                fn.apply(this, args);
+            }
+        };
+    }
+
+    // ============ 注入动画相关 CSS ============
+
+    /** 注入所有增强动画 CSS */
+    injectAnimationStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            /* ===== 侧边栏动画 ===== */
+            #sidebar {
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            }
+            #sidebar.sidebar-open {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            #sidebar.sidebar-close {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            /* 移动端侧边栏遮罩 */
+            .sidebar-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.45);
+                z-index: 9990;
+                opacity: 0;
+                animation: sidebarOverlayIn 0.3s ease forwards;
+            }
+            .sidebar-overlay.closing {
+                animation: sidebarOverlayOut 0.25s ease forwards;
+            }
+            @keyframes sidebarOverlayIn {
+                from { opacity: 0; }
+                to   { opacity: 1; }
+            }
+            @keyframes sidebarOverlayOut {
+                from { opacity: 1; }
+                to   { opacity: 0; }
+            }
+
+            /* ===== 工具面板滑入动画 ===== */
+            .code-tool-panel {
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            }
+            .code-tool-panel.panel-slide-in {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            .code-tool-panel.panel-slide-out {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+
+            /* ===== 消息气泡 slideIn 动画 ===== */
+            .message {
+                animation: messageSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            }
+            @keyframes messageSlideIn {
+                from { opacity: 0; transform: translateY(16px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+            /* AI 回复 typing 脉冲效果 */
+            .message-content.typing {
+                position: relative;
+            }
+            .message-content.typing::after {
+                content: '▊';
+                animation: typingPulse 0.8s ease-in-out infinite;
+                color: #6c5ce7;
+                margin-left: 2px;
+            }
+            @keyframes typingPulse {
+                0%, 100% { opacity: 1; }
+                50%      { opacity: 0; }
+            }
+
+            /* ===== 发送按钮 loading ===== */
+            .send-btn-loading .fa-paper-plane {
+                display: none !important;
+            }
+            .send-btn-loading .send-spinner {
+                display: inline-block !important;
+            }
+            .send-spinner {
+                display: none;
+                width: 16px;
+                height: 16px;
+                border: 2px solid rgba(255,255,255,0.3);
+                border-top-color: #fff;
+                border-radius: 50%;
+                animation: spinRotate 0.6s linear infinite;
+            }
+            @keyframes spinRotate {
+                to { transform: rotate(360deg); }
+            }
+            /* 发送成功弹跳 */
+            .send-bounce {
+                animation: sendBounce 0.3s ease;
+            }
+            @keyframes sendBounce {
+                0%   { transform: scale(1); }
+                50%  { transform: scale(1.2); }
+                100% { transform: scale(1); }
+            }
+
+            /* ===== 表单验证样式 ===== */
+            .input-error {
+                border-color: #ff7675 !important;
+                animation: inputShake 0.4s ease;
+            }
+            .input-success {
+                border-color: #55efc4 !important;
+            }
+            .input-error-msg {
+                color: #ff7675;
+                font-size: 12px;
+                margin-top: 4px;
+                display: none;
+            }
+            .input-error-msg.visible {
+                display: block;
+                animation: fadeInDown 0.2s ease;
+            }
+            @keyframes inputShake {
+                0%, 100% { transform: translateX(0); }
+                20%      { transform: translateX(-6px); }
+                40%      { transform: translateX(6px); }
+                60%      { transform: translateX(-4px); }
+                80%      { transform: translateX(4px); }
+            }
+            @keyframes fadeInDown {
+                from { opacity: 0; transform: translateY(-4px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+
+            /* ===== 代码块复制按钮 ===== */
+            .code-block-wrapper {
+                position: relative;
+            }
+            .code-copy-btn {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: rgba(255,255,255,0.1);
+                border: 1px solid rgba(255,255,255,0.15);
+                color: #a0a0b0;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                transition: background 0.2s, color 0.2s;
+                z-index: 2;
+            }
+            .code-copy-btn:hover {
+                background: rgba(255,255,255,0.2);
+                color: #e0e0e0;
+            }
+            .code-copy-btn.copied {
+                color: #55efc4;
+                border-color: #55efc4;
+            }
+
+            /* ===== 练习选项 ripple 效果 ===== */
+            .practice-option {
+                position: relative;
+                overflow: hidden;
+                transition: background-color 0.3s, border-color 0.3s, transform 0.15s;
+            }
+            .practice-option .ripple {
+                position: absolute;
+                border-radius: 50%;
+                background: rgba(108, 92, 231, 0.3);
+                transform: scale(0);
+                animation: rippleExpand 0.6s ease-out forwards;
+                pointer-events: none;
+            }
+            @keyframes rippleExpand {
+                to { transform: scale(4); opacity: 0; }
+            }
+            /* 答案反馈过渡 */
+            .practice-option.correct {
+                border-color: #55efc4 !important;
+                background: rgba(85, 239, 196, 0.12) !important;
+                transition: all 0.4s ease;
+            }
+            .practice-option.wrong {
+                border-color: #ff7675 !important;
+                background: rgba(255, 118, 117, 0.12) !important;
+                transition: all 0.4s ease;
+            }
+
+            /* ===== 关卡卡片 3D tilt ===== */
+            .practice-level-card {
+                transition: transform 0.25s ease, box-shadow 0.25s ease;
+                transform-style: preserve-3d;
+                perspective: 600px;
+            }
+            .practice-level-card:hover {
+                transform: translateY(-4px) rotateX(2deg) rotateY(-2deg);
+                box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+            }
+
+            /* ===== 全屏练习 fade + scale 动画 ===== */
+            #practiceFullscreen {
+                transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.21,1.02,0.73,1);
+            }
+            #practiceFullscreen.practice-enter {
+                opacity: 1;
+                transform: scale(1);
+            }
+            #practiceFullscreen.practice-exit {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            /* ===== 学习路径卡片 ripple ===== */
+            .learning-path-card {
+                position: relative;
+                overflow: hidden;
+            }
+            .learning-path-card .ripple {
+                position: absolute;
+                border-radius: 50%;
+                background: rgba(108, 92, 231, 0.25);
+                transform: scale(0);
+                animation: rippleExpand 0.6s ease-out forwards;
+                pointer-events: none;
+            }
+
+            /* ===== 学习路径 Tab 下划线滑动 ===== */
+            .learning-tabs-wrapper {
+                position: relative;
+            }
+            .learning-tab-indicator {
+                position: absolute;
+                bottom: 0;
+                height: 3px;
+                background: #6c5ce7;
+                border-radius: 3px;
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            /* ===== 学习计划成功动画 ===== */
+            .plan-form-success {
+                animation: planSuccessFlash 0.6s ease;
+            }
+            @keyframes planSuccessFlash {
+                0%   { background: transparent; }
+                30%  { background: rgba(85, 239, 196, 0.15); }
+                100% { background: transparent; }
+            }
+
+            /* ===== 网络状态栏 ===== */
+            .network-status-bar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 99997;
+                padding: 6px 16px;
+                text-align: center;
+                font-size: 13px;
+                color: #fff;
+                transform: translateY(100%);
+                transition: transform 0.3s ease, background 0.3s ease;
+            }
+            .network-status-bar.visible {
+                transform: translateY(0);
+            }
+            .network-status-bar.offline {
+                background: #ff7675;
+            }
+            .network-status-bar.online {
+                background: #55efc4;
+                color: #1a1a2e;
+            }
+
+            /* ===== 平滑滚动 ===== */
+            #messages {
+                scroll-behavior: smooth;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // ============ 网络状态检测 ============
+
+    /** 初始化网络状态监听 */
+    initNetworkStatus() {
+        // 创建状态栏元素
+        const bar = document.createElement('div');
+        bar.id = 'networkStatusBar';
+        bar.className = 'network-status-bar';
+        document.body.appendChild(bar);
+
+        // 初始状态检测
+        if (!navigator.onLine) {
+            this._showNetworkStatus(false);
+        }
+
+        // 监听网络事件
+        window.addEventListener('online', () => {
+            this._isOnline = true;
+            this._showNetworkStatus(true);
+            this.showToast('已连接', 'success', 2000);
+        });
+
+        window.addEventListener('offline', () => {
+            this._isOnline = false;
+            this._showNetworkStatus(false);
+            this.showToast('网络已断开', 'error', 3000);
+        });
+    }
+
+    /** 显示/隐藏网络状态栏 */
+    _showNetworkStatus(isOnline) {
+        const bar = document.getElementById('networkStatusBar');
+        if (!bar) return;
+        bar.className = `network-status-bar ${isOnline ? 'online' : 'offline'}`;
+        bar.textContent = isOnline ? '已连接' : '离线';
+        bar.classList.add('visible');
+        // 3秒后自动隐藏
+        clearTimeout(this._networkStatusTimer);
+        if (isOnline) {
+            this._networkStatusTimer = setTimeout(() => {
+                bar.classList.remove('visible');
+            }, 3000);
+        }
+        // 离线状态持续显示
+    }
+
+    // ============ 键盘快捷键 ============
+
+    /** 初始化全局键盘快捷键 */
+    initKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // ESC 关闭弹窗/面板/全屏练习
+            if (e.key === 'Escape') {
+                // 关闭确认弹窗（由 confirmDialog 自身处理）
+                // 关闭全屏练习
+                const fs = document.getElementById('practiceFullscreen');
+                if (fs && fs.style.display === 'flex') {
+                    // 全屏练习中 ESC 退出确认
+                    this._confirmExitChallenge();
+                    return;
+                }
+                // 关闭工具面板
+                if (this.codeToolPanels) {
+                    this.codeToolPanels.forEach(panel => {
+                        if (panel.classList.contains('active')) {
+                            const panelId = panel.id;
+                            this.closeCodeToolPanel(panelId);
+                        }
+                    });
+                }
+            }
+
+            // Ctrl+Enter 发送消息
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+    }
+
+    /** ESC 退出全屏练习确认 */
+    async _confirmExitChallenge() {
+        const confirmed = await this.confirmDialog('退出挑战将保存当前进度，可稍后继续。确认退出？', {
+            title: '退出挑战',
+            confirmText: '退出',
+            cancelText: '继续答题'
+        });
+        if (confirmed) {
+            this.exitChallengeInternal();
+        }
+    }
+
+    /** 内部退出挑战（不带确认） */
+    exitChallengeInternal() {
+        this.stopPracticeTimer();
+        this.savePracticeSession();
+        this.closeFullscreenPractice();
+    }
+
+    // ============ 代码块复制功能 ============
+
+    /** 为所有 pre > code 添加复制按钮 */
+    addCopyButtonsToCodeBlocks(container) {
+        if (!container) return;
+        const codeBlocks = container.querySelectorAll('pre > code');
+        codeBlocks.forEach(codeEl => {
+            const pre = codeEl.parentElement;
+            if (pre.classList.contains('code-block-wrapper')) return; // 已处理
+
+            // 包装 pre
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block-wrapper';
+            pre.parentNode.insertBefore(wrapper, pre);
+            wrapper.appendChild(pre);
+
+            // 创建复制按钮
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'code-copy-btn';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制';
+            copyBtn.setAttribute('aria-label', '复制代码');
+
+            copyBtn.addEventListener('click', () => {
+                const codeText = codeEl.textContent || codeEl.innerText;
+                navigator.clipboard.writeText(codeText).then(() => {
+                    copyBtn.classList.add('copied');
+                    copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                    setTimeout(() => {
+                        copyBtn.classList.remove('copied');
+                        copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                    }, 2000);
+                }).catch(() => {
+                    this.showToast('复制失败，请手动复制', 'error');
+                });
+            });
+
+            wrapper.appendChild(copyBtn);
+        });
+    }
+
+    // ============ 练习模块 ripple 效果 ============
+
+    /** 为元素添加 ripple 效果 */
+    _createRipple(e, element) {
+        const rect = element.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = e.clientX - rect.left - size / 2;
+        const y = e.clientY - rect.top - size / 2;
+
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple';
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = x + 'px';
+        ripple.style.top = y + 'px';
+        element.appendChild(ripple);
+
+        ripple.addEventListener('animationend', () => ripple.remove());
+    }
+
+    // ============ 表单验证工具 ============
+
+    /**
+     * 验证单个输入框
+     * @param {HTMLElement} inputEl - 输入框元素
+     * @param {Function} validator - 验证函数，返回错误消息或空字符串
+     */
+    _validateInput(inputEl, validator) {
+        // 确保输入框后有错误消息容器
+        let errorEl = inputEl.parentElement.querySelector('.input-error-msg');
+        if (!errorEl) {
+            errorEl = document.createElement('div');
+            errorEl.className = 'input-error-msg';
+            inputEl.parentElement.appendChild(errorEl);
+        }
+
+        const errorMsg = validator(inputEl.value);
+        if (errorMsg) {
+            inputEl.classList.add('input-error');
+            inputEl.classList.remove('input-success');
+            errorEl.textContent = errorMsg;
+            errorEl.classList.add('visible');
+            return false;
+        } else {
+            inputEl.classList.remove('input-error');
+            if (inputEl.value.trim()) {
+                inputEl.classList.add('input-success');
+            } else {
+                inputEl.classList.remove('input-success');
+            }
+            errorEl.classList.remove('visible');
+            return true;
+        }
+    }
+
+    /** 清除输入框验证状态 */
+    _clearInputValidation(inputEl) {
+        inputEl.classList.remove('input-error', 'input-success');
+        const errorEl = inputEl.parentElement.querySelector('.input-error-msg');
+        if (errorEl) {
+            errorEl.classList.remove('visible');
+        }
+    }
+
+    /** 为输入框绑定实时验证 */
+    _bindInputValidation(inputEl, validator) {
+        inputEl.addEventListener('input', () => {
+            if (inputEl.value.trim()) {
+                this._validateInput(inputEl, validator);
+            } else {
+                this._clearInputValidation(inputEl);
+            }
+        });
+    }
+
+    /** 设置按钮 loading 状态 */
+    _setBtnLoading(btn, loading, originalHtml) {
+        if (loading) {
+            btn._originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="send-spinner"></span> 处理中...';
+            btn.classList.add('send-btn-loading');
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml || btn._originalHtml || btn.innerHTML;
+            btn.classList.remove('send-btn-loading');
+        }
+    }
+
+    // ============ 学习路径 Tab 下划线滑动 ============
+
+    /** 初始化 Tab 下划线指示器 */
+    initTabIndicator() {
+        const tabsContainer = document.querySelector('.learning-tabs-wrapper');
+        if (!tabsContainer) return;
+
+        // 创建指示器
+        let indicator = tabsContainer.querySelector('.learning-tab-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.className = 'learning-tab-indicator';
+            tabsContainer.appendChild(indicator);
+        }
+
+        this._updateTabIndicator();
+
+        // 监听 tab 切换更新
+        this._tabObserver = new MutationObserver(() => this._updateTabIndicator());
+        tabsContainer.querySelectorAll('.learning-tab').forEach(tab => {
+            this._tabObserver.observe(tab, { attributes: true, attributeFilter: ['class'] });
+        });
+    }
+
+    /** 更新 Tab 下划线位置 */
+    _updateTabIndicator() {
+        const activeTab = document.querySelector('.learning-tab.active');
+        const indicator = document.querySelector('.learning-tab-indicator');
+        if (!activeTab || !indicator) return;
+
+        const rect = activeTab.getBoundingClientRect();
+        const parentRect = activeTab.parentElement.getBoundingClientRect();
+        indicator.style.left = (rect.left - parentRect.left) + 'px';
+        indicator.style.width = rect.width + 'px';
+    }
+
+    // ============ 原有方法（保持功能不变） ============
 
     initLearningPath() {
         this.selectedLearningPath = null;
@@ -42,6 +981,8 @@ class DevAssistant {
             dateInput.value = today;
         }
         this.loadLearningProgress();
+        // 初始化 Tab 指示器
+        this.initTabIndicator();
     }
 
     checkAuth() {
@@ -68,7 +1009,7 @@ class DevAssistant {
                 this.logout();
             }
         } catch (e) {
-            console.error('Token\u9A8C\u8BC1\u5931\u8D25:', e);
+            console.error('Token验证失败:', e);
         }
     }
 
@@ -94,12 +1035,6 @@ class DevAssistant {
             document.getElementById('logoutBtn').style.display = 'none';
         }
         this.loadChatHistory();
-
-        // Entrance animation for welcome screen
-        const welcomeScreen = document.getElementById('welcomeScreen');
-        if (welcomeScreen) {
-            welcomeScreen.style.animation = 'slideIn 0.5s ease forwards';
-        }
     }
 
     logout() {
@@ -133,7 +1068,7 @@ class DevAssistant {
             const submitBtn = document.getElementById('loginSubmit');
             errorEl.textContent = '';
             submitBtn.disabled = true;
-            submitBtn.querySelector('span').textContent = '\u767B\u5F55\u4E2D...';
+            submitBtn.querySelector('span').textContent = '登录中...';
             submitBtn.querySelector('i').style.display = 'inline';
 
             try {
@@ -153,13 +1088,13 @@ class DevAssistant {
                     this.closeAuthModal();
                     this.showApp();
                 } else {
-                    errorEl.textContent = data.error || '\u767B\u5F55\u5931\u8D25';
+                    errorEl.textContent = data.error || '登录失败';
                 }
             } catch (error) {
-                errorEl.textContent = '\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5';
+                errorEl.textContent = '网络错误，请稍后重试';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.querySelector('span').textContent = '\u767B\u5F55';
+                submitBtn.querySelector('span').textContent = '登录';
                 submitBtn.querySelector('i').style.display = 'none';
             }
         });
@@ -175,12 +1110,12 @@ class DevAssistant {
             errorEl.textContent = '';
 
             if (password !== confirmPassword) {
-                errorEl.textContent = '\u4E24\u6B21\u8F93\u5165\u7684\u5BC6\u7801\u4E0D\u4E00\u81F4';
+                errorEl.textContent = '两次输入的密码不一致';
                 return;
             }
 
             submitBtn.disabled = true;
-            submitBtn.querySelector('span').textContent = '\u6CE8\u518C\u4E2D...';
+            submitBtn.querySelector('span').textContent = '注册中...';
             submitBtn.querySelector('i').style.display = 'inline';
 
             try {
@@ -200,13 +1135,13 @@ class DevAssistant {
                     this.closeAuthModal();
                     this.showApp();
                 } else {
-                    errorEl.textContent = data.error || '\u6CE8\u518C\u5931\u8D25';
+                    errorEl.textContent = data.error || '注册失败';
                 }
             } catch (error) {
-                errorEl.textContent = '\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5';
+                errorEl.textContent = '网络错误，请稍后重试';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.querySelector('span').textContent = '\u6CE8\u518C';
+                submitBtn.querySelector('span').textContent = '注册';
                 submitBtn.querySelector('i').style.display = 'none';
             }
         });
@@ -244,13 +1179,32 @@ class DevAssistant {
         this.newChatBtn = document.getElementById('newChatBtn');
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.webSearchToggle = document.getElementById('webSearchToggle');
-        
+
         this.codeToolItems = document.querySelectorAll('.code-tools .tool-item');
         this.codeToolPanels = document.querySelectorAll('.code-tool-panel');
         this.panelCloseBtns = document.querySelectorAll('.tool-panel-close');
+
+        // 为发送按钮添加 spinner 元素
+        if (this.sendBtn) {
+            const spinner = document.createElement('span');
+            spinner.className = 'send-spinner';
+            this.sendBtn.appendChild(spinner);
+        }
+
+        // 为侧边栏按钮添加 aria-label
+        if (this.sidebarClose) {
+            this.sidebarClose.setAttribute('aria-label', '关闭侧边栏');
+        }
+        if (this.sidebarOpen) {
+            this.sidebarOpen.setAttribute('aria-label', '打开侧边栏');
+        }
     }
 
     bindEvents() {
+        // 键盘快捷键初始化
+        this.initKeyboardShortcuts();
+
+        // Enter 发送消息（保留原有逻辑）
         this.userInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -258,7 +1212,8 @@ class DevAssistant {
             }
         });
 
-        this.sendBtn.addEventListener('click', () => this.sendMessage());
+        // 发送按钮点击（防抖 300ms）
+        this.sendBtn.addEventListener('click', this.debounce(() => this.sendMessage(), 300));
 
         this.newChatBtn.addEventListener('click', () => this.createNewChat());
 
@@ -268,10 +1223,11 @@ class DevAssistant {
 
         this.sidebarOpen.addEventListener('click', () => this.openSidebar());
 
-        this.userInput.addEventListener('input', () => {
+        // 输入事件：charCount 节流 100ms
+        this.userInput.addEventListener('input', this.throttle(() => {
             this.updateCharCount();
             this.autoResizeTextarea();
-        });
+        }, 100));
 
         document.querySelectorAll('.quick-q').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -289,11 +1245,12 @@ class DevAssistant {
             });
         });
 
-        window.addEventListener('resize', () => {
+        // 窗口 resize 节流 200ms
+        window.addEventListener('resize', this.throttle(() => {
             if (window.innerWidth <= 768) {
-                this.sidebar.classList.remove('open');
+                this.closeSidebar();
             }
-        });
+        }, 200));
 
         document.addEventListener('click', (e) => {
             if (this.sidebar.classList.contains('open') &&
@@ -302,15 +1259,6 @@ class DevAssistant {
                 this.closeSidebar();
             }
         });
-
-        // Sidebar overlay click to close sidebar
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-        if (sidebarOverlay) {
-            sidebarOverlay.addEventListener('click', () => {
-                document.getElementById('sidebar').classList.remove('open');
-                sidebarOverlay.classList.remove('active');
-            });
-        }
 
         this.codeToolItems.forEach(item => {
             item.addEventListener('click', (e) => {
@@ -364,14 +1312,70 @@ class DevAssistant {
         document.getElementById('practiceRetryBtn')?.addEventListener('click', () => this.retryChallenge());
         document.getElementById('practiceNextBtn')?.addEventListener('click', () => this.goNextLevel());
         document.getElementById('practiceBackLobbyBtn')?.addEventListener('click', () => this.backToLobby());
+
+        // ===== 绑定表单实时验证 =====
+        this._bindFormValidations();
+    }
+
+    /** 绑定表单实时验证 */
+    _bindFormValidations() {
+        // 代码纠错输入
+        const fixCodeInput = document.getElementById('fixCodeInput');
+        if (fixCodeInput) {
+            this._bindInputValidation(fixCodeInput, (val) => {
+                if (!val.trim()) return '请输入需要纠错的代码';
+                return '';
+            });
+        }
+        // 代码分析输入
+        const analyzeCodeInput = document.getElementById('analyzeCodeInput');
+        if (analyzeCodeInput) {
+            this._bindInputValidation(analyzeCodeInput, (val) => {
+                if (!val.trim()) return '请输入需要分析的代码';
+                return '';
+            });
+        }
+        // 语法关键词
+        const syntaxKeywordInput = document.getElementById('syntaxKeywordInput');
+        if (syntaxKeywordInput) {
+            this._bindInputValidation(syntaxKeywordInput, (val) => {
+                if (!val.trim()) return '请输入语法关键词';
+                return '';
+            });
+        }
+        // 算法名称
+        const algorithmNameInput = document.getElementById('algorithmNameInput');
+        if (algorithmNameInput) {
+            this._bindInputValidation(algorithmNameInput, (val) => {
+                if (!val.trim()) return '请输入算法名称';
+                return '';
+            });
+        }
+        // 错误信息输入
+        const errorInput = document.getElementById('errorInput');
+        if (errorInput) {
+            this._bindInputValidation(errorInput, (val) => {
+                if (!val.trim()) return '请输入错误信息';
+                return '';
+            });
+        }
+        // 学习计划目标
+        const planGoalInput = document.getElementById('planGoalInput');
+        if (planGoalInput) {
+            this._bindInputValidation(planGoalInput, (val) => {
+                return '';
+            });
+        }
     }
 
     autoResizeTextarea() {
+        if (!this.userInput) return;
         this.userInput.style.height = 'auto';
         this.userInput.style.height = Math.min(this.userInput.scrollHeight, 200) + 'px';
     }
 
     updateCharCount() {
+        if (!this.userInput || !this.charCount) return;
         const count = this.userInput.value.length;
         this.charCount.textContent = count + '/2000';
         if (count > 2000) {
@@ -383,6 +1387,9 @@ class DevAssistant {
     async sendMessage() {
         const content = this.userInput.value.trim();
         if (!content) return;
+
+        // 显示发送按钮 loading 状态
+        this._setSendBtnLoading(true);
 
         this.userInput.value = '';
         this.userInput.style.height = 'auto';
@@ -415,9 +1422,9 @@ class DevAssistant {
             const data = await response.json();
 
             if (data.error) {
-                this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u53D1\u751F\u9519\u8BEF\uFF1A' + data.error);
+                this.addMessage('assistant', '抱歉，发生错误：' + data.error);
             } else {
-                const aiContent = data.choices?.[0]?.message?.content || data.content || '\u62B1\u6B49\uFF0C\u672A\u80FD\u83B7\u53D6\u56DE\u590D\u3002';
+                const aiContent = data.choices?.[0]?.message?.content || data.content || '抱歉，未能获取回复。';
                 this.addMessage('assistant', aiContent);
                 if (data.conversationId) {
                     this.dbConversationId = data.conversationId;
@@ -427,12 +1434,37 @@ class DevAssistant {
             this.setStatus('ready');
             this.scrollToBottom();
             this.saveCurrentChat();
+
+            // 发送按钮弹跳反馈
+            this._setSendBtnBounce();
         } catch (error) {
-            console.error('\u53D1\u9001\u6D88\u606F\u5931\u8D25:', error);
-            this.addMessage('assistant', '\u62B1\u6B49\uFF0C\u7F51\u7EDC\u9519\u8BEF\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002');
+            console.error('发送消息失败:', error);
+            this.addMessage('assistant', '抱歉，网络错误，请稍后重试。');
             this.setStatus('ready');
             this.scrollToBottom();
+        } finally {
+            // 恢复发送按钮状态
+            this._setSendBtnLoading(false);
         }
+    }
+
+    /** 设置发送按钮 loading */
+    _setSendBtnLoading(loading) {
+        if (!this.sendBtn) return;
+        if (loading) {
+            this.sendBtn.classList.add('send-btn-loading');
+            this.sendBtn.disabled = true;
+        } else {
+            this.sendBtn.classList.remove('send-btn-loading');
+            this.sendBtn.disabled = false;
+        }
+    }
+
+    /** 发送按钮弹跳反馈 */
+    _setSendBtnBounce() {
+        if (!this.sendBtn) return;
+        this.sendBtn.classList.add('send-bounce');
+        setTimeout(() => this.sendBtn.classList.remove('send-bounce'), 300);
     }
 
     async createDbConversation(title) {
@@ -451,7 +1483,7 @@ class DevAssistant {
                 this.dbConversationId = data.id;
             }
         } catch (e) {
-            console.error('\u521B\u5EFA\u6570\u636E\u5E93\u5BF9\u8BDD\u5931\u8D25:', e);
+            console.error('创建数据库对话失败:', e);
         }
     }
 
@@ -466,7 +1498,7 @@ class DevAssistant {
                 return data.conversations || [];
             }
         } catch (e) {
-            console.error('\u52A0\u8F7D\u6570\u636E\u5E93\u5BF9\u8BDD\u5931\u8D25:', e);
+            console.error('加载数据库对话失败:', e);
         }
         return [];
     }
@@ -479,7 +1511,7 @@ class DevAssistant {
                 headers: { 'Authorization': `Bearer ${this.authToken}` }
             });
         } catch (e) {
-            console.error('\u5220\u9664\u6570\u636E\u5E93\u5BF9\u8BDD\u5931\u8D25:', e);
+            console.error('删除数据库对话失败:', e);
         }
     }
 
@@ -521,9 +1553,6 @@ class DevAssistant {
         messageEl.appendChild(avatar);
         messageEl.appendChild(content);
         messageEl.appendChild(timestamp);
-
-        // Smooth message entrance animation
-        messageEl.style.animation = 'slideIn 0.3s ease forwards';
 
         this.messagesContainer.appendChild(messageEl);
         this.scrollToBottom();
@@ -570,6 +1599,9 @@ class DevAssistant {
                 this.isTyping = false;
                 this.scrollToBottom();
 
+                // 打字完成后添加代码复制按钮
+                this.addCopyButtonsToCodeBlocks(element);
+
                 if (this.typingQueue.length > 0) {
                     const next = this.typingQueue.shift();
                     this.typeWriterEffect(next.element, next.text, next.messageId);
@@ -584,7 +1616,7 @@ class DevAssistant {
         this.welcomeScreen.style.display = 'none';
         this.messagesContainer.innerHTML = '';
 
-        this.messages.forEach((msg, index) => {
+        this.messages.forEach(msg => {
             const messageEl = document.createElement('div');
             messageEl.className = `message ${msg.role}`;
 
@@ -611,13 +1643,11 @@ class DevAssistant {
             messageEl.appendChild(content);
             messageEl.appendChild(timestamp);
 
-            // Smooth entrance animation for the last (newest) message
-            if (index === this.messages.length - 1) {
-                messageEl.style.animation = 'slideIn 0.3s ease forwards';
-            }
-
             this.messagesContainer.appendChild(messageEl);
         });
+
+        // 为已渲染的所有消息添加代码复制按钮
+        this.addCopyButtonsToCodeBlocks(this.messagesContainer);
 
         this.scrollToBottom();
     }
@@ -748,23 +1778,32 @@ class DevAssistant {
     }
 
     scrollToBottom() {
-        setTimeout(() => {
-            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-        }, 100);
+        // 使用节流版本防止频繁调用（节流 50ms）
+        if (!this._throttledScrollToBottom) {
+            this._throttledScrollToBottom = this.throttle(() => {
+                if (this.messagesContainer) {
+                    this.messagesContainer.scrollTo({
+                        top: this.messagesContainer.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            }, 50);
+        }
+        this._throttledScrollToBottom();
     }
 
     setStatus(status) {
         switch (status) {
             case 'typing':
-                this.statusText.textContent = '\u601D\u8003\u4E2D...';
+                this.statusText.textContent = '思考中...';
                 this.statusIndicator.classList.add('typing');
                 break;
             case 'ready':
-                this.statusText.textContent = '\u5C31\u7EEA';
+                this.statusText.textContent = '就绪';
                 this.statusIndicator.classList.remove('typing');
                 break;
             case 'error':
-                this.statusText.textContent = '\u9519\u8BEF';
+                this.statusText.textContent = '错误';
                 this.statusIndicator.classList.remove('typing');
                 break;
         }
@@ -789,7 +1828,7 @@ class DevAssistant {
         const firstUserMsg = this.messages.find(m => m.role === 'user');
         const title = firstUserMsg
             ? firstUserMsg.content.substring(0, 30) + (firstUserMsg.content.length > 30 ? '...' : '')
-            : '\u65B0\u5BF9\u8BDD';
+            : '新对话';
 
         const chatData = {
             id: this.currentChatId,
@@ -818,7 +1857,7 @@ class DevAssistant {
         try {
             localStorage.setItem('dev_assistant_history', JSON.stringify(this.chatHistory));
         } catch (e) {
-            console.error('\u4FDD\u5B58\u804A\u5929\u8BB0\u5F55\u5931\u8D25:', e);
+            console.error('保存聊天记录失败:', e);
         }
     }
 
@@ -858,7 +1897,7 @@ class DevAssistant {
         if (this.chatHistory.length === 0) {
             const emptyEl = document.createElement('div');
             emptyEl.className = 'empty-history';
-            emptyEl.textContent = '\u6682\u65E0\u5BF9\u8BDD\u8BB0\u5F55';
+            emptyEl.textContent = '暂无对话记录';
             this.historyList.appendChild(emptyEl);
             return;
         }
@@ -928,7 +1967,7 @@ class DevAssistant {
                 }));
             }
         } catch (e) {
-            console.error('\u52A0\u8F7D\u6570\u636E\u5E93\u6D88\u606F\u5931\u8D25:', e);
+            console.error('加载数据库消息失败:', e);
         }
     }
 
@@ -947,7 +1986,13 @@ class DevAssistant {
     }
 
     async clearAllHistory() {
-        if (!confirm('\u786E\u5B9A\u8981\u6E05\u9664\u6240\u6709\u804A\u5929\u8BB0\u5F55\u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u6062\u590D\u3002')) return;
+        // 使用自定义确认弹窗替换原生 confirm
+        const confirmed = await this.confirmDialog('确定要清除所有聊天记录吗？此操作不可恢复。', {
+            title: '清除历史记录',
+            confirmText: '清除',
+            cancelText: '取消'
+        });
+        if (!confirmed) return;
 
         if (this.authToken) {
             for (const chat of this.chatHistory) {
@@ -965,18 +2010,48 @@ class DevAssistant {
 
     openSidebar() {
         this.sidebar.classList.add('open');
-        document.getElementById('sidebarOverlay').classList.add('active');
+        this.sidebar.classList.remove('close');
+        this.sidebar.classList.add('sidebar-open');
+        this.sidebar.classList.remove('sidebar-close');
+
+        // 移动端创建 overlay 遮罩
+        if (window.innerWidth <= 768) {
+            this._createSidebarOverlay();
+        }
     }
 
     closeSidebar() {
         this.sidebar.classList.remove('open');
-        document.getElementById('sidebarOverlay').classList.remove('active');
+        this.sidebar.classList.remove('sidebar-open');
+        this.sidebar.classList.add('sidebar-close');
+
+        // 移除移动端 overlay 遮罩
+        this._removeSidebarOverlay();
+    }
+
+    /** 创建侧边栏遮罩层（移动端） */
+    _createSidebarOverlay() {
+        this._removeSidebarOverlay(); // 先移除已存在的
+        const overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        overlay.id = 'sidebarOverlay';
+        overlay.addEventListener('click', () => this.closeSidebar());
+        document.body.appendChild(overlay);
+    }
+
+    /** 移除侧边栏遮罩层 */
+    _removeSidebarOverlay() {
+        const overlay = document.getElementById('sidebarOverlay');
+        if (overlay) {
+            overlay.classList.add('closing');
+            overlay.addEventListener('animationend', () => overlay.remove());
+        }
     }
 
     openCodeTool(tool) {
         this.closeAllToolPanels();
         this.codeToolItems.forEach(item => item.classList.remove('active'));
-        
+
         const activeItem = document.querySelector(`.code-tools .tool-item[data-tool="${tool}"]`);
         if (activeItem) activeItem.classList.add('active');
 
@@ -995,116 +2070,174 @@ class DevAssistant {
             const panel = document.getElementById(panelId);
             if (panel) {
                 panel.classList.add('active');
+                panel.classList.remove('panel-slide-out');
+                panel.classList.add('panel-slide-in');
             }
         }
-        
+
         this.closeSidebar();
     }
 
     closeCodeToolPanel(panelId) {
         const panel = document.getElementById(panelId);
         if (panel) {
-            panel.classList.remove('active');
+            panel.classList.remove('panel-slide-in');
+            panel.classList.add('panel-slide-out');
+            // 等动画完成后移除 active
+            setTimeout(() => {
+                panel.classList.remove('active', 'panel-slide-out');
+            }, 350);
         }
         this.codeToolItems.forEach(item => item.classList.remove('active'));
     }
 
     closeAllToolPanels() {
-        this.codeToolPanels.forEach(panel => panel.classList.remove('active'));
+        this.codeToolPanels.forEach(panel => {
+            panel.classList.remove('active', 'panel-slide-in');
+            panel.classList.add('panel-slide-out');
+            setTimeout(() => panel.classList.remove('panel-slide-out'), 350);
+        });
     }
 
     async fixCode() {
-        const code = document.getElementById('fixCodeInput')?.value?.trim();
+        const codeInput = document.getElementById('fixCodeInput');
+        const code = codeInput?.value?.trim();
         const lang = document.getElementById('fixLangSelect')?.value || 'auto';
-        
+
         if (!code) {
-            alert('请输入需要纠错的代码');
+            // 使用自定义 Toast 替换 alert
+            this.showToast('请输入需要纠错的代码', 'warning');
+            this._validateInput(codeInput, (val) => !val.trim() ? '请输入需要纠错的代码' : '');
             return;
         }
 
-        this.closeAllToolPanels();
-        this.createNewChat(true);
-        
-        const prompt = `请帮我检查以下${lang === 'auto' ? '' : lang}代码中的错误并提供修复建议：\n\n${code}`;
-        this.userInput.value = prompt;
-        await this.sendMessage();
+        // 提交按钮 loading 状态
+        const fixBtn = document.getElementById('fixCodeBtn');
+        if (fixBtn) this._setBtnLoading(fixBtn, true);
+
+        try {
+            this.closeAllToolPanels();
+            this.createNewChat(true);
+
+            const prompt = `请帮我检查以下${lang === 'auto' ? '' : lang}代码中的错误并提供修复建议：\n\n${code}`;
+            this.userInput.value = prompt;
+            await this.sendMessage();
+        } finally {
+            if (fixBtn) this._setBtnLoading(fixBtn, false, fixBtn._originalHtml);
+        }
     }
 
     async analyzeCode() {
-        const code = document.getElementById('analyzeCodeInput')?.value?.trim();
+        const codeInput = document.getElementById('analyzeCodeInput');
+        const code = codeInput?.value?.trim();
         const lang = document.getElementById('analyzeLangSelect')?.value || 'auto';
-        
+
         if (!code) {
-            alert('请输入需要分析的代码');
+            this.showToast('请输入需要分析的代码', 'warning');
+            this._validateInput(codeInput, (val) => !val.trim() ? '请输入需要分析的代码' : '');
             return;
         }
 
-        this.closeAllToolPanels();
-        this.createNewChat(true);
-        
-        const prompt = `请分析以下${lang === 'auto' ? '' : lang}代码的结构、逻辑和潜在问题：\n\n${code}`;
-        this.userInput.value = prompt;
-        await this.sendMessage();
+        const analyzeBtn = document.getElementById('analyzeCodeBtn');
+        if (analyzeBtn) this._setBtnLoading(analyzeBtn, true);
+
+        try {
+            this.closeAllToolPanels();
+            this.createNewChat(true);
+
+            const prompt = `请分析以下${lang === 'auto' ? '' : lang}代码的结构、逻辑和潜在问题：\n\n${code}`;
+            this.userInput.value = prompt;
+            await this.sendMessage();
+        } finally {
+            if (analyzeBtn) this._setBtnLoading(analyzeBtn, false, analyzeBtn._originalHtml);
+        }
     }
 
     async learnSyntax() {
+        const keywordInput = document.getElementById('syntaxKeywordInput');
+        const keyword = keywordInput?.value?.trim();
         const lang = document.getElementById('syntaxLangSelect')?.value || 'java';
-        const keyword = document.getElementById('syntaxKeywordInput')?.value?.trim();
-        
+
         if (!keyword) {
-            alert('请输入语法关键词');
+            this.showToast('请输入语法关键词', 'warning');
+            this._validateInput(keywordInput, (val) => !val.trim() ? '请输入语法关键词' : '');
             return;
         }
 
-        this.closeAllToolPanels();
-        this.createNewChat(true);
-        
-        const prompt = `请讲解${lang}中"${keyword}"的语法用法`;
-        this.userInput.value = prompt;
-        await this.sendMessage();
+        const syntaxBtn = document.getElementById('learnSyntaxBtn');
+        if (syntaxBtn) this._setBtnLoading(syntaxBtn, true);
+
+        try {
+            this.closeAllToolPanels();
+            this.createNewChat(true);
+
+            const prompt = `请讲解${lang}中"${keyword}"的语法用法`;
+            this.userInput.value = prompt;
+            await this.sendMessage();
+        } finally {
+            if (syntaxBtn) this._setBtnLoading(syntaxBtn, false, syntaxBtn._originalHtml);
+        }
     }
 
     async learnAlgorithm() {
+        const nameInput = document.getElementById('algorithmNameInput');
+        const name = nameInput?.value?.trim();
         const type = document.getElementById('algorithmTypeSelect')?.value || 'sort';
-        const name = document.getElementById('algorithmNameInput')?.value?.trim();
-        
+
         if (!name) {
-            alert('请输入算法名称');
+            this.showToast('请输入算法名称', 'warning');
+            this._validateInput(nameInput, (val) => !val.trim() ? '请输入算法名称' : '');
             return;
         }
 
-        this.closeAllToolPanels();
-        this.createNewChat(true);
-        
-        const typeNames = {
-            'sort': '排序',
-            'search': '搜索',
-            'dp': '动态规划',
-            'graph': '图',
-            'tree': '树',
-            'other': ''
-        };
-        
-        const prompt = `请讲解${typeNames[type]}算法"${name}"的原理和实现思路`;
-        this.userInput.value = prompt;
-        await this.sendMessage();
+        const algoBtn = document.getElementById('learnAlgorithmBtn');
+        if (algoBtn) this._setBtnLoading(algoBtn, true);
+
+        try {
+            this.closeAllToolPanels();
+            this.createNewChat(true);
+
+            const typeNames = {
+                'sort': '排序',
+                'search': '搜索',
+                'dp': '动态规划',
+                'graph': '图',
+                'tree': '树',
+                'other': ''
+            };
+
+            const prompt = `请讲解${typeNames[type]}算法"${name}"的原理和实现思路`;
+            this.userInput.value = prompt;
+            await this.sendMessage();
+        } finally {
+            if (algoBtn) this._setBtnLoading(algoBtn, false, algoBtn._originalHtml);
+        }
     }
 
     async decodeError() {
-        const error = document.getElementById('errorInput')?.value?.trim();
+        const errorInput = document.getElementById('errorInput');
+        const error = errorInput?.value?.trim();
         const lang = document.getElementById('errorLangSelect')?.value || 'auto';
-        
+
         if (!error) {
-            alert('请输入错误信息');
+            this.showToast('请输入错误信息', 'warning');
+            this._validateInput(errorInput, (val) => !val.trim() ? '请输入错误信息' : '');
             return;
         }
 
-        this.closeAllToolPanels();
-        this.createNewChat(true);
-        
-        const prompt = `请分析以下${lang === 'auto' ? '' : lang}错误信息的原因和解决方案：\n\n${error}`;
-        this.userInput.value = prompt;
-        await this.sendMessage();
+        const decodeBtn = document.getElementById('decodeErrorBtn');
+        if (decodeBtn) this._setBtnLoading(decodeBtn, true);
+
+        try {
+            this.closeAllToolPanels();
+            this.createNewChat(true);
+
+            const prompt = `请分析以下${lang === 'auto' ? '' : lang}错误信息的原因和解决方案：\n\n${error}`;
+            this.userInput.value = prompt;
+            await this.sendMessage();
+        } finally {
+            if (decodeBtn) this._setBtnLoading(decodeBtn, false, decodeBtn._originalHtml);
+        }
     }
 
     // ============ 闯关式题目练习系统 ============
@@ -1176,7 +2309,7 @@ class DevAssistant {
         const levels = this.getPRACTICE_LEVELS();
         grid.innerHTML = levels.map(level => {
             const state = this.practiceData.levels.find(l => l.id === level.id) || { unlocked: false, stars: 0, bestAccuracy: 0, attempts: 0 };
-            const starsHtml = '★★★'.split('').map((s, i) =>
+            const starsHtml = '\u2605\u2605\u2605'.split('').map((s, i) =>
                 `<span class="practice-star ${i < state.stars ? 'filled' : ''}">${s}</span>`
             ).join('');
             const lockIcon = state.unlocked ? '' : '<i class="fas fa-lock practice-lock-icon"></i>';
@@ -1186,15 +2319,15 @@ class DevAssistant {
                      style="--level-color: ${level.color}">
                     <div class="practice-level-icon"><i class="fas ${level.icon}"></i></div>
                     <div class="practice-level-info">
-                        <div class="practice-level-name">第 ${level.id} 关 · ${level.name}</div>
+                        <div class="practice-level-name">\u7B2C ${level.id} \u5173 \u00B7 ${level.name}</div>
                         <div class="practice-level-desc">${level.desc}</div>
                         <div class="practice-level-meta">
                             <span class="practice-level-tag">${level.difficultyLabel}</span>
-                            <span class="practice-level-count">${level.count} 题</span>
-                            <span class="practice-level-threshold">通关 ${level.threshold}%</span>
+                            <span class="practice-level-count">${level.count} \u9898</span>
+                            <span class="practice-level-threshold">\u901A\u5173 ${level.threshold}%</span>
                         </div>
                         <div class="practice-level-stars">${starsHtml}</div>
-                        ${state.attempts > 0 ? `<div class="practice-level-best">最佳 ${state.bestAccuracy}% · 已挑战 ${state.attempts} 次</div>` : ''}
+                        ${state.attempts > 0 ? `<div class="practice-level-best">\u6700\u4F73 ${state.bestAccuracy}% \u00B7 \u5DF2\u6311\u6218 ${state.attempts} \u6B21</div>` : ''}
                     </div>
                     ${lockIcon}
                 </div>
@@ -1202,11 +2335,14 @@ class DevAssistant {
         }).join('');
 
         grid.querySelectorAll('.practice-level-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                // 3D tilt 鼠标跟随效果
+                this._handleCardTilt(card, e);
+
                 const levelId = parseInt(card.dataset.level);
                 const state = this.practiceData.levels.find(l => l.id === levelId);
                 if (!state || !state.unlocked) {
-                    this.showToast('该关卡尚未解锁，请先完成前置关卡');
+                    this.showToast('该关卡尚未解锁，请先完成前置关卡', 'warning');
                     return;
                 }
                 this.practiceSelectedLevel = levelId;
@@ -1228,6 +2364,23 @@ class DevAssistant {
         if (unlockedEl) unlockedEl.textContent = unlockedCount;
     }
 
+    /** 关卡卡片 3D tilt 效果 */
+    _handleCardTilt(card, e) {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = (y - centerY) / centerY * 3;
+        const rotateY = (centerX - x) / centerX * 3;
+
+        card.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`;
+
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = '';
+        }, { once: true });
+    }
+
     checkPracticeResume() {
         const session = JSON.parse(localStorage.getItem('practice_session_save') || 'null');
         const hint = document.getElementById('practiceResumeHint');
@@ -1236,7 +2389,7 @@ class DevAssistant {
 
     async startChallenge() {
         if (!this.practiceSelectedLevel) {
-            this.showToast('请先选择一个关卡');
+            this.showToast('请先选择一个关卡', 'warning');
             return;
         }
         const level = this.getPRACTICE_LEVELS().find(l => l.id === this.practiceSelectedLevel);
@@ -1266,7 +2419,7 @@ class DevAssistant {
     async resumeChallenge() {
         const session = JSON.parse(localStorage.getItem('practice_session_save') || 'null');
         if (!session) {
-            this.showToast('未找到可恢复的进度');
+            this.showToast('未找到可恢复的进度', 'warning');
             return;
         }
         this.practiceSession = session;
@@ -1278,11 +2431,14 @@ class DevAssistant {
     openFullscreenPractice() {
         const fs = document.getElementById('practiceFullscreen');
         if (!fs) return;
+        // 添加 fade + scale 进入动画
+        fs.classList.remove('practice-exit');
+        fs.classList.add('practice-enter');
         fs.style.display = 'flex';
         document.body.style.overflow = 'hidden';
 
         const level = this.practiceSession.level;
-        document.getElementById('practiceFsLevelName').textContent = `第 ${level.id} 关 · ${level.name}`;
+        document.getElementById('practiceFsLevelName').textContent = `\u7B2C ${level.id} \u5173 \u00B7 ${level.name}`;
         document.getElementById('practiceFsLevelTag').textContent = level.difficultyLabel;
         document.getElementById('practiceFsTotal').textContent = level.count;
         document.getElementById('practiceFsCurrentIndex').textContent = '1';
@@ -1305,23 +2461,23 @@ class DevAssistant {
         const categoryName = this.getCategoryName(category);
         const langName = this.getLangName(lang);
 
-        const prompt = `你是编程教学出题专家。请基于以下要求生成 ${level.count} 道${langName}编程练习题：
-- 知识点方向：${categoryName}
-- 难度等级：${level.difficultyLabel}（${level.difficulty}）
-- 题型混合：包含单选题(multiple_choice)、判断题(true_false)、填空题(fill_blank)、简答题(short_answer)，简答题不超过 1 道
-- 每题必须独立、非重复，紧扣${categoryName}知识点
+        const prompt = `\u4F60\u662F\u7F16\u7A0B\u6559\u5B66\u51FA\u9898\u4E13\u5BB6\u3002\u8BF7\u57FA\u4E8E\u4EE5\u4E0B\u8981\u6C42\u751F\u6210 ${level.count} \u9053${langName}\u7F16\u7A0B\u7EC3\u4E60\u9898\uFF1A
+- \u77E5\u8BC6\u70B9\u65B9\u5411\uFF1A${categoryName}
+- \u96BE\u5EA6\u7B49\u7EA7\uFF1A${level.difficultyLabel}\uFF08${level.difficulty}\uFF09
+- \u9898\u578B\u6DF7\u5408\uFF1A\u5305\u542B\u5355\u9009\u9898(multiple_choice)\u3001\u5224\u65AD\u9898(true_false)\u3001\u586B\u7A7A\u9898(fill_blank)\u3001\u7B80\u7B54\u9898(short_answer)\uFF0C\u7B80\u7B54\u9898\u4E0D\u8D85\u8FC7 1 \u9053
+- \u6BCF\u9898\u5FC5\u987B\u72EC\u7ACB\u3001\u975E\u91CD\u590D\uFF0C\u7D27\u6263${categoryName}\u77E5\u8BC6\u70B9
 
-请严格返回 JSON 数组，每道题字段如下：
+\u8BF7\u4E25\u683C\u8FD4\u56DE JSON \u6570\u7EC4\uFF0C\u6BCF\u9053\u9898\u5B57\u6BB5\u5982\u4E0B\uFF1A
 {
   "type": "multiple_choice|true_false|fill_blank|short_answer",
-  "question": "题干文本",
-  "options": ["A.选项1","B.选项2","C.选项3","D.选项4"],  // 仅 multiple_choice 需要
-  "answer": "正确答案",  // multiple_choice 填选项字母如 "A"；true_false 填 "true" 或 "false"；fill_blank 填标准答案文本；short_answer 填参考要点
-  "points": "考察知识点",
-  "explanation": "详细解析"
+  "question": "\u9898\u5E72\u6587\u672C",
+  "options": ["A.\u9009\u98791","B.\u9009\u98792","C.\u9009\u98793","D.\u9009\u98794"],  // \u4EC5 multiple_choice \u9700\u8981
+  "answer": "\u6B63\u786E\u7B54\u6848",  // multiple_choice \u586B\u9009\u9879\u5B57\u6BCD\u5982 "A"\uFF1Btrue_false \u586B "true" \u6216 "false"\uFF1Bfill_blank \u586B\u6807\u51C6\u7B54\u6848\u6587\u672C\uFF1Bshort_answer \u586B\u53C2\u8003\u8981\u70B9
+  "points": "\u8003\u5BDF\u77E5\u8BC6\u70B9",
+  "explanation": "\u8BE6\u7EC6\u89E3\u6790"
 }
 
-只返回 JSON 数组，不要任何额外文字、markdown 代码块标记或解释。`;
+\u53EA\u8FD4\u56DE JSON \u6570\u7EC4\uFF0C\u4E0D\u8981\u4EFB\u4F55\u989D\u5916\u6587\u5B57\u3001markdown \u4EE3\u7801\u5757\u6807\u8BB0\u6216\u89E3\u91CA\u3002`;
 
         try {
             const response = await fetch('/api/chat', {
@@ -1348,14 +2504,14 @@ class DevAssistant {
             this.practiceSession.correctCount = 0;
             this.renderCurrentQuestion();
         } catch (error) {
-            console.error('生成题目失败:', error);
+            console.error('\u751F\u6210\u9898\u76EE\u5931\u8D25:', error);
             document.getElementById('practiceFsLoading').style.display = 'none';
             document.getElementById('practiceFsQuestion').style.display = 'block';
             document.getElementById('practiceQTitle').innerHTML =
                 `<div style="color:#ff7675;text-align:center;padding:40px 20px;">
                     <i class="fas fa-exclamation-triangle" style="font-size:36px;"></i>
-                    <p style="margin-top:12px;">题目生成失败：${error.message}</p>
-                    <p style="font-size:13px;opacity:0.7;margin-top:8px;">请稍后重试或检查网络连接</p>
+                    <p style="margin-top:12px;">\u9898\u76EE\u751F\u6210\u5931\u8D25\uFF1A${error.message}</p>
+                    <p style="font-size:13px;opacity:0.7;margin-top:8px;">\u8BF7\u7A0D\u540E\u91CD\u8BD5\u6216\u68C0\u67E5\u7F51\u7EDC\u8FDE\u63A5</p>
                 </div>`;
             document.getElementById('practiceFsFooter').style.display = 'flex';
             document.getElementById('practiceSubmitBtn').style.display = 'none';
@@ -1422,13 +2578,15 @@ class DevAssistant {
             optionsEl.style.display = 'block';
             answerAreaEl.style.display = 'none';
             (q.options || []).forEach((opt, i) => {
-                const letter = opt.match(/^([A-Z])[.、\)]?\s*/)?.[1] || String.fromCharCode(65 + i);
-                const text = opt.replace(/^[A-Z][.、\)]?\s*/, '');
+                const letter = opt.match(/^([A-Z])[.\u3001)]?\s*/)?.[1] || String.fromCharCode(65 + i);
+                const text = opt.replace(/^[A-Z][.\u3001)]?\s*/, '');
                 const btn = document.createElement('button');
                 btn.className = 'practice-option';
                 btn.dataset.value = letter;
                 btn.innerHTML = `<span class="practice-option-letter">${letter}</span><span class="practice-option-text">${text}</span>`;
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', (e) => {
+                    // ripple 效果
+                    this._createRipple(e, btn);
                     optionsEl.querySelectorAll('.practice-option').forEach(o => o.classList.remove('selected'));
                     btn.classList.add('selected');
                     this.practiceCurrentAnswer = letter;
@@ -1442,8 +2600,10 @@ class DevAssistant {
                 const btn = document.createElement('button');
                 btn.className = 'practice-option tf';
                 btn.dataset.value = val;
-                btn.innerHTML = `<span class="practice-option-letter">${val === 'true' ? '✓' : '✗'}</span><span class="practice-option-text">${val === 'true' ? '正确' : '错误'}</span>`;
-                btn.addEventListener('click', () => {
+                btn.innerHTML = `<span class="practice-option-letter">${val === 'true' ? '\u2713' : '\u2717'}</span><span class="practice-option-text">${val === 'true' ? '\u6B63\u786E' : '\u9519\u8BEF'}</span>`;
+                btn.addEventListener('click', (e) => {
+                    // ripple 效果
+                    this._createRipple(e, btn);
                     optionsEl.querySelectorAll('.practice-option').forEach(o => o.classList.remove('selected'));
                     btn.classList.add('selected');
                     this.practiceCurrentAnswer = val;
@@ -1454,9 +2614,9 @@ class DevAssistant {
             optionsEl.style.display = 'none';
             answerAreaEl.style.display = 'block';
             answerAreaEl.innerHTML = `
-                <label class="practice-answer-label">请填写答案：</label>
+                <label class="practice-answer-label">\u8BF7\u586B\u5199\u7B54\u6848\uFF1A</label>
                 <input type="text" class="practice-fill-input" id="practiceFillInput"
-                       placeholder="请输入你的答案" autocomplete="off">
+                       placeholder="\u8BF7\u8F93\u5165\u4F60\u7684\u7B54\u6848" autocomplete="off">
             `;
             const input = document.getElementById('practiceFillInput');
             input.addEventListener('input', () => { this.practiceCurrentAnswer = input.value.trim(); });
@@ -1468,9 +2628,9 @@ class DevAssistant {
             optionsEl.style.display = 'none';
             answerAreaEl.style.display = 'block';
             answerAreaEl.innerHTML = `
-                <label class="practice-answer-label">请输入你的解答：</label>
+                <label class="practice-answer-label">\u8BF7\u8F93\u5165\u4F60\u7684\u89E3\u7B54\uFF1A</label>
                 <textarea class="practice-short-textarea" id="practiceShortInput"
-                          placeholder="请详细作答..." rows="6"></textarea>
+                          placeholder="\u8BF7\u8BE6\u7EC6\u4F5C\u7B54..." rows="6"></textarea>
             `;
             const ta = document.getElementById('practiceShortInput');
             ta.addEventListener('input', () => { this.practiceCurrentAnswer = ta.value.trim(); });
@@ -1505,7 +2665,7 @@ class DevAssistant {
             this.updatePracticeTimerDisplay();
             if (this.practiceTimeLeft <= 0) {
                 this.stopPracticeTimer();
-                this.showToast('时间到，自动提交');
+                this.showToast('\u65F6\u95F4\u5230\uFF0C\u81EA\u52A8\u63D0\u4EA4', 'warning');
                 this.submitPracticeAnswer(true);
             }
         }, 1000);
@@ -1538,7 +2698,7 @@ class DevAssistant {
 
         const userAnswer = timeout ? '' : (this.practiceCurrentAnswer || '');
         if (!timeout && !userAnswer) {
-            this.showToast('请先选择或填写答案');
+            this.showToast('\u8BF7\u5148\u9009\u62E9\u6216\u586B\u5199\u7B54\u6848', 'warning');
             this.startPracticeTimer();
             return;
         }
@@ -1574,19 +2734,19 @@ class DevAssistant {
     }
 
     normalizeText(s) {
-        return String(s || '').trim().toLowerCase().replace(/\s+/g, '').replace(/[，。、；：！？""''（）()]/g, '');
+        return String(s || '').trim().toLowerCase().replace(/\s+/g, '').replace(/[\uFF0C\u3002\u3001\uFF1B\uFF1A\uFF01\uFF1F\u201C\u201D\u2018\u2019\uFF08\uFF09()]/g, '');
     }
 
     async evaluateShortAnswer(question, userAnswer) {
-        const prompt = `请评估以下简答题作答是否正确。
+        const prompt = `\u8BF7\u8BC4\u4F30\u4EE5\u4E0B\u7B80\u7B54\u9898\u4F5C\u7B54\u662F\u5426\u6B63\u786E\u3002
 
-题目：${question.question}
-参考答案要点：${question.answer}
-考察知识点：${question.points || ''}
-学生作答：${userAnswer}
+\u9898\u76EE\uFF1A${question.question}
+\u53C2\u8003\u7B54\u6848\u8981\u70B9\uFF1A${question.answer}
+\u8003\u5BDF\u77E5\u8BC6\u70B9\uFF1A${question.points || ''}
+\u5B66\u751F\u4F5C\u7B54\uFF1A${userAnswer}
 
-请严格返回 JSON：{"correct": true/false, "score": 0-100, "comment": "点评"}
-判断标准：核心要点覆盖即可判正确，不要求字面一致。只返回 JSON，不要任何额外文字。`;
+\u8BF7\u4E25\u683C\u8FD4\u56DE JSON\uFF1A{"correct": true/false, "score": 0-100, "comment": "\u70B9\u8BC4"}
+\u5224\u65AD\u6807\u51C6\uFF1A\u6838\u5FC3\u8981\u70B9\u8986\u76D6\u5373\u53EF\u5224\u6B63\u786E\uFF0C\u4E0D\u8981\u6C42\u5B57\u9762\u4E00\u81F4\u3002\u53EA\u8FD4\u56DE JSON\uFF0C\u4E0D\u8981\u4EFB\u4F55\u989D\u5916\u6587\u5B57\u3002`;
 
         try {
             const response = await fetch('/api/chat', {
@@ -1604,9 +2764,9 @@ class DevAssistant {
                 return JSON.parse(match[0]);
             }
         } catch (e) {
-            console.error('简答题评估失败:', e);
+            console.error('\u7B80\u7B54\u9898\u8BC4\u4F30\u5931\u8D25:', e);
         }
-        return { correct: false, score: 0, comment: '评估失败' };
+        return { correct: false, score: 0, comment: '\u8BC4\u4F30\u5931\u8D25' };
     }
 
     showPracticeFeedback(isCorrect, question, userAnswer, aiEvaluation) {
@@ -1614,21 +2774,21 @@ class DevAssistant {
         feedback.style.display = 'block';
         feedback.className = 'practice-q-feedback ' + (isCorrect ? 'correct' : 'wrong');
 
-        const correctLabel = isCorrect ? '回答正确' : '回答错误';
+        const correctLabel = isCorrect ? '\u56DE\u7B54\u6B63\u786E' : '\u56DE\u7B54\u9519\u8BEF';
         let html = `
             <div class="practice-feedback-header">
                 <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
                 <span>${correctLabel}</span>
             </div>
             <div class="practice-feedback-row">
-                <span class="practice-feedback-label">你的答案：</span>
-                <span class="practice-feedback-value">${userAnswer || '（未作答）'}</span>
+                <span class="practice-feedback-label">\u4F60\u7684\u7B54\u6848\uFF1A</span>
+                <span class="practice-feedback-value">${userAnswer || '\uFF08\u672A\u4F5C\u7B54\uFF09'}</span>
             </div>
         `;
         if (!isCorrect) {
             html += `
                 <div class="practice-feedback-row">
-                    <span class="practice-feedback-label">正确答案：</span>
+                    <span class="practice-feedback-label">\u6B63\u786E\u7B54\u6848\uFF1A</span>
                     <span class="practice-feedback-value correct">${question.answer}</span>
                 </div>
             `;
@@ -1636,28 +2796,28 @@ class DevAssistant {
         if (aiEvaluation) {
             html += `
                 <div class="practice-feedback-row">
-                    <span class="practice-feedback-label">AI 评分：</span>
+                    <span class="practice-feedback-label">AI \u8BC4\u5206\uFF1A</span>
                     <span class="practice-feedback-value">${aiEvaluation.score}</span>
                 </div>
                 <div class="practice-feedback-row">
-                    <span class="practice-feedback-label">AI 点评：</span>
+                    <span class="practice-feedback-label">AI \u70B9\u8BC4\uFF1A</span>
                     <span class="practice-feedback-value">${aiEvaluation.comment || ''}</span>
                 </div>
             `;
         }
         html += `
             <div class="practice-feedback-row">
-                <span class="practice-feedback-label">考察点：</span>
+                <span class="practice-feedback-label">\u8003\u5BDF\u70B9\uFF1A</span>
                 <span class="practice-feedback-value">${question.points || ''}</span>
             </div>
             <div class="practice-feedback-explanation">
                 <i class="fas fa-lightbulb"></i>
-                <div>${question.explanation || '暂无解析'}</div>
+                <div>${question.explanation || '\u6682\u65E0\u89E3\u6790'}</div>
             </div>
         `;
         feedback.innerHTML = html;
 
-        // 高亮选项
+        // 高亮选项（带过渡动画）
         if (question.type === 'multiple_choice' || question.type === 'true_false') {
             const options = document.querySelectorAll('.practice-option');
             const correctVal = question.type === 'multiple_choice'
@@ -1714,7 +2874,7 @@ class DevAssistant {
         const accuracy = total > 0 ? Math.round(correct / total * 100) : 0;
         const level = session.level;
 
-        // 计算星数：>=threshold 3星；>=threshold-10 2星；>=threshold-20 1星；否则 0
+        // 计算星数
         let stars = 0;
         if (accuracy >= level.threshold) stars = 3;
         else if (accuracy >= level.threshold - 10) stars = 2;
@@ -1754,7 +2914,7 @@ class DevAssistant {
             document.getElementById('practiceResultStars').textContent = stars;
 
             const passed = accuracy >= level.threshold;
-            document.getElementById('practiceResultTitle').textContent = passed ? '🎉 通关成功' : '挑战未通过';
+            document.getElementById('practiceResultTitle').textContent = passed ? '\uD83C\uDF89 \u901A\u5173\u6210\u529F' : '\u6311\u6218\u672A\u901A\u8FC7';
             const iconEl = document.getElementById('practiceResultIcon');
             iconEl.innerHTML = `<i class="fas ${passed ? 'fa-trophy' : 'fa-redo'}"></i>`;
             iconEl.className = 'practice-result-icon ' + (passed ? 'passed' : 'failed');
@@ -1763,7 +2923,7 @@ class DevAssistant {
             if (unlockedNext) {
                 const nextLevel = this.getPRACTICE_LEVELS().find(l => l.id === level.id + 1);
                 unlockEl.style.display = 'flex';
-                document.getElementById('practiceResultUnlockText').textContent = `已解锁第 ${nextLevel.id} 关 · ${nextLevel.name}`;
+                document.getElementById('practiceResultUnlockText').textContent = `\u5DF2\u89E3\u9501\u7B2C ${nextLevel.id} \u5173 \u00B7 ${nextLevel.name}`;
             } else {
                 unlockEl.style.display = 'none';
             }
@@ -1790,20 +2950,35 @@ class DevAssistant {
         this.checkPracticeResume();
     }
 
-    exitChallenge() {
-        if (!confirm('退出挑战将保存当前进度，可稍后继续。确认退出？')) return;
-        this.stopPracticeTimer();
-        this.savePracticeSession();
-        this.closeFullscreenPractice();
+    /** 退出挑战（使用自定义确认弹窗） */
+    async exitChallenge() {
+        const confirmed = await this.confirmDialog('\u9000\u51FA\u6311\u6218\u5C06\u4FDD\u5B58\u5F53\u524D\u8FDB\u5EA6\uFF0C\u53EF\u7A0D\u540E\u7EE7\u7EED\u3002\u786E\u8BA4\u9000\u51FA\uFF1F', {
+            title: '\u9000\u51FA\u6311\u6218',
+            confirmText: '\u9000\u51FA',
+            cancelText: '\u7EE7\u7EED\u7B54\u9898'
+        });
+        if (confirmed) {
+            this.exitChallengeInternal();
+        }
     }
 
     closeFullscreenPractice() {
         const fs = document.getElementById('practiceFullscreen');
-        if (fs) fs.style.display = 'none';
-        document.body.style.overflow = '';
-        this.stopPracticeTimer();
-        this.renderPracticeLobby();
-        this.checkPracticeResume();
+        if (!fs) return;
+
+        // 添加退出动画
+        fs.classList.remove('practice-enter');
+        fs.classList.add('practice-exit');
+
+        // 等动画完成后隐藏
+        setTimeout(() => {
+            fs.style.display = 'none';
+            fs.classList.remove('practice-exit');
+            document.body.style.overflow = '';
+            this.stopPracticeTimer();
+            this.renderPracticeLobby();
+            this.checkPracticeResume();
+        }, 300);
     }
 
     retryChallenge() {
@@ -1823,18 +2998,53 @@ class DevAssistant {
         this.closeFullscreenPractice();
     }
 
-    showToast(message) {
-        let toast = document.getElementById('practiceToast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'practiceToast';
-            toast.className = 'practice-toast';
-            document.body.appendChild(toast);
+    /** 兼容原有的 showToast（已被升级版替代，保留向后兼容） */
+    showToast(message, type = 'info', duration = 3000) {
+        // 兼容原有练习模块的 showToast 调用（单参数字符串形式）
+        if (typeof type === 'number') {
+            duration = type;
+            type = 'info';
         }
-        toast.textContent = message;
-        toast.classList.add('show');
-        clearTimeout(this._practiceToastTimer);
-        this._practiceToastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+
+        let container = document.getElementById('customToastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'customToastContainer';
+            container.className = 'custom-toast-container';
+            document.body.appendChild(container);
+        }
+
+        const iconMap = {
+            success: 'fa-check-circle',
+            error: 'fa-times-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `custom-toast ${type}`;
+        toast.innerHTML = `
+            <i class="fas ${iconMap[type] || iconMap.info} toast-icon"></i>
+            <span class="toast-message">${this._escapeHtml(message)}</span>
+            <button class="toast-close" aria-label="\u5173\u95ED\u901A\u77E5"><i class="fas fa-times"></i></button>
+            <div class="toast-progress" style="animation-duration:${duration}ms"></div>
+        `;
+
+        // 关闭按钮事件
+        toast.querySelector('.toast-close').addEventListener('click', () => this._removeToast(toast));
+
+        container.appendChild(toast);
+        this._toastCounter++;
+
+        // 自动消失
+        const timer = setTimeout(() => this._removeToast(toast), duration);
+        toast._autoCloseTimer = timer;
+
+        // 最多同时显示 5 个
+        const toasts = container.querySelectorAll('.custom-toast:not(.removing)');
+        if (toasts.length > 5) {
+            this._removeToast(toasts[0]);
+        }
     }
 
     switchLearningTab(tab) {
@@ -1845,17 +3055,24 @@ class DevAssistant {
         document.getElementById('learningPlanContent').style.display = tab === 'plan' ? 'block' : 'none';
         document.getElementById('learningProgressContent').style.display = tab === 'progress' ? 'block' : 'none';
 
+        // 更新 Tab 下划线位置
+        setTimeout(() => this._updateTabIndicator(), 50);
+
         if (tab === 'plan') {
             this.loadLearningPlans();
         } else if (tab === 'progress') {
             this.loadLearningProgress();
         }
     }
+
     selectLearningPath(path) {
         document.querySelectorAll('.learning-path-card').forEach(card => {
             card.classList.remove('selected');
         });
-        document.querySelector(`.learning-path-card[data-path="${path}"]`)?.classList.add('selected');
+        const selectedCard = document.querySelector(`.learning-path-card[data-path="${path}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('selected');
+        }
         this.selectedLearningPath = path;
     }
 
@@ -1958,7 +3175,7 @@ class DevAssistant {
             listEl.innerHTML = `
                 <div class="empty-plans">
                     <i class="fas fa-clipboard-list"></i>
-                    <p>暂无学习计划，快创建一个吧！</p>
+                    <p>\u6682\u65E0\u5B66\u4E60\u8BA1\u5212\uFF0C\u5FEB\u521B\u5EFA\u4E00\u4E2A\u5427\uFF01</p>
                 </div>
             `;
             return;
@@ -1971,7 +3188,7 @@ class DevAssistant {
                     <div class="plan-item-icon"><i class="${pathData?.icon || 'fas fa-book'}"></i></div>
                     <div class="plan-item-info">
                         <h5>${pathData?.name || plan.path}</h5>
-                        <p>目标: ${plan.goal || '未设置'} | 每日${plan.dailyTime}分钟</p>
+                        <p>\u76EE\u6807: ${plan.goal || '\u672A\u8BBE\u7F6E'} | \u6BCF\u65E5${plan.dailyTime}\u5206\u949F</p>
                     </div>
                     <div class="plan-item-progress">
                         <span>${plan.progress || 0}%</span>
@@ -1997,7 +3214,7 @@ class DevAssistant {
             detailsEl.innerHTML = `
                 <div class="empty-progress">
                     <i class="fas fa-chart-line"></i>
-                    <p>开始学习后，这里将显示您的学习进度</p>
+                    <p>\u5F00\u59CB\u5B66\u4E60\u540E\uFF0C\u8FD9\u91CC\u5C06\u663E\u793A\u60A8\u7684\u5B66\u4E60\u8FDB\u5EA6</p>
                 </div>
             `;
             return;
@@ -2035,7 +3252,7 @@ class DevAssistant {
     async startLearning() {
         const selectedPath = this.selectedLearningPath;
         if (!selectedPath) {
-            alert('请先选择一个学习路径');
+            this.showToast('\u8BF7\u5148\u9009\u62E9\u4E00\u4E2A\u5B66\u4E60\u8DEF\u5F84', 'warning');
             return;
         }
 
@@ -2045,30 +3262,30 @@ class DevAssistant {
         const levelSelect = document.getElementById('learningLevelSelect');
         const level = levelSelect?.value || 'beginner';
         const levelNames = {
-            'beginner': '入门阶段',
-            'intermediate': '进阶阶段',
-            'advanced': '高级阶段'
+            'beginner': '\u5165\u95E8\u9636\u6BB5',
+            'intermediate': '\u8FDB\u9636\u9636\u6BB5',
+            'advanced': '\u9AD8\u7EA7\u9636\u6BB5'
         };
 
         this.closeAllToolPanels();
         this.createNewChat(true);
 
-        const prompt = `我正在学习【${pathData.name}】学习路径，当前处于${levelNames[level]}。
+        const prompt = `\u6211\u6B63\u5728\u5B66\u4E60\u3010${pathData.name}\u3011\u5B66\u4E60\u8DEF\u5F84\uFF0C\u5F53\u524D\u5904\u4E8E${levelNames[level]}\u3002
 
-请为我制定详细的学习计划，包括：
+\u8BF7\u4E3A\u6211\u5236\u5B9A\u8BE6\u7EC6\u7684\u5B66\u4E60\u8BA1\u5212\uFF0C\u5305\u62EC\uFF1A
 
-1. **学习目标**：明确本阶段需要掌握的核心技能
-2. **学习模块**：列出需要学习的模块清单
-3. **学习资源推荐**：
+1. **\u5B66\u4E60\u76EE\u6807**\uFF1A\u660E\u786E\u672C\u9636\u6BB5\u9700\u8981\u638C\u63E1\u7684\u6838\u5FC3\u6280\u80FD
+2. **\u5B66\u4E60\u6A21\u5757**\uFF1A\u5217\u51FA\u9700\u8981\u5B66\u4E60\u7684\u6A21\u5757\u6E05\u5355
+3. **\u5B66\u4E60\u8D44\u6E90\u63A8\u8350**\uFF1A
 ${pathData.resources.map(r => `   - ${r}`).join('\n')}
-4. **学习建议**：针对${levelNames[level]}的学习方法和注意事项
-5. **实践项目**：推荐适合当前水平的练习项目
-6. **时间规划**：建议的学习时间安排
+4. **\u5B66\u4E60\u5EFA\u8BAE**\uFF1A\u9488\u5BF9${levelNames[level]}\u7684\u5B66\u4E60\u65B9\u6CD5\u548C\u6CE8\u610F\u4E8B\u9879
+5. **\u5B9E\u8DF5\u9879\u76EE**\uFF1A\u63A8\u8350\u9002\u5408\u5F53\u524D\u6C34\u5E73\u7684\u7EC3\u4E60\u9879\u76EE
+6. **\u65F6\u95F4\u89C4\u5212**\uFF1A\u5EFA\u8BAE\u7684\u5B66\u4E60\u65F6\u95F4\u5B89\u6392
 
-学习路径包含以下模块：
+\u5B66\u4E60\u8DEF\u5F84\u5305\u542B\u4EE5\u4E0B\u6A21\u5757\uFF1A
 ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 
-请给出详细的学习指导。`;
+\u8BF7\u7ED9\u51FA\u8BE6\u7EC6\u7684\u5B66\u4E60\u6307\u5BFC\u3002`;
 
         this.userInput.value = prompt;
         await this.sendMessage();
@@ -2097,7 +3314,7 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
         localStorage.setItem('learning_progress', JSON.stringify(progress));
     }
 
-    createLearningPlan() {
+    async createLearningPlan() {
         const pathSelect = document.getElementById('planPathSelect');
         const timeSelect = document.getElementById('planTimeSelect');
         const dateInput = document.getElementById('planStartDate');
@@ -2109,7 +3326,7 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
         const goal = goalInput?.value?.trim();
 
         if (!path) {
-            alert('请选择学习路径');
+            this.showToast('\u8BF7\u9009\u62E9\u5B66\u4E60\u8DEF\u5F84', 'warning');
             return;
         }
 
@@ -2121,7 +3338,7 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
             path: path,
             dailyTime: dailyTime,
             startDate: startDate,
-            goal: goal || `掌握${pathData?.name || path}`,
+            goal: goal || `\u638C\u63E1${pathData?.name || path}`,
             progress: 0,
             completedModules: 0,
             currentModule: 0,
@@ -2137,11 +3354,24 @@ ${pathData.modules.map((m, i) => `${i + 1}. ${m}`).join('\n')}
         this.loadLearningPlans();
         this.loadLearningProgress();
 
-        alert(`学习计划创建成功！\n路径: ${pathData?.name}\n每日学习: ${dailyTime}分钟\n目标: ${newPlan.goal}`);
+        // 成功动画反馈
+        const formEl = document.getElementById('learningPlanContent');
+        if (formEl) {
+            formEl.classList.add('plan-form-success');
+            setTimeout(() => formEl.classList.remove('plan-form-success'), 600);
+        }
+
+        // 使用 Toast 替换 alert
+        this.showToast(`\u5B66\u4E60\u8BA1\u5212\u521B\u5EFA\u6210\u529F\uFF01\u8DEF\u5F84: ${pathData?.name}\uFF0C\u6BCF\u65E5\u5B66\u4E60: ${dailyTime}\u5206\u949F`, 'success');
     }
 
-    deleteLearningPlan(planId) {
-        if (!confirm('确定要删除这个学习计划吗？')) return;
+    async deleteLearningPlan(planId) {
+        const confirmed = await this.confirmDialog('\u786E\u5B9A\u8981\u5220\u9664\u8FD9\u4E2A\u5B66\u4E60\u8BA1\u5212\u5417\uFF1F', {
+            title: '\u5220\u9664\u8BA1\u5212',
+            confirmText: '\u5220\u9664',
+            cancelText: '\u53D6\u6D88'
+        });
+        if (!confirmed) return;
 
         let plans = JSON.parse(localStorage.getItem('learning_plans') || '[]');
         plans = plans.filter(p => p.id !== planId);
