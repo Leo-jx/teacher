@@ -1971,6 +1971,10 @@ button, a, input, select, textarea {
     height: 380px;
 }
 
+#practicePanel {
+    height: 50vh;
+}
+
 .code-tool-panel.active {
     display: flex;
 }
@@ -2241,6 +2245,10 @@ button, a, input, select, textarea {
         height: 320px;
     }
 
+    #practicePanel {
+        height: 50vh;
+    }
+
     .tool-panel-header {
         padding: 14px 16px;
     }
@@ -2319,6 +2327,10 @@ button, a, input, select, textarea {
 @media (max-width: 480px) {
     .code-tool-panel {
         height: 280px;
+    }
+
+    #practicePanel {
+        height: 50vh;
     }
 
     .tool-panel-header {
