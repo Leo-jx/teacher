@@ -763,7 +763,13 @@ class DevAssistant {
 
         this.sidebarClose.addEventListener('click', () => this.closeSidebar());
 
-        this.sidebarOpen.addEventListener('click', () => this.toggleSidebarCollapse());
+        this.sidebarOpen.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                this.openSidebar();
+            } else {
+                this.toggleSidebarCollapse();
+            }
+        });
 
         // 输入事件：charCount 节流 100ms
         this.userInput.addEventListener('input', this.throttle(() => {
@@ -790,21 +796,7 @@ class DevAssistant {
         // 窗口 resize 节流 200ms
         window.addEventListener('resize', this.throttle(() => {
             if (window.innerWidth <= 768) {
-                // 移动端：关闭抽屉式侧边栏
                 this.closeSidebar();
-                // 同时移除折叠状态（恢复默认移动端行为）
-                const container = document.getElementById('appContainer');
-                if (container) container.classList.remove('sidebar-collapsed');
-            } else if (window.innerWidth <= 1024) {
-                // 平板端：自动折叠侧边栏以腾出空间
-                const container = document.getElementById('appContainer');
-                if (container && !container.classList.contains('sidebar-collapsed')) {
-                    container.classList.add('sidebar-collapsed');
-                    const btn = this.sidebarOpen;
-                    const icon = btn ? btn.querySelector('i') : null;
-                    if (icon) icon.className = 'fas fa-indent';
-                    if (btn) btn.setAttribute('aria-label', '展开侧边栏');
-                }
             }
         }, 200));
 
@@ -1609,20 +1601,11 @@ class DevAssistant {
 
     /** 恢复侧边栏折叠状态 */
     restoreSidebarState() {
-        const container = document.getElementById('appContainer');
-        if (!container) return;
-        const savedCollapsed = localStorage.getItem('sidebar_collapsed');
-
-        if (window.innerWidth > 768) {
-            if (savedCollapsed === '1') {
-                container.classList.add('sidebar-collapsed');
-            } else if (window.innerWidth <= 1024) {
-                // 平板端默认折叠侧边栏
-                container.classList.add('sidebar-collapsed');
-                localStorage.setItem('sidebar_collapsed', '1');
-            }
+        if (window.innerWidth > 768 && localStorage.getItem('sidebar_collapsed') === '1') {
+            const container = document.getElementById('appContainer');
+            container.classList.add('sidebar-collapsed');
             const btn = this.sidebarOpen;
-            if (btn && container.classList.contains('sidebar-collapsed')) {
+            if (btn) {
                 const icon = btn.querySelector('i');
                 if (icon) icon.className = 'fas fa-indent';
                 btn.setAttribute('aria-label', '展开侧边栏');
