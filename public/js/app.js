@@ -23,6 +23,8 @@ class DevAssistant {
         this._confirmDialog = null;
         // 网络状态
         this._isOnline = navigator.onLine;
+        // 主动服务引擎
+        this.proactive = null;
 
         this.init();
     }
@@ -43,6 +45,217 @@ class DevAssistant {
         this.injectConfirmDialogStyles();
         this.injectAnimationStyles();
         this.initNetworkStatus();
+        this.initProactiveService();
+    }
+
+    // ============ 主动服务引擎 ============
+
+    /** 初始化主动服务：结合对话历史与行为上下文，在合适时机主动提供帮助 */
+    initProactiveService() {
+        this.proactive = {
+            // 用户行为上下文
+            context: {
+                messages: [],              // 对话历史摘要
+                behaviorTimeline: [],      // 行为时间线
+                lastActiveTime: Date.now(),// 最后活跃时间
+                errorSubmitCount: 0,       // 错误解读提交次数
+                recentErrors: [],          // 最近提交的错误
+                practiceWrongTopics: [],   // 练习中答错的知识点
+                idlePrompted: false,       // 是否已弹过空闲提示
+                hintShown: false           // 当前是否已有提示在显示
+            },
+            // 触发规则配置
+            triggers: [
+                {
+                    name: 'error_streak',
+                    cooldown: 120000,
+                    lastFired: 0
+                },
+                {
+                    name: 'practice_weakness',
+                    cooldown: 180000,
+                    lastFired: 0
+                },
+                {
+                    name: 'idle_timeout',
+                    cooldown: 300000,
+                    lastFired: 0
+                }
+            ],
+            // 空闲检测定时器
+            _idleTimer: null
+        };
+
+        // 监听用户活动，刷新最后活跃时间
+        const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'input'];
+        activityEvents.forEach(evt => {
+            document.addEventListener(evt, () => {
+                this.proactive.context.lastActiveTime = Date.now();
+                this.proactive.context.idlePrompted = false;
+            }, { passive: true });
+        });
+
+        // 每15秒检查一次触发条件
+        this.proactive._idleTimer = setInterval(() => {
+            this._evaluateProactiveTriggers();
+        }, 15000);
+    }
+
+    /** 记录用户行为到时间线 */
+    _trackBehavior(type, data) {
+        if (!this.proactive) return;
+        this.proactive.context.behaviorTimeline.push({
+            type,
+            timestamp: Date.now(),
+            data
+        });
+        // 只保留最近20条
+        if (this.proactive.context.behaviorTimeline.length > 20) {
+            this.proactive.context.behaviorTimeline.shift();
+        }
+    }
+
+    /** 评估所有触发规则 */
+    _evaluateProactiveTriggers() {
+        if (!this.proactive) return;
+        if (this.proactive.context.hintShown) return; // 已有提示在显示
+        const now = Date.now();
+
+        for (const trigger of this.proactive.triggers) {
+            if (now - trigger.lastFired < trigger.cooldown) continue;
+
+            if (trigger.name === 'error_streak') {
+                // 30秒内提交3次以上错误解读
+                const recent = this.proactive.context.recentErrors.filter(
+                    e => now - e.time < 30000
+                );
+                if (recent.length >= 3) {
+                    this._showProactiveHint({
+                        icon: 'fa-lightbulb',
+                        title: '检测到您连续遇到错误',
+                        desc: '是否让AI为您系统分析这些错误的共同原因？',
+                        acceptText: '立即分析',
+                        onAccept: () => {
+                            const lastError = recent[recent.length - 1].content;
+                            const errorInput = document.getElementById('errorInput');
+                            if (errorInput) errorInput.value = lastError;
+                            const decodeBtn = document.getElementById('decodeErrorBtn');
+                            if (decodeBtn) decodeBtn.click();
+                        }
+                    });
+                    trigger.lastFired = now;
+                    break;
+                }
+            }
+
+            if (trigger.name === 'practice_weakness') {
+                // 练习中同一知识点答错2次以上
+                const weak = this.proactive.context.practiceWrongTopics
+                    .filter(t => t.count >= 2);
+                if (weak.length > 0) {
+                    const topic = weak[0].topic;
+                    this._showProactiveHint({
+                        icon: 'fa-graduation-cap',
+                        title: `您在「${topic}」上还有些薄弱`,
+                        desc: '是否生成针对性的学习路径来巩固这个知识点？',
+                        acceptText: '生成学习路径',
+                        onAccept: () => {
+                            const learningTab = document.querySelector('[data-tool="learningPath"]');
+                            if (learningTab) learningTab.click();
+                            const topicInput = document.getElementById('learningTopicInput');
+                            if (topicInput) {
+                                topicInput.value = topic;
+                                const genBtn = document.getElementById('generatePathBtn');
+                                if (genBtn) genBtn.click();
+                            }
+                        }
+                    });
+                    trigger.lastFired = now;
+                    break;
+                }
+            }
+
+            if (trigger.name === 'idle_timeout') {
+                // 用户空闲超过2分钟
+                const idleTime = now - this.proactive.context.lastActiveTime;
+                if (idleTime > 120000 && !this.proactive.context.idlePrompted) {
+                    const activePanel = document.querySelector('.code-tool-panel.active');
+                    let message = '需要帮助吗？我可以为您解答疑问。';
+                    if (activePanel && activePanel.id === 'practicePanel') {
+                        message = '看起来您在题目练习中停顿了一会儿，需要解题提示吗？';
+                    } else if (activePanel && activePanel.id === 'learningPathPanel') {
+                        message = '学习路径中有不清楚的地方吗？';
+                    } else if (this.messages.length === 0) {
+                        message = '欢迎使用！您可以输入问题，或使用左侧的代码工具开始学习。';
+                    }
+                    this._showProactiveHint({
+                        icon: 'fa-hands-helping',
+                        title: message,
+                        desc: '点击下方按钮开始对话，或直接在输入框提问。',
+                        acceptText: '开始对话',
+                        onAccept: () => {
+                            this.userInput?.focus();
+                        }
+                    });
+                    this.proactive.context.idlePrompted = true;
+                    trigger.lastFired = now;
+                    break;
+                }
+            }
+        }
+    }
+
+    /** 显示主动服务提示气泡 */
+    _showProactiveHint({ icon, title, desc, acceptText, onAccept }) {
+        if (this.proactive.context.hintShown) return;
+        this.proactive.context.hintShown = true;
+
+        const hint = document.createElement('div');
+        hint.className = 'proactive-hint';
+
+        hint.innerHTML = `
+            <div class="proactive-hint-icon">
+                <i class="fas ${icon}"></i>
+            </div>
+            <div class="proactive-hint-body">
+                <div class="proactive-hint-title">${title}</div>
+                <div class="proactive-hint-desc">${desc}</div>
+                <div class="proactive-hint-actions">
+                    <button class="proactive-accept-btn">${acceptText}</button>
+                    <button class="proactive-dismiss-btn">稍后再说</button>
+                </div>
+            </div>
+            <button class="proactive-hint-close" title="关闭">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        document.body.appendChild(hint);
+
+        // 触发入场动画
+        requestAnimationFrame(() => hint.classList.add('visible'));
+
+        const dismiss = () => {
+            hint.classList.remove('visible');
+            hint.classList.add('closing');
+            setTimeout(() => {
+                if (hint.parentNode) hint.remove();
+                this.proactive.context.hintShown = false;
+            }, 300);
+        };
+
+        hint.querySelector('.proactive-accept-btn').addEventListener('click', () => {
+            dismiss();
+            if (typeof onAccept === 'function') onAccept();
+        });
+
+        hint.querySelector('.proactive-dismiss-btn').addEventListener('click', dismiss);
+        hint.querySelector('.proactive-hint-close').addEventListener('click', dismiss);
+
+        // 15秒后自动消失
+        setTimeout(() => {
+            if (hint.parentNode) dismiss();
+        }, 15000);
     }
 
     // ============ 自定义 Toast 通知系统 ============
@@ -1423,6 +1636,7 @@ class DevAssistant {
 
         this.addMessage('user', content);
         this.setStatus('typing');
+        this._trackBehavior('send_message', { content: content.substring(0, 100) });
 
         try {
             const response = await fetch('/api/chat', {
@@ -2290,6 +2504,20 @@ class DevAssistant {
             return;
         }
 
+        // 记录错误提交行为，供主动服务分析
+        this._trackBehavior('decode_error', { lang });
+        if (this.proactive) {
+            this.proactive.context.errorSubmitCount++;
+            this.proactive.context.recentErrors.push({
+                content: error.substring(0, 200),
+                time: Date.now()
+            });
+            // 只保留最近10条
+            if (this.proactive.context.recentErrors.length > 10) {
+                this.proactive.context.recentErrors.shift();
+            }
+        }
+
         const decodeBtn = document.getElementById('decodeErrorBtn');
         if (decodeBtn) this._setBtnLoading(decodeBtn, true);
 
@@ -2793,6 +3021,18 @@ class DevAssistant {
             isCorrect,
             aiScore: aiEvaluation?.score
         });
+
+        // 记录答错的知识点，供主动服务分析薄弱环节
+        if (!isCorrect && q.points && this.proactive) {
+            const topic = q.points;
+            const existing = this.proactive.context.practiceWrongTopics.find(t => t.topic === topic);
+            if (existing) {
+                existing.count++;
+            } else {
+                this.proactive.context.practiceWrongTopics.push({ topic, count: 1 });
+            }
+        }
+        this._trackBehavior('practice_answer', { correct: isCorrect, points: q.points || '' });
 
         this.showPracticeFeedback(isCorrect, q, userAnswer, aiEvaluation);
         this.savePracticeSession();

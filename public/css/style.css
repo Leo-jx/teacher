@@ -4510,3 +4510,129 @@ button, a, input, select, textarea {
         font-size: 13px;
     }
 }
+
+/* ============ 主动服务提示 ============ */
+.proactive-hint {
+    position: fixed;
+    bottom: 100px;
+    right: 24px;
+    display: flex;
+    gap: 14px;
+    padding: 18px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 380px;
+    z-index: 99998;
+    opacity: 0;
+    transform: translateX(120%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.proactive-hint.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.proactive-hint.closing {
+    opacity: 0;
+    transform: translateX(120%);
+}
+
+.proactive-hint-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(108, 92, 231, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--primary-light);
+    font-size: 18px;
+}
+
+.proactive-hint-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.proactive-hint-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.proactive-hint-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.proactive-hint-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.proactive-accept-btn,
+.proactive-dismiss-btn {
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.proactive-accept-btn {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+}
+
+.proactive-accept-btn:hover {
+    background: #5a4fcf;
+}
+
+.proactive-dismiss-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+.proactive-dismiss-btn:hover {
+    color: var(--text-secondary);
+    border-color: var(--text-muted);
+}
+
+.proactive-hint-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.proactive-hint-close:hover {
+    color: var(--text-primary);
+    background: var(--bg-input);
+}
+
+@media (max-width: 768px) {
+    .proactive-hint {
+        bottom: 80px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+    }
+}
