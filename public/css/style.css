@@ -1742,6 +1742,40 @@ button, a, input, select, textarea {
     .char-count {
         font-size: 13px;
     }
+
+    /* 平板竖屏专属 (481px-768px) */
+    @media (min-width: 481px) and (max-width: 768px) {
+        .sidebar {
+            width: 280px;
+            min-width: 280px;
+        }
+
+        .code-tool-panel {
+            height: 360px;
+        }
+
+        .practice-levels-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .learning-paths-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .message-content {
+            max-width: 85%;
+        }
+
+        .quick-q {
+            max-width: 320px;
+        }
+
+        /* 工具面板在平板竖屏上稍高 */
+        #learningPathPanel.active,
+        #practicePanel.active {
+            height: calc(100vh * 3 / 4);
+        }
+    }
 }
 
 @media (max-width: 480px) {
@@ -1893,7 +1927,64 @@ button, a, input, select, textarea {
         gap: 12px;
     }
 
+    /* 刘海屏/圆角屏安全区域 */
+    @supports (padding-top: env(safe-area-inset-top)) {
+        .main-header {
+            padding-top: calc(12px + env(safe-area-inset-top));
+        }
+
+        .input-area {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        }
     }
+
+    /* 小屏手机(<=375px)额外适配 */
+    @media (max-width: 375px) {
+        .main-header h1 {
+            font-size: 12px;
+        }
+
+        .sidebar-collapse-btn {
+            width: 32px;
+            height: 32px;
+            font-size: 13px;
+        }
+
+        .header-actions {
+            gap: 4px;
+        }
+
+        .mode-toggle,
+        .test-btn {
+            padding: 8px 10px;
+            font-size: 12px;
+            min-width: 36px;
+            min-height: 36px;
+        }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            font-size: 14px;
+        }
+
+        .quick-q {
+            font-size: 11px;
+            padding: 8px 10px;
+        }
+
+        .message-content {
+            font-size: 12px;
+            padding: 8px 10px;
+        }
+
+        .message-avatar {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+        }
+    }
+}
 
 @media (max-width: 360px) {
     .sidebar {
@@ -1945,6 +2036,83 @@ button, a, input, select, textarea {
 
     #sidebarOpen.sidebar-collapse-btn {
         display: flex;
+    }
+
+    /* PC 端内容区适度宽度 */
+    .chat-container {
+        max-width: 860px;
+    }
+
+    /* PC 端全屏练习居中 */
+    .practice-fs-body {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+}
+
+/* ========================================
+   平板横屏适配 (769px-1024px)
+   ======================================== */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .sidebar {
+        width: 240px;
+        min-width: 240px;
+    }
+
+    .main-header h1 {
+        font-size: 16px;
+    }
+
+    .message-content {
+        max-width: 90%;
+    }
+
+    .code-tool-panel {
+        height: 380px;
+    }
+
+    .practice-lobby-stats {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .lobby-stat {
+        padding: 12px 14px;
+    }
+
+    .practice-levels-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .learning-paths-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .tool-panel-header h3 {
+        font-size: 17px;
+    }
+
+    /* 工具面板在平板上使用侧边滑出而非底部弹出 */
+    .code-tool-panel.active {
+        height: 50vh;
+        max-height: 500px;
+    }
+
+    #learningPathPanel.active,
+    #practicePanel.active {
+        height: calc(100vh - 60px);
+        max-height: 700px;
+    }
+
+    /* 确认弹窗在平板上稍大 */
+    .confirm-dialog {
+        max-width: 440px;
+    }
+
+    /* Toast 在平板上更窄 */
+    .custom-toast-container {
+        max-width: 320px;
     }
 }
 
@@ -2001,6 +2169,28 @@ button, a, input, select, textarea {
     .learning-tab::after {
         animation: none !important;
         transition: none !important;
+    }
+
+    /* 新增动画元素的无障碍覆盖 */
+    .sidebar,
+    .main-header h1,
+    .sidebar-collapse-btn i,
+    .code-tool-panel,
+    .custom-toast,
+    .confirm-dialog,
+    .confirm-overlay,
+    .message,
+    .practice-option .ripple,
+    .learning-path-card,
+    .practice-level-card {
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+    }
+
+    .sidebar.sidebar-collapsed {
+        width: 0;
+        min-width: 0;
     }
 }
 
@@ -4871,4 +5061,100 @@ button, a, input, select, textarea {
 /* ===== 平滑滚动 (#messages) ===== */
 #messages {
     scroll-behavior: smooth;
+}
+
+/* ========================================
+   超宽屏适配 (>=1400px)
+   ======================================== */
+
+@media (min-width: 1400px) {
+    .sidebar {
+        width: 300px;
+        min-width: 300px;
+    }
+
+    .message-content {
+        max-width: 65%;
+    }
+
+    .message {
+        padding: 12px 40px;
+    }
+
+    /* 聊天区域居中，不要铺满整个宽度 */
+    .chat-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    /* 欢迎屏幕也居中限制宽度 */
+    .welcome-screen {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    /* 工具面板内容区限制宽度 */
+    .tool-panel-body {
+        max-width: 960px;
+        margin: 0 auto;
+    }
+
+    /* 学习路径网格3列 */
+    .learning-paths-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* 练习关卡3列 */
+    .practice-levels-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* 代码工具面板更高 */
+    .code-tool-panel {
+        height: 500px;
+    }
+}
+
+/* ========================================
+   横屏模式适配（平板/手机横屏）
+   ======================================== */
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .code-tool-panel {
+        height: calc(100vh - 60px);
+        max-height: 300px;
+    }
+
+    #learningPathPanel.active,
+    #practicePanel.active {
+        height: calc(100vh - 60px);
+        max-height: 350px;
+    }
+
+    .practice-fullscreen.active {
+        padding: 10px;
+    }
+
+    .practice-fs-header {
+        padding: 8px 12px;
+    }
+
+    .practice-fs-body {
+        padding: 12px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+
+    .input-area {
+        padding: 8px 12px;
+    }
+
+    .welcome-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .welcome-screen h2 {
+        font-size: 16px;
+    }
 }
