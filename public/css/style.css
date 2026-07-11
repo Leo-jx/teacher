@@ -483,13 +483,27 @@ button, a, input, select, textarea {
     background: var(--bg-darker);
     border-bottom: 1px solid var(--border);
     gap: 16px;
+    position: relative;
+}
+
+.main-header > .sidebar-toggle {
+    flex-shrink: 0;
+}
+
+.main-header > .header-auth {
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .main-header h1 {
     font-size: 18px;
     font-weight: 700;
     color: var(--primary-light);
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    pointer-events: none;
 }
 
 .header-actions {
