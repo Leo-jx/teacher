@@ -1241,7 +1241,7 @@ class DevAssistant {
                 const topic = e.currentTarget.dataset.topic;
                 this.userInput.value = topic;
                 this.sendMessage();
-                this.closeSidebar();
+                // 不自动关闭侧边栏，用户可自行收起
             });
         });
 
@@ -1948,7 +1948,10 @@ class DevAssistant {
         }
 
         this.renderMessages();
-        this.closeSidebar();
+        // 移动端自动关闭侧边栏以腾出空间，桌面端保持打开
+        if (window.innerWidth <= 768) {
+            this.closeSidebar();
+        }
     }
 
     async loadDbMessages(conversationId) {
@@ -2075,7 +2078,10 @@ class DevAssistant {
             }
         }
 
-        this.closeSidebar();
+        // 移动端自动关闭侧边栏以腾出空间，桌面端保持打开
+        if (window.innerWidth <= 768) {
+            this.closeSidebar();
+        }
     }
 
     closeCodeToolPanel(panelId) {
