@@ -1222,7 +1222,14 @@ class DevAssistant {
 
         this.sidebarClose.addEventListener('click', () => this.closeSidebar());
 
-        this.sidebarOpen.addEventListener('click', () => this.toggleSidebarCollapse());
+        this.sidebarOpen.addEventListener('click', () => {
+            // 移动端使用抽屉式开合，桌面端使用折叠式切换
+            if (window.innerWidth <= 768) {
+                this.sidebar.classList.contains('open') ? this.closeSidebar() : this.openSidebar();
+            } else {
+                this.toggleSidebarCollapse();
+            }
+        });
 
         // 输入事件：charCount 节流 100ms
         this.userInput.addEventListener('input', this.throttle(() => {
@@ -2068,20 +2075,28 @@ class DevAssistant {
 
     /** 创建侧边栏遮罩层（移动端） */
     _createSidebarOverlay() {
-        this._removeSidebarOverlay(); // 先移除已存在的
+        this._removeSidebarOverlay(true); // 先立即移除已存在的
         const overlay = document.createElement('div');
         overlay.className = 'sidebar-overlay';
         overlay.id = 'sidebarOverlay';
         overlay.addEventListener('click', () => this.closeSidebar());
         document.body.appendChild(overlay);
+        // 下一帧添加 active 类，触发 opacity 过渡
+        requestAnimationFrame(() => overlay.classList.add('active'));
     }
 
     /** 移除侧边栏遮罩层 */
-    _removeSidebarOverlay() {
+    _removeSidebarOverlay(immediate = false) {
         const overlay = document.getElementById('sidebarOverlay');
         if (overlay) {
-            overlay.classList.add('closing');
-            overlay.addEventListener('animationend', () => overlay.remove());
+            if (immediate) {
+                overlay.remove();
+            } else {
+                overlay.classList.remove('active');
+                overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+                // 兜底：300ms 后强制移除
+                setTimeout(() => overlay.remove(), 350);
+            }
         }
     }
 
