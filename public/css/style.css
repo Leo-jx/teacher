@@ -3,20 +3,20 @@
     --primary-dark: #5a4bd1;
     --primary-light: #a29bfe;
     --accent: #00cec9;
-    --bg-dark: #171728;
-    --bg-darker: #1c1c33;
-    --bg-card: #252543;
-    --bg-input: #30305a;
-    --text-primary: #f2f2f2;
-    --text-secondary: #bcc8d8;
-    --text-muted: #8b99ad;
-    --border: #383872;
+    --bg-dark: #1f1f34;
+    --bg-darker: #24243d;
+    --bg-card: #2d2d52;
+    --bg-input: #393968;
+    --text-primary: #f8f8f8;
+    --text-secondary: #cdd6e4;
+    --text-muted: #a1adc0;
+    --border: #444483;
     --success: #48bb78;
     --error: #fc8181;
     --warning: #f6ad55;
     --user-bubble: #6c5ce7;
-    --ai-bubble: #252543;
-    --shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    --ai-bubble: #2d2d52;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     --radius: 12px;
     --radius-sm: 8px;
     --transition: all 0.3s ease;
@@ -1065,13 +1065,13 @@ button, a, input, select, textarea {
 }
 
 .message-content pre {
-    background: #282848;
+    background: #31315a;
     border-radius: 8px;
     padding: 16px;
     margin: 12px 0;
     overflow-x: auto;
     position: relative;
-    border: 1px solid #4a4a70;
+    border: 1px solid #585890;
 }
 
 .message-content pre code {
@@ -2176,8 +2176,8 @@ button, a, input, select, textarea {
     width: 100%;
     min-height: 100px;
     max-height: 150px;
-    background: #232340;
-    color: #f2f2f2;
+    background: #2b2b4a;
+    color: #f8f8f8;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 14px;
