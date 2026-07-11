@@ -258,14 +258,16 @@ button, a, input, select, textarea {
     will-change: transform, width;
 }
 
-/* 桌面端侧边栏折叠状态 - 向左滑出隐藏 */
-.app-container.sidebar-collapsed .sidebar {
-    width: 0;
-    min-width: 0;
-    border-right-width: 0;
-    transform: translateX(-100%);
-    opacity: 0;
-    pointer-events: none;
+/* 桌面端侧边栏折叠状态 - 向左滑出隐藏（仅桌面端生效） */
+@media (min-width: 769px) {
+    .app-container.sidebar-collapsed .sidebar {
+        width: 0;
+        min-width: 0;
+        border-right-width: 0;
+        transform: translateX(-100%);
+        opacity: 0;
+        pointer-events: none;
+    }
 }
 
 /* 主内容区域跟随侧边栏同步过渡 */

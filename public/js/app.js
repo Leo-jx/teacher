@@ -1255,8 +1255,18 @@ class DevAssistant {
 
         // 窗口 resize 节流 200ms
         window.addEventListener('resize', this.throttle(() => {
+            const container = document.getElementById('appContainer');
             if (window.innerWidth <= 768) {
+                // 切换到移动端时移除桌面端折叠状态，避免冲突
+                container.classList.remove('sidebar-collapsed');
                 this.closeSidebar();
+            } else {
+                // 切换到桌面端时关闭移动端抽屉，恢复折叠状态
+                this.sidebar.classList.remove('open');
+                this._removeSidebarOverlay(true);
+                if (localStorage.getItem('sidebar_collapsed') === '1') {
+                    container.classList.add('sidebar-collapsed');
+                }
             }
         }, 200));
 
