@@ -1967,12 +1967,9 @@ button, a, input, select, textarea {
     overflow: hidden;
 }
 
-#learningPathPanel {
-    height: 380px;
-}
-
+#learningPathPanel,
 #practicePanel {
-    height: 50vh;
+    height: calc(100vh * 2 / 3);
 }
 
 .code-tool-panel.active {
@@ -2245,8 +2242,9 @@ button, a, input, select, textarea {
         height: 320px;
     }
 
+    #learningPathPanel,
     #practicePanel {
-        height: 50vh;
+        height: calc(100vh * 2 / 3);
     }
 
     .tool-panel-header {
@@ -2329,8 +2327,9 @@ button, a, input, select, textarea {
         height: 280px;
     }
 
+    #learningPathPanel,
     #practicePanel {
-        height: 50vh;
+        height: calc(100vh * 2 / 3);
     }
 
     .tool-panel-header {
